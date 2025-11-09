@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-bg-primary text-text-primary min-h-screen antialiased;
+}
+
+a {
+  @apply text-uyan-action transition-colors duration-200;
+}
+
+a:hover {
+  @apply text-uyan-light;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-bg-tertiary rounded-lg;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-bg-secondary;
+}
