@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
 import { useAppStore } from '@/store/useAppStore';
+import type { MessageCategory, ResponseType } from '@/types/firestore';
 
 type MessagePayload = {
   id: string;
   text: string;
-  category: string;
+  category: MessageCategory;
   createdAt: number;
   expiresAt: number;
   status: string;
@@ -23,7 +24,12 @@ interface ResponseForm {
   text: string;
 }
 
-type Phase = 'explore' | 'answer' | 'success';
+type Phase = 'explore' | 'select' | 'custom' | 'quick' | 'ai' | 'success';
+
+interface AiVariant {
+  tone: 'empathy' | 'hope';
+  text: string;
+}
 
 const MIN_LENGTH = 20;
 const MAX_LENGTH = 200;
@@ -31,10 +37,16 @@ const MAX_LENGTH = 200;
 export default function SupportPage() {
   const deviceId = useAppStore((state) => state.deviceId);
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState(false);
   const [phase, setPhase] = useState<Phase>('explore');
   const [message, setMessage] = useState<MessagePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
+  const [selectedQuick, setSelectedQuick] = useState<string | null>(null);
+  const [aiVariants, setAiVariants] = useState<AiVariant[]>([]);
+  const [selectedAi, setSelectedAi] = useState<number | null>(null);
   const {
     register,
     handleSubmit,
@@ -47,23 +59,33 @@ export default function SupportPage() {
 
   const fetchRandomMessage = async () => {
     if (!deviceId) return;
-    setLoading(true);
+    setLoadingMessage(true);
     setError(null);
     setPhase('explore');
+    setQuickSuggestions([]);
+    setSelectedQuick(null);
+    setAiVariants([]);
+    setSelectedAi(null);
     try {
       const response = await fetch(`/api/messages/random?deviceId=${deviceId}`);
       if (!response.ok) {
         throw new Error('Не удалось получить сообщение');
       }
       const data = await response.json();
-      setMessage(data.message ?? null);
+      if (!data.message) {
+        setMessage(null);
+        setError('Все сообщения уже окружены светом. Загляни позже.');
+        reset();
+        return;
+      }
+      setMessage(data.message as MessagePayload);
       reset();
     } catch (err) {
       console.error(err);
       setError('Кажется, все сообщения уже окружены светом. Попробуй заглянуть позже.');
       setMessage(null);
     } finally {
-      setLoading(false);
+      setLoadingMessage(false);
     }
   };
 
@@ -74,33 +96,99 @@ export default function SupportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
-  const onSubmit = handleSubmit(async (values) => {
+  const sendResponse = async (text: string, type: ResponseType) => {
     if (!deviceId || !message) return;
-    setLoading(true);
+    setSubmitting(true);
     try {
       const response = await fetch('/api/responses/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messageId: message.id,
-          text: values.text,
-          type: 'custom',
+          text,
+          type,
           deviceId,
         }),
       });
+      const result = await response.json();
       if (!response.ok) {
-        const result = await response.json();
         throw new Error(result.error ?? 'Не удалось отправить ответ');
       }
       reset();
+      setQuickSuggestions([]);
+      setSelectedQuick(null);
+      setAiVariants([]);
+      setSelectedAi(null);
       setPhase('success');
     } catch (err) {
       console.error(err);
       alert('Не получилось отправить свет. Попробуй ещё раз.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
+  };
+
+  const onSubmit = handleSubmit(async (values) => {
+    await sendResponse(values.text, 'custom');
   });
+
+  const startQuickFlow = async () => {
+    if (!message) return;
+    setPhase('quick');
+    setGenerating(true);
+    setQuickSuggestions([]);
+    setSelectedQuick(null);
+    try {
+      const response = await fetch('/api/responses/generate-quick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageText: message.text,
+          category: message.category,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error ?? 'Не удалось получить предложения');
+      }
+      setQuickSuggestions((result.suggestions as string[]) ?? []);
+    } catch (err) {
+      console.error(err);
+      alert('Не удалось получить быстрые ответы. Попробуй ещё раз.');
+      setPhase('select');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const startAiFlow = async () => {
+    if (!message) return;
+    setPhase('ai');
+    setGenerating(true);
+    setAiVariants([]);
+    setSelectedAi(null);
+    try {
+      const response = await fetch('/api/responses/ai-assist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageText: message.text,
+          category: message.category,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error ?? 'Не удалось получить варианты');
+      }
+      setAiVariants((result.variants as AiVariant[]) ?? []);
+    } catch (err) {
+      console.error(err);
+      alert('Не удалось получить помощь ИИ. Попробуй ещё раз.');
+      setPhase('select');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   if (!deviceId) {
     return (
@@ -157,7 +245,12 @@ export default function SupportPage() {
       {error ? (
         <Card>
           <p className="text-center text-text-secondary">{error}</p>
-          <Button variant="secondary" onClick={fetchRandomMessage} className="mt-4 w-full">
+          <Button
+            variant="secondary"
+            onClick={fetchRandomMessage}
+            className="mt-4 w-full"
+            disabled={loadingMessage}
+          >
             Обновить
           </Button>
         </Card>
@@ -166,22 +259,49 @@ export default function SupportPage() {
       {message ? (
         <Card className="space-y-4">
           <div className="flex items-center justify-between text-sm text-text-tertiary">
-            <span className="rounded-full bg-uyan-darkness/20 px-3 py-1 text-text-secondary">Категория: {message.category}</span>
+            <span className="rounded-full bg-uyan-darkness/20 px-3 py-1 text-text-secondary">
+              Категория: {message.category}
+            </span>
             <span>Истекает через 24 часа</span>
           </div>
           <p className="text-lg text-text-primary">{message.text}</p>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button onClick={() => setPhase('answer')} className="w-full sm:w-auto">
+            <Button onClick={() => setPhase('select')} className="w-full sm:w-auto">
               💫 Поддержать
             </Button>
-            <Button variant="secondary" onClick={fetchRandomMessage} className="w-full sm:w-auto" disabled={loading}>
+            <Button
+              variant="secondary"
+              onClick={fetchRandomMessage}
+              className="w-full sm:w-auto"
+              disabled={loadingMessage}
+            >
               ⏭ Другое сообщение
             </Button>
           </div>
         </Card>
       ) : null}
 
-      {phase === 'answer' && message ? (
+      {phase === 'select' && message ? (
+        <Card className="space-y-4">
+          <h2 className="text-xl font-semibold text-text-primary">Выбери, как хочешь поддержать</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Button onClick={() => setPhase('custom')} variant="secondary" className="w-full">
+              ✍️ Написать своими словами
+            </Button>
+            <Button onClick={startQuickFlow} variant="secondary" className="w-full" disabled={generating}>
+              ⚡ Быстрый ответ
+            </Button>
+            <Button onClick={startAiFlow} variant="secondary" className="w-full" disabled={generating}>
+              🤖 Помощь ИИ
+            </Button>
+          </div>
+          <Button variant="ghost" onClick={() => setPhase('explore')} className="w-full">
+            Назад
+          </Button>
+        </Card>
+      ) : null}
+
+      {phase === 'custom' && message ? (
         <Card className="space-y-6">
           <div>
             <h2 className="text-xl font-semibold text-text-primary">Твой ответ</h2>
@@ -204,10 +324,110 @@ export default function SupportPage() {
                 {textValue.length}/{MAX_LENGTH}
               </span>
             </div>
-            <Button type="submit" disabled={loading || textValue.length < MIN_LENGTH} className="w-full">
-              {loading ? 'Отправляем...' : 'Отправить свет'}
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button type="submit" disabled={submitting || textValue.length < MIN_LENGTH} className="w-full">
+                {submitting ? 'Отправляем...' : 'Отправить свет'}
+              </Button>
+              <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
+                Назад
+              </Button>
+            </div>
           </form>
+        </Card>
+      ) : null}
+
+      {phase === 'quick' && message ? (
+        <Card className="space-y-5">
+          <div>
+            <h2 className="text-xl font-semibold text-text-primary">Выбери быстрый ответ</h2>
+            <p className="text-text-secondary">Мы подготовили тёплые варианты. Выбери тот, что откликается.</p>
+          </div>
+          {generating ? (
+            <p className="text-center text-text-secondary">Готовим тёплые слова...</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {quickSuggestions.map((suggestion, index) => {
+                const active = selectedQuick === suggestion;
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setSelectedQuick(suggestion)}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      active
+                        ? 'border-uyan-light bg-uyan-light/10 text-text-primary'
+                        : 'border-white/10 bg-bg-secondary/40 text-text-secondary hover:border-uyan-light/60'
+                    }`}
+                  >
+                    {suggestion}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              onClick={() => selectedQuick && sendResponse(selectedQuick, 'quick')}
+              disabled={!selectedQuick || submitting || generating}
+              className="w-full"
+            >
+              {submitting ? 'Отправляем...' : 'Отправить выбранный'}
+            </Button>
+            <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
+              Назад
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+
+      {phase === 'ai' && message ? (
+        <Card className="space-y-5">
+          <div>
+            <h2 className="text-xl font-semibold text-text-primary">Подсказки от ИИ</h2>
+            <p className="text-text-secondary">Один вариант — чистая эмпатия, второй — луч надежды. Выбери, что ближе.</p>
+          </div>
+          {generating ? (
+            <p className="text-center text-text-secondary">Думаем вместе с ИИ...</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {aiVariants.map((variant, index) => {
+                const active = selectedAi === index;
+                return (
+                  <button
+                    key={variant.tone}
+                    type="button"
+                    onClick={() => setSelectedAi(index)}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      active
+                        ? 'border-uyan-light bg-uyan-light/10 text-text-primary'
+                        : 'border-white/10 bg-bg-secondary/40 text-text-secondary hover:border-uyan-light/60'
+                    }`}
+                  >
+                    <span className="mb-2 block text-sm uppercase tracking-[0.3em] text-uyan-light">
+                      {variant.tone === 'empathy' ? 'ЭМПАТИЯ' : 'НАДЕЖДА'}
+                    </span>
+                    {variant.text}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              onClick={() =>
+                selectedAi !== null &&
+                selectedAi < aiVariants.length &&
+                sendResponse(aiVariants[selectedAi].text, 'ai-assisted')
+              }
+              disabled={selectedAi === null || submitting || generating}
+              className="w-full"
+            >
+              {submitting ? 'Отправляем...' : 'Отправить выбранный'}
+            </Button>
+            <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
+              Назад
+            </Button>
+          </div>
         </Card>
       ) : null}
     </motion.div>

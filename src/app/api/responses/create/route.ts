@@ -3,6 +3,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase';
 import { moderateText } from '@/lib/moderation';
 import { getOrCreateUserStats, incrementStats } from '@/lib/stats';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,10 +23,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ответ должен быть от 20 до 200 символов.' }, { status: 400 });
     }
 
+    const allowed = await checkRateLimit(deviceId, 'response', 10, 60 * 60 * 1000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Ты уже поделился достаточно ответами сегодня, попробуй позже.' },
+        { status: 429 },
+      );
+    }
+
     const moderation = await moderateText(text);
     if (!moderation.approved) {
-      return NextResponse.json({ error: 'Ответ не прошёл модерацию.' }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Ответ не прошёл модерацию.',
+          reasons: moderation.reasons ?? [],
+        },
+        { status: 400 },
+      );
     }
+
+    const cleanedText = moderation.cleanedText ?? text.trim();
 
     const db = getAdminDb();
     const messageRef = db.collection('messages').doc(messageId);
@@ -51,7 +68,7 @@ export async function POST(request: NextRequest) {
       const responseRef = db.collection('responses').doc();
       transaction.set(responseRef, {
         messageId,
-        text: text.trim(),
+        text: cleanedText,
         createdAt: now,
         deviceId,
         moderationPassed: true,

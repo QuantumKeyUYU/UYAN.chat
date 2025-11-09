@@ -46,8 +46,16 @@ export default function WritePage() {
         }),
       });
 
+      const result = await response.json();
+
+      if (result?.crisis) {
+        router.push('/crisis');
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error('Не удалось сохранить сообщение');
+        const reasons = Array.isArray(result?.reasons) && result.reasons.length > 0 ? ` (${result.reasons.join(', ')})` : '';
+        throw new Error(result?.error ? `${result.error}${reasons}` : 'Не удалось сохранить сообщение');
       }
 
       reset();
