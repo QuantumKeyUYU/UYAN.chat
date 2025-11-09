@@ -1,4 +1,5 @@
 # UYAN.chat — MVP "Svetlya"
+[![CI](https://github.com/QuantumKeyUYU/UYAN.chat/actions/workflows/ci.yml/badge.svg)](https://github.com/QuantumKeyUYU/UYAN.chat/actions/workflows/ci.yml)
 
 Анонимная платформа взаимопомощи, где люди делятся переживаниями и получают эмоциональную поддержку. Правило простое: дай свет — получи свет.
 
