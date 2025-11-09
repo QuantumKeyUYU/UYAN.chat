@@ -1,11 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
-  getFirestore as getClientFirestore,
-  Firestore,
-} from 'firebase/firestore';
-import { getAuth as getClientAuth } from 'firebase/auth';
-import { cert, getApp as getAdminApp, getApps as getAdminApps, initializeApp as initializeAdminApp } from 'firebase-admin/app';
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
+import type { Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,36 +19,12 @@ export const getFirebaseApp = () => {
 
 export const getClientDb = (): Firestore => {
   const app = getFirebaseApp();
-  return getClientFirestore(app);
+  const { getFirestore } = require('firebase/firestore') as typeof import('firebase/firestore');
+  return getFirestore(app);
 };
 
 export const getClientAuthInstance = () => {
   const app = getFirebaseApp();
-  return getClientAuth(app);
-};
-
-const getAdminConfig = () => {
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-
-  if (!privateKey || !clientEmail || !projectId) {
-    throw new Error('Missing Firebase Admin credentials');
-  }
-
-  return {
-    credential: cert({
-      projectId,
-      clientEmail,
-      privateKey: privateKey.replace(/\\n/g, '\n'),
-    }),
-    projectId,
-  };
-};
-
-export const getAdminDb = () => {
-  if (!getAdminApps().length) {
-    initializeAdminApp(getAdminConfig());
-  }
-  return getAdminFirestore(getAdminApp());
+  const { getAuth } = require('firebase/auth') as typeof import('firebase/auth');
+  return getAuth(app);
 };

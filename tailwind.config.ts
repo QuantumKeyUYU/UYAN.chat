@@ -34,8 +34,8 @@ const config: Config = {
       },
       keyframes: {
         pulseLight: {
-          '0%, 100%': { opacity: 0.7 },
-          '50%': { opacity: 1 },
+          '0%, 100%': { opacity: '0.7' },
+          '50%': { opacity: '1' },
         },
       },
       animation: {

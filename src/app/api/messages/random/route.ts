@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase/admin';
 import { serializeDoc } from '@/lib/serializers';
+import type { AdminMessage, AdminMessageDoc } from '@/types/firestoreAdmin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,10 +22,13 @@ export async function GET(request: NextRequest) {
       .get();
 
     const now = Timestamp.now();
-    const messages = snapshot.docs
-      .map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) }))
+    const messages: AdminMessage[] = snapshot.docs
+      .map((doc) => {
+        const data = doc.data() as AdminMessageDoc;
+        return { id: doc.id, ...data };
+      })
       .filter((doc) => doc.deviceId !== deviceId)
-      .filter((doc) => (doc.expiresAt as Timestamp).toMillis() > now.toMillis());
+      .filter((doc) => doc.expiresAt.toMillis() > now.toMillis());
 
     if (!messages.length) {
       return NextResponse.json({ message: null }, { status: 200 });

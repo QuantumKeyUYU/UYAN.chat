@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase/admin';
 import { serializeDoc } from '@/lib/serializers';
+import type { AdminMessageDoc } from '@/types/firestoreAdmin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,10 @@ export async function GET(request: NextRequest) {
       .orderBy('createdAt', 'desc')
       .get();
 
-    const messages = snapshot.docs.map((doc) => serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) }));
+    const messages = snapshot.docs.map((doc) => {
+      const data = doc.data() as AdminMessageDoc;
+      return serializeDoc({ id: doc.id, ...data });
+    });
 
     return NextResponse.json({ messages });
   } catch (error) {
