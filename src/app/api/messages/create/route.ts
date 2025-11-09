@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase/admin';
 import { moderateText } from '@/lib/moderation';
 import { getOrCreateUserStats, incrementStats } from '@/lib/stats';
 import { serializeDoc } from '@/lib/serializers';

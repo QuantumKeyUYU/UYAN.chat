@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from './firebase';
+import { getAdminDb } from './firebase/admin';
 
 export type RateAction = 'message' | 'response' | 'report';
 

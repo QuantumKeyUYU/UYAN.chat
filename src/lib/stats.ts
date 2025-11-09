@@ -1,5 +1,5 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from './firebase';
+import { getAdminDb } from './firebase/admin';
 import type { UserStats } from '@/types/firestore';
 
 const COLLECTION = 'user_stats';
