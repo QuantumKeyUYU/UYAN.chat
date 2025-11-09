@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebase';
 import { moderateText } from '@/lib/moderation';
 import { getOrCreateUserStats, incrementStats } from '@/lib/stats';
 import { serializeDoc } from '@/lib/serializers';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,17 +19,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Не удалось определить устройство.' }, { status: 400 });
     }
 
-    const moderation = await moderateText(text);
-    if (!moderation.approved) {
-      return NextResponse.json({ error: 'Сообщение не прошло модерацию.' }, { status: 400 });
+    const allowed = await checkRateLimit(deviceId, 'message', 3, 60 * 60 * 1000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Ты уже поделился сегодня достаточно, попробуй позже.' },
+        { status: 429 },
+      );
     }
+
+    const moderation = await moderateText(text);
+    if (moderation.crisis) {
+      return NextResponse.json({ crisis: true }, { status: 200 });
+    }
+    if (!moderation.approved) {
+      return NextResponse.json(
+        {
+          error: 'Сообщение не прошло модерацию.',
+          reasons: moderation.reasons ?? [],
+        },
+        { status: 400 },
+      );
+    }
+
+    const cleanedText = moderation.cleanedText ?? text.trim();
+    const category = moderation.emotion ?? 'other';
 
     const db = getAdminDb();
     const now = Timestamp.now();
     const expiresAt = Timestamp.fromMillis(now.toMillis() + 24 * 60 * 60 * 1000);
     const docRef = await db.collection('messages').add({
-      text: text.trim(),
-      category: 'other',
+      text: cleanedText,
+      category,
       createdAt: now,
       status: 'waiting',
       deviceId,
@@ -41,8 +62,8 @@ export async function POST(request: NextRequest) {
 
     const message = serializeDoc({
       id: docRef.id,
-      text: text.trim(),
-      category: 'other',
+      text: cleanedText,
+      category,
       createdAt: now,
       status: 'waiting',
       deviceId,

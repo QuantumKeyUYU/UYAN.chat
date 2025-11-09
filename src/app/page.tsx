@@ -1,11 +1,19 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { useAppStore } from '@/store/useAppStore';
+
+interface GlobalStats {
+  totalMessages: number;
+  totalResponses: number;
+  messagesWaiting: number;
+  lightsToday: number;
+}
 
 const actions = [
   {
@@ -23,12 +31,32 @@ const actions = [
 export default function HomePage() {
   const router = useRouter();
   const setDeviceId = useAppStore((state) => state.setDeviceId);
+  const [stats, setStats] = useState<GlobalStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const handleStart = () => {
     const id = getOrCreateDeviceId();
     setDeviceId(id);
     router.push('/write');
   };
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const response = await fetch('/api/stats/global');
+        if (!response.ok) {
+          throw new Error('Failed to load stats');
+        }
+        const data = (await response.json()) as GlobalStats;
+        setStats(data);
+      } catch (error) {
+        console.error('Failed to fetch stats', error);
+        setStatsError('Не удалось загрузить статистику.');
+      }
+    };
+
+    loadStats();
+  }, []);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-12 pt-10">
@@ -101,6 +129,38 @@ export default function HomePage() {
             Каждый свет — это чьи-то тёплые слова. Собирай их, делись ими и помни: ты не один.
           </p>
         </div>
+      </motion.section>
+
+      <motion.section
+        className="grid gap-4 rounded-3xl border border-white/5 bg-bg-secondary/60 p-6 sm:grid-cols-3"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4, duration: 0.6 }}
+      >
+        {stats ? (
+          <>
+            <div className="space-y-1">
+              <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Сегодня</p>
+              <p className="text-2xl font-semibold text-text-primary">{stats.lightsToday}</p>
+              <p className="text-sm text-text-secondary">зажжено огоньков за последние 24 часа</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего сообщений</p>
+              <p className="text-2xl font-semibold text-text-primary">{stats.totalMessages}</p>
+              <p className="text-sm text-text-secondary">историй, которыми поделились</p>
+              <p className="text-xs text-text-tertiary">ответов отправлено: {stats.totalResponses}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут поддержки</p>
+              <p className="text-2xl font-semibold text-text-primary">{stats.messagesWaiting}</p>
+              <p className="text-sm text-text-secondary">сообщений прямо сейчас в очереди</p>
+            </div>
+          </>
+        ) : (
+          <div className="sm:col-span-3 text-center text-sm text-text-secondary">
+            {statsError ?? 'Загружаем обстановку...'}
+          </div>
+        )}
       </motion.section>
     </div>
   );

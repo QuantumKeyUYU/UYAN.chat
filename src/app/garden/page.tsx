@@ -2,12 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { toPng } from 'html-to-image';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Modal } from '@/components/ui/Modal';
+import { ShareCard, shareCardStyles } from '@/components/ShareCard';
 import { loadGarden, removeLight, SavedLight } from '@/lib/garden';
+
+const styleLabels: Record<string, string> = {
+  dawn: 'Рассвет',
+  aurora: 'Аврора',
+  twilight: 'Сумерки',
+  meadow: 'Луг',
+};
 
 export default function GardenPage() {
   const [lights, setLights] = useState<SavedLight[]>([]);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareStyle, setShareStyle] = useState<string>(shareCardStyles[0]);
+  const [shareLight, setShareLight] = useState<SavedLight | null>(null);
+  const [savingImage, setSavingImage] = useState(false);
 
   const refresh = () => {
     setLights(loadGarden());
@@ -20,6 +34,37 @@ export default function GardenPage() {
   const handleRemove = (id: string) => {
     removeLight(id);
     refresh();
+  };
+
+  const openShare = (light: SavedLight) => {
+    setShareLight(light);
+    setShareStyle(shareCardStyles[0]);
+    setShareOpen(true);
+  };
+
+  const closeShare = () => {
+    setShareOpen(false);
+    setShareLight(null);
+  };
+
+  const downloadAsImage = async () => {
+    if (!shareLight) return;
+    const element = document.getElementById('sharecard');
+    if (!element) return;
+
+    setSavingImage(true);
+    try {
+      const dataUrl = await toPng(element, { pixelRatio: 2, cacheBust: true });
+      const link = document.createElement('a');
+      link.download = `svetlya-${shareLight.id}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('Failed to export image', error);
+      alert('Не получилось сохранить открытку. Попробуй ещё раз.');
+    } finally {
+      setSavingImage(false);
+    }
   };
 
   return (
@@ -56,14 +101,57 @@ export default function GardenPage() {
               </div>
               <div className="flex flex-col gap-3 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
                 <span>Сохранено: {new Date(light.savedAt).toLocaleString()}</span>
-                <Button variant="secondary" onClick={() => handleRemove(light.id)} className="w-full sm:w-auto">
-                  Удалить
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button variant="secondary" onClick={() => openShare(light)} className="w-full sm:w-auto">
+                    📸 Открытка
+                  </Button>
+                  <Button variant="secondary" onClick={() => handleRemove(light.id)} className="w-full sm:w-auto">
+                    Удалить
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}
         </div>
       )}
+
+      <Modal open={shareOpen} onClose={closeShare} title="Поделиться светом">
+        {shareLight ? (
+          <div className="space-y-4">
+            <div className="max-h-[70vh] overflow-auto rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4">
+              <ShareCard
+                originalMessage={shareLight.originalMessage}
+                responseText={shareLight.responseText}
+                styleId={shareStyle}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {shareCardStyles.map((style) => {
+                const active = style === shareStyle;
+                return (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => setShareStyle(style)}
+                    className={`rounded-full px-4 py-2 text-sm transition ${
+                      active
+                        ? 'bg-uyan-light text-bg-primary'
+                        : 'bg-bg-secondary/60 text-text-secondary hover:bg-bg-secondary'
+                    }`}
+                  >
+                    {styleLabels[style] ?? style}
+                  </button>
+                );
+              })}
+            </div>
+            <Button onClick={downloadAsImage} disabled={savingImage} className="w-full">
+              {savingImage ? 'Сохраняем...' : 'Скачать PNG'}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-center text-text-secondary">Выбери ответ, чтобы поделиться светом.</p>
+        )}
+      </Modal>
     </motion.div>
   );
 }

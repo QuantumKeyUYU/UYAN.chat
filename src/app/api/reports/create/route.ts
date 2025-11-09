@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +15,14 @@ export async function POST(request: NextRequest) {
 
     if (!responseId || !reason || !deviceId) {
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
+    }
+
+    const allowed = await checkRateLimit(deviceId, 'report', 5, 24 * 60 * 60 * 1000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Ты уже отправил достаточно жалоб сегодня. Попробуй позже.' },
+        { status: 429 },
+      );
     }
 
     const db = getAdminDb();
