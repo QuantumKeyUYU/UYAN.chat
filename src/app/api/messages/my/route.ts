@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { serializeDoc } from '@/lib/serializers';
 import type { AdminMessageDoc } from '@/types/firestoreAdmin';
+import { hashDeviceId } from '@/lib/deviceHash';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,13 +17,22 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getAdminDb();
-    const snapshot = await db
-      .collection('messages')
-      .where('deviceId', '==', deviceId)
-      .orderBy('createdAt', 'desc')
-      .get();
+    const deviceHash = hashDeviceId(deviceId);
 
-    const messages = snapshot.docs.map((doc) => {
+    const collection = db.collection('messages');
+    const [hashSnapshot, legacySnapshot] = await Promise.all([
+      collection.where('deviceHash', '==', deviceHash).orderBy('createdAt', 'desc').get(),
+      collection.where('deviceId', '==', deviceId).orderBy('createdAt', 'desc').get(),
+    ]);
+
+    const seen = new Set<string>();
+    const allDocs = [...hashSnapshot.docs, ...legacySnapshot.docs].filter((doc) => {
+      if (seen.has(doc.id)) return false;
+      seen.add(doc.id);
+      return true;
+    });
+
+    const messages = allDocs.map((doc) => {
       const data = doc.data() as AdminMessageDoc;
       return serializeDoc({ id: doc.id, ...data });
     });

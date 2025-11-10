@@ -25,7 +25,7 @@ export interface Message {
   category: MessageCategory;
   createdAt: Timestamp;
   status: MessageStatus;
-  deviceId: string;
+  deviceHash: string;
   moderationPassed: boolean;
   answeredAt?: Timestamp;
   expiresAt: Timestamp;
@@ -36,7 +36,7 @@ export interface Response {
   messageId: string;
   text: string;
   createdAt: Timestamp;
-  deviceId: string;
+  deviceHash: string;
   moderationPassed: boolean;
   type: ResponseType;
   wasHelpful?: boolean;
@@ -46,7 +46,7 @@ export interface Response {
 }
 
 export interface UserStats {
-  deviceId: string;
+  deviceHash: string;
   lightsGiven: number;
   lightsReceived: number;
   messagesSent: number;

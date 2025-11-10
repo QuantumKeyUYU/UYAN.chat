@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAppStore } from '@/store/useAppStore';
 import { useSoftMotion } from '@/lib/animation';
-import { Modal } from '@/components/ui/Modal';
 
 interface FormValues {
   text: string;
@@ -17,6 +16,16 @@ interface FormValues {
 
 const MIN_LENGTH = 10;
 const MAX_LENGTH = 280;
+
+const pluralizeMinutes = (minutes: number) => {
+  if (minutes % 10 === 1 && minutes % 100 !== 11) {
+    return 'минуту';
+  }
+  if ([2, 3, 4].includes(minutes % 10) && ![12, 13, 14].includes(minutes % 100)) {
+    return 'минуты';
+  }
+  return 'минут';
+};
 
 export default function WritePage() {
   const router = useRouter();
@@ -34,7 +43,7 @@ export default function WritePage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showCrisisModal, setShowCrisisModal] = useState(false);
+  const [showCrisisScreen, setShowCrisisScreen] = useState(false);
 
   const textValue = watch('text') ?? '';
 
@@ -55,15 +64,31 @@ export default function WritePage() {
       const result = await response.json();
 
       if (result?.crisis) {
-        setShowCrisisModal(true);
+        setShowCrisisScreen(true);
         return;
       }
 
       if (!response.ok) {
-        if (Array.isArray(result?.reasons) && result.reasons.length > 0) {
+        if (response.status === 429) {
+          const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
+          const minutes = Math.max(1, Math.ceil(retryAfter / 60));
           setErrorMessage(
-            'Сообщение не прошло модерацию. Попробуй смягчить формулировки и избегать оскорблений, угроз или личных данных.',
+            `Ты сегодня уже много поделился. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
+        } else if (result?.suggestion) {
+          setErrorMessage(result.suggestion);
+        } else if (result?.reason === 'contact') {
+          setErrorMessage(
+            'Ссылки, контакты и адреса мы не показываем, чтобы пространство оставалось безопасным.',
+          );
+        } else if (result?.reason === 'spam') {
+          setErrorMessage(
+            'Кажется, текст напоминает случайный набор символов. Расскажи, что чувствуешь, своими словами.',
+          );
+        } else if (result?.reason === 'too_short') {
+          setErrorMessage('Добавь чуть больше деталей, чтобы мы лучше почувствовали тебя.');
+        } else if (result?.reason === 'too_long') {
+          setErrorMessage('Сократи сообщение до 280 символов, чтобы его было легче дочитать внимательно.');
         } else {
           setErrorMessage(result?.error ?? 'Не удалось сохранить сообщение. Попробуй ещё раз чуть позже.');
         }
@@ -85,6 +110,53 @@ export default function WritePage() {
       <div className="mx-auto max-w-2xl text-center text-text-secondary">
         Загружаем твой путь... Обнови страницу, если ожидание затянулось.
       </div>
+    );
+  }
+
+  if (showCrisisScreen) {
+    const crisisResources = [
+      {
+        title: 'Телефон доверия 8-800-2000-122',
+        description: 'Круглосуточно и бесплатно по России. Можно позвонить анонимно.',
+      },
+      {
+        title: 'Чат «Помощь рядом»',
+        description: 'onlc.help — волонтёры, которые отвечают онлайн и поддерживают мягко.',
+      },
+      {
+        title: 'Если есть опасность прямо сейчас',
+        description: 'Позвони 112 или обратись к близкому человеку рядом — помощь должна быть живой.',
+      },
+    ];
+
+    return (
+      <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
+        <Card>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold text-text-primary">Похоже, тебе сейчас очень тяжело</h2>
+            <p className="text-text-secondary">
+              Ты важен. Этот чат — про тёплые слова, но он не заменяет специалистов. Пожалуйста, обратись туда,
+              где могут помочь сразу.
+            </p>
+            <div className="space-y-4 rounded-2xl bg-bg-secondary/60 p-4">
+              {crisisResources.map((resource) => (
+                <div key={resource.title} className="space-y-1">
+                  <p className="text-sm font-semibold text-text-primary">{resource.title}</p>
+                  <p className="text-sm text-text-secondary">{resource.description}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={() => setShowCrisisScreen(false)} className="w-full sm:w-auto">
+                Я сейчас в безопасности
+              </Button>
+              <Button onClick={() => router.push('/')} className="w-full sm:w-auto">
+                Вернуться на главную
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </motion.div>
     );
   }
 
@@ -149,20 +221,6 @@ export default function WritePage() {
           </Button>
         </form>
       </Card>
-
-      <Modal open={showCrisisModal} onClose={() => setShowCrisisModal(false)} title="Похоже, тебе сейчас очень тяжело">
-        <p className="text-text-secondary">
-          Этот чат — про поддержку, но он не подходит в момент острой опасности. Пожалуйста, обратись за живой помощью.
-        </p>
-        <ul className="list-disc space-y-2 pl-6 text-sm text-text-secondary">
-          <li>Свяжись с близким человеком, которому доверяешь.</li>
-          <li>Обратись в местную линию помощи или экстренные службы.</li>
-          <li>Если есть возможность — запиши, что чувствуешь, и покажи специалисту.</li>
-        </ul>
-        <div className="flex justify-end">
-          <Button onClick={() => setShowCrisisModal(false)}>Понятно</Button>
-        </div>
-      </Modal>
     </motion.div>
   );
 }

@@ -5,9 +5,11 @@ export const fetchCache = 'force-no-store';
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { moderateText } from '@/lib/moderation';
-import { getOrCreateUserStats, incrementStats } from '@/lib/stats';
-import { checkRateLimit } from '@/lib/rateLimit';
+import { moderateResponse } from '@/lib/moderation';
+import { getOrCreateUserStats, incrementStats, incrementStatsByHash } from '@/lib/stats';
+import { checkRateLimit } from '@/lib/rateLimiter';
+import { hashDeviceId } from '@/lib/deviceHash';
+import type { ResponseType } from '@/types/firestore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,10 +29,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ответ должен быть от 20 до 200 символов.' }, { status: 400 });
     }
 
-    const allowed = await checkRateLimit(deviceId, 'response', 10, 60 * 60 * 1000);
-    if (!allowed) {
+    const rateLimit = await checkRateLimit({ deviceId, action: 'response' });
+    if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: 'Ты уже поделился достаточно ответами сегодня, попробуй позже.' },
+        {
+          error: 'Сегодня ты уже осветил много историй. Сделай вдох, вернись чуть позже.',
+          retryAfter: rateLimit.retryAfterSeconds ?? 0,
+        },
         { status: 429 },
       );
     }
@@ -44,23 +49,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const moderation = await moderateText(text);
-    if (!moderation.approved) {
+    const moderation = moderateResponse(text);
+    if (!moderation.passed) {
       return NextResponse.json(
         {
-          error: 'Ответ не прошёл модерацию.',
-          reasons: moderation.reasons ?? [],
+          error:
+            moderation.reason === 'crisis'
+              ? 'Похоже, текст касается острой боли. Здесь мы бережно отвечаем и избегаем таких деталей.'
+              : 'Ответ пока не готов к публикации.',
+          reason: moderation.reason,
+          suggestion: moderation.suggestion,
         },
         { status: 400 },
       );
     }
 
     const cleanedText = moderation.cleanedText ?? text.trim();
+    const responderHash = hashDeviceId(deviceId);
+    const responseType: ResponseType =
+      type === 'quick' || type === 'ai-assisted' || type === 'custom' ? (type as ResponseType) : 'custom';
 
     const db = getAdminDb();
     const messageRef = db.collection('messages').doc(messageId);
 
-    let authorDeviceId: string | null = null;
+    let authorDeviceHash: string | null = null;
 
     await db.runTransaction(async (transaction) => {
       const messageSnap = await transaction.get(messageRef);
@@ -71,25 +83,32 @@ export async function POST(request: NextRequest) {
       if (messageData.status !== 'waiting') {
         throw new Error('Message already answered');
       }
-      if (messageData.deviceId === deviceId) {
+      const messageDeviceHash = typeof messageData.deviceHash === 'string' && messageData.deviceHash.length > 0
+        ? messageData.deviceHash
+        : typeof messageData.deviceId === 'string' && messageData.deviceId.length > 0
+          ? hashDeviceId(String(messageData.deviceId))
+          : null;
+
+      if (messageDeviceHash && messageDeviceHash === responderHash) {
         throw new Error('Cannot answer own message');
       }
 
-      authorDeviceId = messageData.deviceId as string;
+      authorDeviceHash = messageDeviceHash;
 
       const now = Timestamp.now();
-      const responseRef = db.collection('responses').doc();
-      transaction.set(responseRef, {
+      const responsePayload = {
         messageId,
         text: cleanedText,
         createdAt: now,
-        deviceId,
+        deviceHash: responderHash,
         moderationPassed: true,
-        type: type ?? 'custom',
+        type: responseType,
         reportCount: 0,
         hidden: false,
         moderationNote: null,
-      });
+      };
+      const responseRef = db.collection('responses').doc();
+      transaction.set(responseRef, responsePayload);
 
       transaction.update(messageRef, {
         status: 'answered',
@@ -97,9 +116,8 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    if (authorDeviceId) {
-      await getOrCreateUserStats(authorDeviceId);
-      await incrementStats(authorDeviceId, { lightsReceived: 1 });
+    if (authorDeviceHash) {
+      await incrementStatsByHash(authorDeviceHash, { lightsReceived: 1 });
     }
 
     await incrementStats(deviceId, { lightsGiven: 1 });

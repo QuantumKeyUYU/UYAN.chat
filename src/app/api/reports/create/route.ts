@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { checkRateLimit } from '@/lib/rateLimit';
+import { checkRateLimit } from '@/lib/rateLimiter';
+import { hashDeviceId } from '@/lib/deviceHash';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,10 +18,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
     }
 
-    const allowed = await checkRateLimit(deviceId, 'report', 5, 24 * 60 * 60 * 1000);
-    if (!allowed) {
+    const rateLimit = await checkRateLimit({ deviceId, action: 'report' });
+    if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: 'Ты уже отправил достаточно жалоб сегодня. Попробуй позже.' },
+        {
+          error: 'Ты уже оставил несколько жалоб. Давай передохнём и вернёмся позже.',
+          retryAfter: rateLimit.retryAfterSeconds ?? 0,
+        },
         { status: 429 },
       );
     }
@@ -28,14 +32,17 @@ export async function POST(request: NextRequest) {
     const db = getAdminDb();
     const now = Timestamp.now();
 
-    await db.collection('reports').add({
+    const deviceHash = hashDeviceId(deviceId);
+    const reportPayload = {
       responseId,
       reason,
       description: description ?? null,
       reportedAt: now,
-      status: 'pending',
-      deviceId,
-    });
+      status: 'pending' as const,
+      deviceHash,
+    };
+
+    await db.collection('reports').add(reportPayload);
 
     await db
       .collection('responses')

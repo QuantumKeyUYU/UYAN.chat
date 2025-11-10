@@ -7,6 +7,9 @@ export const serializeTimestamp = (timestamp: Timestamp | undefined | null) => {
 
 export const serializeDoc = (data: Record<string, unknown> & { id?: string }) => {
   const result: Record<string, unknown> = { ...data };
+  if ('deviceId' in result) {
+    delete result.deviceId;
+  }
   Object.entries(result).forEach(([key, value]) => {
     if (value instanceof Timestamp) {
       result[key] = serializeTimestamp(value);
