@@ -14,7 +14,7 @@
     "framer-motion": "^11.0.0",
     "html-to-image": "^1.11.11",
     "lucide-react": "^0.460.0",
-    "openai": "^4.0.0",
+    "openai": "file:vendor/openai",
     "next": "14.1.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
