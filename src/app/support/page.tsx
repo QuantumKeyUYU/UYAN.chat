@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
 import { useAppStore } from '@/store/useAppStore';
 import type { MessageCategory, ResponseType } from '@/types/firestore';
+import { useSoftMotion } from '@/lib/animation';
 
 type MessagePayload = {
   id: string;
@@ -37,6 +38,7 @@ const MAX_LENGTH = 200;
 export default function SupportPage() {
   const deviceId = useAppStore((state) => state.deviceId);
   const router = useRouter();
+  const softMotion = useSoftMotion();
   const [loadingMessage, setLoadingMessage] = useState(false);
   const [phase, setPhase] = useState<Phase>('explore');
   const [message, setMessage] = useState<MessagePayload | null>(null);
@@ -198,12 +200,19 @@ export default function SupportPage() {
     );
   }
 
+  const baseTransition = softMotion.transition;
+  const successInitial =
+    baseTransition.duration === 0 ? softMotion.initial : { ...softMotion.initial, scale: 0.96 };
+  const successAnimate =
+    baseTransition.duration === 0 ? softMotion.animate : { ...softMotion.animate, scale: 1 };
+
   if (phase === 'success') {
     return (
       <motion.div
         className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center"
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={successInitial}
+        animate={successAnimate}
+        transition={baseTransition}
       >
         <Card className="w-full">
           <div className="space-y-4">
@@ -234,8 +243,9 @@ export default function SupportPage() {
   return (
     <motion.div
       className="mx-auto flex max-w-4xl flex-col gap-8"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={softMotion.initial}
+      animate={softMotion.animate}
+      transition={baseTransition}
     >
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">💫 Поддержи кого-то</h1>

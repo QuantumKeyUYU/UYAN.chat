@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAppStore } from '@/store/useAppStore';
+import { useSoftMotion } from '@/lib/animation';
 
 interface FormValues {
   text: string;
@@ -19,6 +20,7 @@ const MAX_LENGTH = 280;
 export default function WritePage() {
   const router = useRouter();
   const deviceId = useAppStore((state) => state.deviceId);
+  const { initial, animate, transition } = useSoftMotion();
   const {
     register,
     handleSubmit,
@@ -78,11 +80,7 @@ export default function WritePage() {
 
   if (submitted) {
     return (
-      <motion.div
-        className="mx-auto flex max-w-3xl flex-col gap-8 text-center"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div className="mx-auto flex max-w-3xl flex-col gap-8 text-center" initial={initial} animate={animate} transition={transition}>
         <Card>
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold text-text-primary">Сообщение сохранено</h2>
@@ -104,11 +102,7 @@ export default function WritePage() {
   }
 
   return (
-    <motion.div
-      className="mx-auto flex max-w-3xl flex-col gap-8"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-    >
+    <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">🌑 Что сейчас на душе?</h1>
         <p className="text-text-secondary">Мы здесь, чтобы услышать. Пиши от сердца, 10–280 символов.</p>
