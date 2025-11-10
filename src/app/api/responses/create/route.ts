@@ -1,3 +1,7 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
@@ -28,6 +32,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Ты уже поделился достаточно ответами сегодня, попробуй позже.' },
         { status: 429 },
+      );
+    }
+
+    const responderStats = await getOrCreateUserStats(deviceId);
+    const bannedUntil = responderStats.bannedUntil;
+    if (bannedUntil && bannedUntil.toMillis() > Timestamp.now().toMillis()) {
+      return NextResponse.json(
+        { error: 'Твой доступ к ответам временно ограничен.' },
+        { status: 403 },
       );
     }
 
@@ -74,6 +87,8 @@ export async function POST(request: NextRequest) {
         moderationPassed: true,
         type: type ?? 'custom',
         reportCount: 0,
+        hidden: false,
+        moderationNote: null,
       });
 
       transaction.update(messageRef, {
@@ -87,7 +102,6 @@ export async function POST(request: NextRequest) {
       await incrementStats(authorDeviceId, { lightsReceived: 1 });
     }
 
-    await getOrCreateUserStats(deviceId);
     await incrementStats(deviceId, { lightsGiven: 1 });
 
     return NextResponse.json({ ok: true }, { status: 201 });

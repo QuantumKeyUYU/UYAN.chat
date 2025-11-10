@@ -41,6 +41,8 @@ export interface Response {
   type: ResponseType;
   wasHelpful?: boolean;
   reportCount: number;
+  hidden: boolean;
+  moderationNote?: string | null;
 }
 
 export interface UserStats {
@@ -51,6 +53,7 @@ export interface UserStats {
   lastActiveAt: Timestamp;
   createdAt: Timestamp;
   karmaScore: number;
+  bannedUntil?: Timestamp | null;
 }
 
 export interface Report {

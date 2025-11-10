@@ -1,3 +1,7 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
@@ -29,12 +33,12 @@ export async function POST(request: NextRequest) {
 
     const moderation = await moderateText(text);
     if (moderation.crisis) {
-      return NextResponse.json({ crisis: true }, { status: 200 });
+      return NextResponse.json({ crisis: true, error: 'crisis_detected' }, { status: 200 });
     }
     if (!moderation.approved) {
       return NextResponse.json(
         {
-          error: 'Сообщение не прошло модерацию.',
+          error: 'Message rejected',
           reasons: moderation.reasons ?? [],
         },
         { status: 400 },
@@ -42,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanedText = moderation.cleanedText ?? text.trim();
-    const category = moderation.emotion ?? 'other';
+    const category = 'other';
 
     const db = getAdminDb();
     const now = Timestamp.now();

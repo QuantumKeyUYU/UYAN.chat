@@ -1,5 +1,8 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -49,6 +52,8 @@ export default function SupportPage() {
   const [selectedQuick, setSelectedQuick] = useState<string | null>(null);
   const [aiVariants, setAiVariants] = useState<AiVariant[]>([]);
   const [selectedAi, setSelectedAi] = useState<number | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [isBanned, setIsBanned] = useState(false);
   const {
     register,
     handleSubmit,
@@ -100,7 +105,14 @@ export default function SupportPage() {
 
   const sendResponse = async (text: string, type: ResponseType) => {
     if (!deviceId || !message) return;
+    if (isBanned) {
+      setSubmissionError(
+        'Твой доступ к ответам временно ограничен. Это могло произойти из-за нарушений правил или жалоб.',
+      );
+      return;
+    }
     setSubmitting(true);
+    setSubmissionError(null);
     try {
       const response = await fetch('/api/responses/create', {
         method: 'POST',
@@ -113,8 +125,22 @@ export default function SupportPage() {
         }),
       });
       const result = await response.json();
+      if (response.status === 403) {
+        setIsBanned(true);
+        setSubmissionError(
+          'Твой доступ к ответам временно ограничен. Это могло произойти из-за нарушений правил или жалоб.',
+        );
+        return;
+      }
       if (!response.ok) {
-        throw new Error(result.error ?? 'Не удалось отправить ответ');
+        if (Array.isArray(result?.reasons) && result.reasons.length > 0) {
+          setSubmissionError(
+            'Ответ не прошёл модерацию. Попробуй смягчить формулировки и избегать оскорблений, угроз или личных данных.',
+          );
+        } else {
+          setSubmissionError(result?.error ?? 'Не удалось отправить ответ. Попробуй ещё раз.');
+        }
+        return;
       }
       reset();
       setQuickSuggestions([]);
@@ -124,7 +150,7 @@ export default function SupportPage() {
       setPhase('success');
     } catch (err) {
       console.error(err);
-      alert('Не получилось отправить свет. Попробуй ещё раз.');
+      setSubmissionError('Не получилось отправить свет. Попробуй ещё раз.');
     } finally {
       setSubmitting(false);
     }
@@ -252,6 +278,18 @@ export default function SupportPage() {
         <p className="text-text-secondary">Прочитай сообщение и поделись тёплыми словами. Без советов, только поддержка.</p>
       </div>
 
+      {isBanned ? (
+        <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+          Твой доступ к ответам временно ограничен. Это могло произойти из-за нарушений правил или жалоб.
+        </div>
+      ) : null}
+
+      {submissionError && !isBanned ? (
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
+          {submissionError}
+        </div>
+      ) : null}
+
       {error ? (
         <Card>
           <p className="text-center text-text-secondary">{error}</p>
@@ -276,7 +314,7 @@ export default function SupportPage() {
           </div>
           <p className="text-lg text-text-primary">{message.text}</p>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button onClick={() => setPhase('select')} className="w-full sm:w-auto">
+            <Button onClick={() => setPhase('select')} className="w-full sm:w-auto" disabled={isBanned}>
               💫 Поддержать
             </Button>
             <Button
@@ -335,7 +373,11 @@ export default function SupportPage() {
               </span>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Button type="submit" disabled={submitting || textValue.length < MIN_LENGTH} className="w-full">
+              <Button
+                type="submit"
+                disabled={submitting || textValue.length < MIN_LENGTH || isBanned}
+                className="w-full"
+              >
                 {submitting ? 'Отправляем...' : 'Отправить свет'}
               </Button>
               <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
@@ -378,7 +420,7 @@ export default function SupportPage() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               onClick={() => selectedQuick && sendResponse(selectedQuick, 'quick')}
-              disabled={!selectedQuick || submitting || generating}
+              disabled={!selectedQuick || submitting || generating || isBanned}
               className="w-full"
             >
               {submitting ? 'Отправляем...' : 'Отправить выбранный'}
@@ -429,7 +471,7 @@ export default function SupportPage() {
                 selectedAi < aiVariants.length &&
                 sendResponse(aiVariants[selectedAi].text, 'ai-assisted')
               }
-              disabled={selectedAi === null || submitting || generating}
+              disabled={selectedAi === null || submitting || generating || isBanned}
               className="w-full"
             >
               {submitting ? 'Отправляем...' : 'Отправить выбранный'}

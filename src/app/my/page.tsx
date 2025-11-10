@@ -1,5 +1,8 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +28,8 @@ type ResponseDetail = {
   createdAt: number;
   deviceId: string;
   reportCount: number;
+  hidden: boolean;
+  moderationNote?: string | null;
 };
 
 interface MessageDetail {
@@ -56,6 +61,8 @@ const normalizeDetail = (raw: any): MessageDetail => ({
         createdAt: raw.response.createdAt,
         deviceId: raw.response.deviceId,
         reportCount: raw.response.reportCount ?? 0,
+        hidden: Boolean(raw.response.hidden),
+        moderationNote: raw.response.moderationNote ?? null,
       }
     : undefined,
 });
@@ -211,18 +218,32 @@ export default function MyLightsPage() {
               <p className="mt-2 rounded-xl bg-bg-tertiary/40 p-4 text-text-primary">{selected.message.text}</p>
             </div>
             {selected.response ? (
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">свет, который ты получил</p>
-                <p className="rounded-xl bg-uyan-light/10 p-4 text-text-primary">{selected.response.text}</p>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button onClick={saveToGarden} className="w-full sm:w-auto">
-                    Сохранить в сад
-                  </Button>
-                  <Button variant="secondary" onClick={() => setReportOpen(true)} className="w-full sm:w-auto">
-                    Пожаловаться
-                  </Button>
+              selected.response.hidden ? (
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">свет, который ты получил</p>
+                  <p className="rounded-xl bg-uyan-light/10 p-4 text-text-secondary">
+                    Этот ответ скрыт модерацией.
+                  </p>
+                  {selected.response.moderationNote ? (
+                    <p className="text-sm text-text-tertiary">
+                      Комментарий модератора: {selected.response.moderationNote}
+                    </p>
+                  ) : null}
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">свет, который ты получил</p>
+                  <p className="rounded-xl bg-uyan-light/10 p-4 text-text-primary">{selected.response.text}</p>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button onClick={saveToGarden} className="w-full sm:w-auto">
+                      Сохранить в сад
+                    </Button>
+                    <Button variant="secondary" onClick={() => setReportOpen(true)} className="w-full sm:w-auto">
+                      Пожаловаться
+                    </Button>
+                  </div>
+                </div>
+              )
             ) : (
               <p className="text-text-secondary">Ответ пока в пути. Возвращайся позже ✨</p>
             )}
