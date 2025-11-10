@@ -36,3 +36,8 @@ export const removeLight = (id: string) => {
   const updated = current.filter((item) => item.id !== id);
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 };
+
+export const clearGarden = () => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(STORAGE_KEY);
+};

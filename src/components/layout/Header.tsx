@@ -12,6 +12,7 @@ const links = [
   { href: '/support', label: 'Поддержать' },
   { href: '/my', label: 'Мои огоньки' },
   { href: '/garden', label: 'Сад света' },
+  { href: '/settings', label: 'Настройки' },
 ];
 
 const primaryButtonClass =
@@ -20,6 +21,10 @@ const primaryButtonClass =
 export const Header = () => {
   const pathname = usePathname();
   const deviceId = useAppStore((state) => state.deviceId);
+  const stats = useAppStore((state) => state.stats);
+
+  const lightsGiven = stats?.lightsGiven ?? 0;
+  const lightsReceived = stats?.lightsReceived ?? 0;
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-white/5 bg-bg-primary/80 backdrop-blur-xl">
@@ -56,9 +61,29 @@ export const Header = () => {
           })}
         </nav>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-text-tertiary sm:block">
-            ID устройства: <span className="text-text-secondary">{deviceId ?? '—'}</span>
-          </span>
+          <div className="hidden sm:flex flex-col text-xs text-text-tertiary">
+            <span>
+              ID устройства: <span className="text-text-secondary">{deviceId ?? '—'}</span>
+            </span>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="flex items-center gap-1 rounded-xl bg-bg-secondary/70 px-2 py-1 text-text-secondary">
+                <span aria-hidden>🔥</span>
+                <span className="font-semibold text-text-primary tabular-nums">{lightsGiven}</span>
+              </span>
+              <span className="flex items-center gap-1 rounded-xl bg-bg-secondary/70 px-2 py-1 text-text-secondary">
+                <span aria-hidden>💫</span>
+                <span className="font-semibold text-text-primary tabular-nums">{lightsReceived}</span>
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-text-secondary sm:hidden">
+            <span>
+              🔥 <span className="tabular-nums text-text-primary">{lightsGiven}</span>
+            </span>
+            <span>
+              💫 <span className="tabular-nums text-text-primary">{lightsReceived}</span>
+            </span>
+          </div>
           <Link href="/support" className={primaryButtonClass}>
             <Sparkles className="h-4 w-4" />
             <span>Дать свет</span>
