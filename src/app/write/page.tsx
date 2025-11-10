@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Notice } from '@/components/ui/Notice';
 import { useAppStore } from '@/store/useAppStore';
 import { useSoftMotion } from '@/lib/animation';
 
@@ -75,23 +76,30 @@ export default function WritePage() {
           setErrorMessage(
             `Ты сегодня уже много поделился. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
-        } else if (result?.suggestion) {
-          setErrorMessage(result.suggestion);
-        } else if (result?.reason === 'contact') {
-          setErrorMessage(
-            'Ссылки, контакты и адреса мы не показываем, чтобы пространство оставалось безопасным.',
-          );
-        } else if (result?.reason === 'spam') {
-          setErrorMessage(
-            'Кажется, текст напоминает случайный набор символов. Расскажи, что чувствуешь, своими словами.',
-          );
-        } else if (result?.reason === 'too_short') {
-          setErrorMessage('Добавь чуть больше деталей, чтобы мы лучше почувствовали тебя.');
-        } else if (result?.reason === 'too_long') {
-          setErrorMessage('Сократи сообщение до 280 символов, чтобы его было легче дочитать внимательно.');
-        } else {
-          setErrorMessage(result?.error ?? 'Не удалось сохранить сообщение. Попробуй ещё раз чуть позже.');
+          return;
         }
+
+        if (result?.suggestion) {
+          setErrorMessage(result.suggestion);
+          return;
+        }
+
+        const reasonMessages: Record<string, string> = {
+          contact:
+            'Мы не показываем контакты и личные данные — так пространство остаётся безопасным и анонимным.',
+          spam: 'Сообщение похоже на случайный набор символов. Лучше опиши, что чувствуешь, простыми словами.',
+          too_short: 'Добавь ещё пару фраз, чтобы мы лучше почувствовали твоё состояние.',
+          too_long: 'Сократи историю до 280 символов, чтобы её смогли дочитать внимательно.',
+          crisis:
+            'Похоже, текст касается сильной боли. Пожалуйста, напиши коротко и бережно — а за поддержкой обратись к тем, кто сможет помочь сразу.',
+        };
+
+        if (result?.reason && reasonMessages[result.reason]) {
+          setErrorMessage(reasonMessages[result.reason]);
+          return;
+        }
+
+        setErrorMessage(result?.error ?? 'Не удалось сохранить сообщение. Попробуй ещё раз чуть позже.');
         return;
       }
 
@@ -167,7 +175,8 @@ export default function WritePage() {
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold text-text-primary">Сообщение сохранено</h2>
             <p className="text-text-secondary">
-              Спасибо, что доверился пространству. Теперь, чтобы получить ответ, зажги свет для кого-то ещё.
+              Спасибо, что доверился пространству. Чтобы получить ответ, подари свет кому-то ещё — иногда это занимает чуть
+              больше времени.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/support')} className="w-full sm:w-auto">
@@ -190,14 +199,17 @@ export default function WritePage() {
         <p className="text-text-secondary">Мы здесь, чтобы услышать. Пиши от сердца, 10–280 символов.</p>
       </div>
 
-      {errorMessage ? (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
-          {errorMessage}
-        </div>
-      ) : null}
+      {errorMessage ? <Notice variant="error">{errorMessage}</Notice> : null}
 
       <Card>
         <form onSubmit={onSubmit} className="space-y-6">
+          <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
+            <p>Твоё сообщение остаётся полностью анонимным — мы видим только текст.</p>
+            <p className="mt-2">
+              Его прочитает живой человек из сообщества, а ответ может прийти не сразу: иногда на поддержку нужно
+              немного времени.
+            </p>
+          </div>
           <div>
             <Textarea
               rows={6}

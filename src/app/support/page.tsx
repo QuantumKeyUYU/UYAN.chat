@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
+import { Notice } from '@/components/ui/Notice';
 import { useAppStore } from '@/store/useAppStore';
 import type { MessageCategory, ResponseType } from '@/types/firestore';
 import { useSoftMotion } from '@/lib/animation';
@@ -28,6 +29,15 @@ interface ResponseForm {
 }
 
 type Phase = 'explore' | 'select' | 'custom' | 'quick' | 'ai' | 'success';
+
+const phaseDescriptions: Record<Phase, string> = {
+  explore: 'Сейчас ищем историю, которой особенно нужен свет.',
+  select: 'Выбираем, каким способом поддержать автора.',
+  custom: 'Пишем ответ своими словами — бережно и от сердца.',
+  quick: 'Можно выбрать один из коротких тёплых откликов.',
+  ai: 'ИИ предложил подсказки, а выбор за тобой.',
+  success: 'Свет уже в пути и скоро согреет автора.',
+};
 
 interface AiVariant {
   tone: 'empathy' | 'hope';
@@ -115,9 +125,7 @@ export default function SupportPage() {
   const sendResponse = async (text: string, type: ResponseType) => {
     if (!deviceId || !message) return;
     if (isBanned) {
-      setSubmissionError(
-        'Твой доступ к ответам временно ограничен. Это могло произойти из-за нарушений правил или жалоб.',
-      );
+      setSubmissionError('Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
       return;
     }
     setSubmitting(true);
@@ -136,9 +144,7 @@ export default function SupportPage() {
       const result = await response.json();
       if (response.status === 403) {
         setIsBanned(true);
-        setSubmissionError(
-          'Твой доступ к ответам временно ограничен. Это могло произойти из-за нарушений правил или жалоб.',
-        );
+        setSubmissionError('Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
         return;
       }
       if (!response.ok) {
@@ -148,25 +154,29 @@ export default function SupportPage() {
           setSubmissionError(
             `Сегодня ты уже осветил много историй. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
-        } else if (result?.suggestion) {
-          setSubmissionError(result.suggestion);
-        } else if (result?.reason === 'contact') {
-          setSubmissionError(
-            'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
-          );
-        } else if (result?.reason === 'spam') {
-          setSubmissionError('Ответ выглядит как набор повторов. Попробуй описать поддержку своими словами.');
-        } else if (result?.reason === 'too_short') {
-          setSubmissionError('Добавь чуть больше тепла и конкретики, чтобы автор почувствовал поддержку.');
-        } else if (result?.reason === 'too_long') {
-          setSubmissionError('Сократи ответ до 200 символов, чтобы его легко было дочитать.');
-        } else if (result?.reason === 'crisis') {
-          setSubmissionError(
-            'Похоже, текст касается острой боли. В ответах мы избегаем деталей кризиса и направляем к специалистам.',
-          );
-        } else {
-          setSubmissionError(result?.error ?? 'Не удалось отправить ответ. Попробуй ещё раз.');
+          return;
         }
+
+        if (result?.suggestion) {
+          setSubmissionError(result.suggestion);
+          return;
+        }
+
+        const reasonMessages: Record<string, string> = {
+          contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
+          spam: 'Ответ выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
+          too_short: 'Добавь немного больше тепла и конкретики, чтобы автор почувствовал поддержку.',
+          too_long: 'Сократи ответ до 200 символов, чтобы его легко было дочитать.',
+          crisis:
+            'Если текст задевает кризисную тему, лучше направить автора к специалистам и избегать подробностей.',
+        };
+
+        if (result?.reason && reasonMessages[result.reason]) {
+          setSubmissionError(reasonMessages[result.reason]);
+          return;
+        }
+
+        setSubmissionError(result?.error ?? 'Не удалось отправить ответ. Попробуй ещё раз.');
         return;
       }
       reset();
@@ -209,7 +219,7 @@ export default function SupportPage() {
       setQuickSuggestions((result.suggestions as string[]) ?? []);
     } catch (err) {
       console.error(err);
-      alert('Не удалось получить быстрые ответы. Попробуй ещё раз.');
+      setSubmissionError('Не получилось загрузить быстрые ответы. Попробуй ещё раз позже.');
       setPhase('select');
     } finally {
       setGenerating(false);
@@ -238,7 +248,7 @@ export default function SupportPage() {
       setAiVariants((result.variants as AiVariant[]) ?? []);
     } catch (err) {
       console.error(err);
-      alert('Не удалось получить помощь ИИ. Попробуй ещё раз.');
+      setSubmissionError('Не получилось получить подсказки от ИИ. Попробуй чуть позже.');
       setPhase('select');
     } finally {
       setGenerating(false);
@@ -305,25 +315,28 @@ export default function SupportPage() {
         <p className="text-text-secondary">Прочитай сообщение и поделись тёплыми словами. Без советов, только поддержка.</p>
       </div>
 
+      <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
+        <p>Здесь собраны истории людей, которым сейчас нужна поддержка — каждая из них анонимна.</p>
+        <p className="mt-2">Ответ тоже остаётся анонимным. Пиши бережно и помни, что по ту сторону — живой человек.</p>
+      </div>
+
+      <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
+
       {isBanned ? (
-        <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-amber-100">
-          Твой доступ к ответам временно ограничен. Это могло произойти из-за нарушений правил или жалоб.
-        </div>
+        <Notice variant="info">
+          Доступ к ответам сейчас приостановлен. Мы подскажем, когда снова можно будет поддерживать других.
+        </Notice>
       ) : null}
 
-      {submissionError && !isBanned ? (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
-          {submissionError}
-        </div>
-      ) : null}
+      {submissionError && !isBanned ? <Notice variant="error">{submissionError}</Notice> : null}
 
       {error ? (
-        <Card>
-          <p className="text-center text-text-secondary">{error}</p>
+        <Card className="space-y-4">
+          <Notice variant="info">{error}</Notice>
           <Button
             variant="secondary"
             onClick={fetchRandomMessage}
-            className="mt-4 w-full"
+            className="w-full"
             disabled={loadingMessage}
           >
             Обновить

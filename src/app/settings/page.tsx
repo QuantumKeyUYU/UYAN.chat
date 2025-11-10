@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Notice } from '@/components/ui/Notice';
 import { clearDeviceId } from '@/lib/device';
 import { clearGarden } from '@/lib/garden';
 import { saveReducedMotion } from '@/lib/motion';
@@ -42,7 +43,8 @@ export default function SettingsPage() {
 
   const handlePurgeData = async () => {
     if (!deviceId) {
-      window.alert('Не удалось найти устройство. Обнови страницу и попробуй снова.');
+      setPurgeMessage(null);
+      setPurgeError('Не удалось найти устройство. Обнови страницу и попробуй снова.');
       return;
     }
 
@@ -122,7 +124,12 @@ export default function SettingsPage() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-text-primary">Данные устройства</h2>
           <p className="text-sm text-text-secondary">
-            Всё остаётся анонимным. Здесь можно очистить сохранённые ответы и при необходимости обнулить путь.
+            Мы используем только технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе — ни логинов,
+            ни имён.
+          </p>
+          <p className="text-sm text-text-secondary">
+            Здесь можно очистить сохранённые ответы, сбросить этот идентификатор и удалить все данные, если захочется начать
+            заново.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -139,16 +146,8 @@ export default function SettingsPage() {
         <p className="text-xs text-text-tertiary">
           После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.
         </p>
-        {purgeMessage ? (
-          <div className="rounded-2xl border border-uyan-light/40 bg-uyan-light/10 p-4 text-sm text-uyan-light">
-            {purgeMessage}
-          </div>
-        ) : null}
-        {purgeError ? (
-          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
-            {purgeError}
-          </div>
-        ) : null}
+        {purgeMessage ? <Notice variant="success">{purgeMessage}</Notice> : null}
+        {purgeError ? <Notice variant="error">{purgeError}</Notice> : null}
       </Card>
     </div>
   );

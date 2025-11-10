@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
+import { Notice } from '@/components/ui/Notice';
 import { useAppStore } from '@/store/useAppStore';
 import { saveLight } from '@/lib/garden';
 
@@ -37,9 +38,9 @@ interface MessageDetail {
 }
 
 const statusLabels: Record<MessageStatus, string> = {
-  waiting: 'Ожидает свет',
-  answered: 'Свет получен',
-  expired: 'Срок вышел',
+  waiting: 'Ждёт ответ',
+  answered: 'Ответ получен',
+  expired: 'История закрыта',
 };
 
 const normalizeMessage = (raw: any): MessageSummary => ({
@@ -74,6 +75,10 @@ export default function MyLightsPage() {
   const [reportReason, setReportReason] = useState('offensive');
   const [reportText, setReportText] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
+  const [pageNotice, setPageNotice] = useState<{
+    variant: 'error' | 'success' | 'info';
+    message: string;
+  } | null>(null);
 
   const loadMessages = async () => {
     if (!deviceId) return;
@@ -84,9 +89,10 @@ export default function MyLightsPage() {
       const data = await response.json();
       const normalized = (data.messages ?? []).map((item: any) => normalizeMessage(item));
       setMessages(normalized);
+      setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
     } catch (err) {
       console.error(err);
-      alert('Не получилось загрузить сообщения. Попробуй обновить позже.');
+      setPageNotice({ variant: 'error', message: 'Не получилось загрузить сообщения. Попробуй обновить позже.' });
     } finally {
       setLoading(false);
     }
@@ -107,7 +113,7 @@ export default function MyLightsPage() {
       setSelected(normalizeDetail(data));
     } catch (err) {
       console.error(err);
-      alert('Не получилось открыть сообщение.');
+      setPageNotice({ variant: 'error', message: 'Не получилось открыть сообщение. Попробуй обновить страницу.' });
     }
   };
 
@@ -120,7 +126,7 @@ export default function MyLightsPage() {
       category: selected.message.category,
       savedAt: Date.now(),
     });
-    alert('Ответ сохранён в саду света ✨');
+    setPageNotice({ variant: 'success', message: 'Ответ сохранён в саду света ✨' });
   };
 
   const submitReport = async () => {
@@ -140,10 +146,10 @@ export default function MyLightsPage() {
       if (!response.ok) throw new Error('Не удалось отправить жалобу');
       setReportOpen(false);
       setReportText('');
-      alert('Жалоба отправлена. Спасибо за заботу о пространстве.');
+      setPageNotice({ variant: 'success', message: 'Жалоба отправлена. Спасибо за заботу о пространстве.' });
     } catch (err) {
       console.error(err);
-      alert('Не получилось отправить жалобу.');
+      setPageNotice({ variant: 'error', message: 'Не получилось отправить жалобу. Попробуй ещё раз позже.' });
     } finally {
       setReportLoading(false);
     }
@@ -176,11 +182,18 @@ export default function MyLightsPage() {
         <p className="text-text-secondary">Следи, кто откликнулся на твой зов, и сохраняй свет.</p>
       </div>
 
+      {pageNotice ? <Notice variant={pageNotice.variant}>{pageNotice.message}</Notice> : null}
+
       {loading ? <p className="text-text-secondary">Загружаем...</p> : null}
 
       {sortedMessages.length === 0 && !loading ? (
-        <Card>
-          <p className="text-center text-text-secondary">Ты ещё не поделился своим состоянием. Начни с раздела «Написать своё».</p>
+        <Card className="space-y-3 text-center">
+          <div className="text-3xl">🌱</div>
+          <h2 className="text-xl font-semibold text-text-primary">Здесь появятся твои истории</h2>
+          <p className="text-text-secondary">
+            Когда поделишься своим состоянием, мы соберём здесь статусы и ответы, чтобы ты мог возвращаться к ним в любое
+            время.
+          </p>
         </Card>
       ) : null}
 
