@@ -21,7 +21,6 @@ type MessagePayload = {
   createdAt: number;
   expiresAt: number;
   status: string;
-  deviceId: string;
 };
 
 interface ResponseForm {
@@ -37,6 +36,16 @@ interface AiVariant {
 
 const MIN_LENGTH = 20;
 const MAX_LENGTH = 200;
+
+const pluralizeMinutes = (minutes: number) => {
+  if (minutes % 10 === 1 && minutes % 100 !== 11) {
+    return 'минуту';
+  }
+  if ([2, 3, 4].includes(minutes % 10) && ![12, 13, 14].includes(minutes % 100)) {
+    return 'минуты';
+  }
+  return 'минут';
+};
 
 export default function SupportPage() {
   const deviceId = useAppStore((state) => state.deviceId);
@@ -133,9 +142,27 @@ export default function SupportPage() {
         return;
       }
       if (!response.ok) {
-        if (Array.isArray(result?.reasons) && result.reasons.length > 0) {
+        if (response.status === 429) {
+          const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
+          const minutes = Math.max(1, Math.ceil(retryAfter / 60));
           setSubmissionError(
-            'Ответ не прошёл модерацию. Попробуй смягчить формулировки и избегать оскорблений, угроз или личных данных.',
+            `Сегодня ты уже осветил много историй. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+          );
+        } else if (result?.suggestion) {
+          setSubmissionError(result.suggestion);
+        } else if (result?.reason === 'contact') {
+          setSubmissionError(
+            'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
+          );
+        } else if (result?.reason === 'spam') {
+          setSubmissionError('Ответ выглядит как набор повторов. Попробуй описать поддержку своими словами.');
+        } else if (result?.reason === 'too_short') {
+          setSubmissionError('Добавь чуть больше тепла и конкретики, чтобы автор почувствовал поддержку.');
+        } else if (result?.reason === 'too_long') {
+          setSubmissionError('Сократи ответ до 200 символов, чтобы его легко было дочитать.');
+        } else if (result?.reason === 'crisis') {
+          setSubmissionError(
+            'Похоже, текст касается острой боли. В ответах мы избегаем деталей кризиса и направляем к специалистам.',
           );
         } else {
           setSubmissionError(result?.error ?? 'Не удалось отправить ответ. Попробуй ещё раз.');

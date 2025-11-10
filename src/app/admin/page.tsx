@@ -16,7 +16,7 @@ type AdminResponse = {
   id: string;
   text: string;
   hidden: boolean;
-  deviceId: string;
+  deviceHash: string;
   reportCount: number;
   createdAt: number;
   moderationNote?: string | null;
@@ -261,7 +261,7 @@ export default function AdminDashboardPage() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          deviceId: report.response.deviceId,
+          deviceHash: report.response.deviceHash,
           days,
         }),
       });

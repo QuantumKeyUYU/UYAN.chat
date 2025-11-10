@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
 import type { UserStats } from '@/types/firestore';
+import { hashDeviceId } from '@/lib/deviceHash';
 
 interface SerializedUserStats {
   deviceId: string;
@@ -43,15 +44,22 @@ export async function GET(request: Request) {
 
   try {
     const db = getAdminDb();
-    const snapshot = await db.collection('user_stats').doc(deviceId).get();
+    const deviceHash = hashDeviceId(deviceId);
+
+    const [hashSnapshot, legacySnapshot] = await Promise.all([
+      db.collection('user_stats').doc(deviceHash).get(),
+      db.collection('user_stats').doc(deviceId).get(),
+    ]);
+
+    const snapshot = hashSnapshot.exists ? hashSnapshot : legacySnapshot;
 
     if (!snapshot.exists) {
       return NextResponse.json({ stats: emptyStats(deviceId) }, { status: 200 });
     }
 
-    const data = snapshot.data() as UserStats;
+    const data = snapshot.data() as UserStats | (UserStats & { deviceId?: string });
     const stats: SerializedUserStats = {
-      deviceId: data.deviceId,
+      deviceId,
       lightsGiven: data.lightsGiven ?? 0,
       lightsReceived: data.lightsReceived ?? 0,
       messagesSent: data.messagesSent ?? 0,

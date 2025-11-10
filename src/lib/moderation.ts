@@ -1,114 +1,127 @@
-import OpenAI from 'openai';
+export type ModerationReason = 'too_short' | 'too_long' | 'spam' | 'contact' | 'crisis';
 
 export interface ModerationResult {
-  approved: boolean;
-  reasons?: string[];
+  passed: boolean;
+  reason?: ModerationReason;
+  suggestion?: string;
   cleanedText?: string;
-  crisis?: boolean;
 }
-
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 const CRISIS_KEYWORDS = [
   'суицид',
-  'хочу умереть',
+  'самоубий',
   'не хочу жить',
+  'хочу умереть',
   'убить себя',
   'покончить с собой',
-  'самоубийство',
-  'самоубийцей',
   'повеситься',
-  'убью себя',
-  'suicide',
-  'kill myself',
+  'зарежу себя',
+  'жизнь не нужна',
+  'life is not worth',
   'i want to die',
+  'kill myself',
   'end my life',
-  'take my life',
   'hurt myself',
   'self harm',
   'self-harm',
+  'suicide',
 ];
 
-const phoneRegex = /(\+7|8)[\s\-()]?\d{3}[\s\-()]?\d{3}[\s\-()]?\d{2}[\s\-()]?\d{2}/g;
-const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-const urlRegex = /https?:\/\/[^\s]+|www\.[^\s]+/gi;
+const linkRegex = /https?:\/\/|www\.|t\.me\//i;
+const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const phoneRegex = /(\+?\d[\s-]?){6,}/;
+const repeatedCharRegex = /(.)\1{6,}/;
 
-const scrubPII = (text: string): string => {
-  return text
-    .replace(phoneRegex, '[номер скрыт]')
-    .replace(emailRegex, '[почта скрыта]')
-    .replace(urlRegex, '[ссылка скрыта]');
-};
+const normalize = (text: string) => text.trim().replace(/\s+/g, ' ');
 
 const detectCrisis = (text: string): boolean => {
   const normalized = text.toLowerCase();
   return CRISIS_KEYWORDS.some((keyword) => normalized.includes(keyword));
 };
 
-const extractReasons = (categories: Record<string, boolean> | undefined): string[] => {
-  if (!categories) {
-    return [];
+const detectSpam = (text: string): boolean => {
+  if (repeatedCharRegex.test(text)) {
+    return true;
   }
-
-  const reasons: string[] = [];
-  for (const [key, value] of Object.entries(categories)) {
-    if (!value) continue;
-    const normalized = key
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
-    if (normalized.length > 0) {
-      reasons.push(normalized);
-    }
-  }
-
-  return reasons.length > 0 ? reasons : ['openai_flagged'];
+  const uniqueChars = new Set(text.replace(/\s+/g, ''));
+  return uniqueChars.size > 0 && uniqueChars.size <= 3 && text.length >= 20;
 };
 
-export const moderateText = async (text: string): Promise<ModerationResult> => {
-  const trimmed = text.trim();
+const detectContact = (text: string): boolean => {
+  if (emailRegex.test(text)) {
+    return true;
+  }
+  if (linkRegex.test(text)) {
+    return true;
+  }
+  return phoneRegex.test(text);
+};
 
-  if (trimmed.length === 0) {
-    return { approved: false, reasons: ['empty'] };
+const buildSuggestion = (reason: ModerationReason, entity: 'message' | 'response'): string | undefined => {
+  const base = entity === 'message' ? 'сообщение' : 'ответ';
+  switch (reason) {
+    case 'too_short':
+      return `Добавь ещё несколько мыслей, чтобы ${base} было понятнее и теплее.`;
+    case 'too_long':
+      return `Сократи ${base} — так его легче дочитать внимательно.`;
+    case 'contact':
+      return 'Ссылки, контакты и адреса мы не показываем, чтобы пространство оставалось безопасным.';
+    case 'spam':
+      return 'Кажется, текст напоминает случайный набор символов. Попробуй описать чувства своими словами.';
+    case 'crisis':
+    default:
+      return undefined;
+  }
+};
+
+export const moderateMessage = (text: string): ModerationResult => {
+  const cleanedText = normalize(text);
+
+  if (detectCrisis(cleanedText)) {
+    return { passed: false, reason: 'crisis' };
   }
 
-  const cleanedText = scrubPII(trimmed);
-
-  if (detectCrisis(trimmed)) {
-    return {
-      approved: false,
-      crisis: true,
-      reasons: ['crisis_detected'],
-      cleanedText,
-    };
+  if (cleanedText.length < 10) {
+    return { passed: false, reason: 'too_short', suggestion: buildSuggestion('too_short', 'message') };
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    console.warn('[moderation] Missing OPENAI_API_KEY, skipping OpenAI moderation');
-    return { approved: true, cleanedText };
+  if (cleanedText.length > 280) {
+    return { passed: false, reason: 'too_long', suggestion: buildSuggestion('too_long', 'message') };
   }
 
-  try {
-    const result = await openaiClient.moderations.create({
-      model: 'omni-moderation-latest',
-      input: cleanedText,
-    });
-
-    const moderation = result.results?.[0];
-    if (moderation?.flagged) {
-      const reasons = extractReasons(moderation.categories as Record<string, boolean> | undefined);
-      return {
-        approved: false,
-        reasons,
-        cleanedText,
-      };
-    }
-
-    return { approved: true, cleanedText };
-  } catch (error) {
-    console.error('[moderation] Failed to call OpenAI moderation API', error);
-    return { approved: true, cleanedText };
+  if (detectContact(cleanedText)) {
+    return { passed: false, reason: 'contact', suggestion: buildSuggestion('contact', 'message') };
   }
+
+  if (detectSpam(cleanedText)) {
+    return { passed: false, reason: 'spam', suggestion: buildSuggestion('spam', 'message') };
+  }
+
+  return { passed: true, cleanedText };
+};
+
+export const moderateResponse = (text: string): ModerationResult => {
+  const cleanedText = normalize(text);
+
+  if (cleanedText.length < 20) {
+    return { passed: false, reason: 'too_short', suggestion: buildSuggestion('too_short', 'response') };
+  }
+
+  if (cleanedText.length > 200) {
+    return { passed: false, reason: 'too_long', suggestion: buildSuggestion('too_long', 'response') };
+  }
+
+  if (detectContact(cleanedText)) {
+    return { passed: false, reason: 'contact', suggestion: buildSuggestion('contact', 'response') };
+  }
+
+  if (detectSpam(cleanedText)) {
+    return { passed: false, reason: 'spam', suggestion: buildSuggestion('spam', 'response') };
+  }
+
+  if (detectCrisis(cleanedText)) {
+    return { passed: false, reason: 'crisis' };
+  }
+
+  return { passed: true, cleanedText };
 };

@@ -5,11 +5,13 @@ export const fetchCache = 'force-no-store';
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { getOrCreateUserStats } from '@/lib/stats';
+import { getOrCreateUserStatsByHash } from '@/lib/stats';
 import { isAdminRequest } from '@/lib/adminAuth';
+import { hashDeviceId } from '@/lib/deviceHash';
 
 type BanUserBody = {
   deviceId?: string;
+  deviceHash?: string;
   days?: number;
 };
 
@@ -20,11 +22,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as BanUserBody;
-    const { deviceId, days } = body;
+    const inputId = typeof body.deviceId === 'string' ? body.deviceId.trim() : '';
+    const inputHash = typeof body.deviceHash === 'string' ? body.deviceHash.trim() : '';
+    const candidate = inputHash || inputId;
 
-    if (!deviceId || typeof deviceId !== 'string') {
+    if (!candidate) {
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
     }
+
+    const looksLikeHash = /^[a-f0-9]{64}$/i.test(candidate);
+    const deviceHash = looksLikeHash ? candidate : hashDeviceId(candidate);
+    const legacyId = looksLikeHash ? null : candidate;
+
+    const { days } = body;
 
     if (typeof days !== 'number' || Number.isNaN(days)) {
       return NextResponse.json({ error: 'Некорректное значение срока' }, { status: 400 });
@@ -32,17 +42,28 @@ export async function POST(request: NextRequest) {
 
     const normalizedDays = Math.floor(days);
     const db = getAdminDb();
-    const statsRef = db.collection('user_stats').doc(deviceId);
 
-    await getOrCreateUserStats(deviceId);
+    const hashedRef = db.collection('user_stats').doc(deviceHash);
+    const legacyRef = legacyId ? db.collection('user_stats').doc(legacyId) : null;
 
+    const [, legacySnap] = await Promise.all([
+      getOrCreateUserStatsByHash(deviceHash),
+      legacyRef ? legacyRef.get() : Promise.resolve(null),
+    ]);
+
+    let update: Record<string, unknown>;
     if (normalizedDays <= 0) {
-      await statsRef.set({ bannedUntil: null }, { merge: true });
+      update = { bannedUntil: null };
     } else {
       const now = Timestamp.now();
       const banDurationMs = normalizedDays * 24 * 60 * 60 * 1000;
-      const bannedUntil = Timestamp.fromMillis(now.toMillis() + banDurationMs);
-      await statsRef.set({ bannedUntil }, { merge: true });
+      update = { bannedUntil: Timestamp.fromMillis(now.toMillis() + banDurationMs) };
+    }
+
+    await hashedRef.set(update, { merge: true });
+
+    if (legacyRef && legacySnap && legacySnap.exists) {
+      await legacyRef.set(update, { merge: true });
     }
 
     return NextResponse.json({ ok: true });

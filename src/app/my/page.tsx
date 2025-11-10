@@ -26,7 +26,6 @@ type ResponseDetail = {
   id: string;
   text: string;
   createdAt: number;
-  deviceId: string;
   reportCount: number;
   hidden: boolean;
   moderationNote?: string | null;
@@ -59,7 +58,6 @@ const normalizeDetail = (raw: any): MessageDetail => ({
         id: raw.response.id,
         text: raw.response.text,
         createdAt: raw.response.createdAt,
-        deviceId: raw.response.deviceId,
         reportCount: raw.response.reportCount ?? 0,
         hidden: Boolean(raw.response.hidden),
         moderationNote: raw.response.moderationNote ?? null,

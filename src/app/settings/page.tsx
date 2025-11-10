@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { clearDeviceId } from '@/lib/device';
@@ -8,10 +9,14 @@ import { saveReducedMotion } from '@/lib/motion';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function SettingsPage() {
+  const deviceId = useAppStore((state) => state.deviceId);
   const reducedMotion = useAppStore((state) => state.reducedMotion);
   const setReducedMotion = useAppStore((state) => state.setReducedMotion);
   const setDeviceId = useAppStore((state) => state.setDeviceId);
   const setStats = useAppStore((state) => state.setStats);
+  const [purgeLoading, setPurgeLoading] = useState(false);
+  const [purgeMessage, setPurgeMessage] = useState<string | null>(null);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
 
   const handleReducedMotionToggle = () => {
     const next = !reducedMotion;
@@ -33,6 +38,50 @@ export default function SettingsPage() {
     setDeviceId(null);
     setStats(null);
     window.location.reload();
+  };
+
+  const handlePurgeData = async () => {
+    if (!deviceId) {
+      window.alert('Не удалось найти устройство. Обнови страницу и попробуй снова.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Удалить все сообщения, ответы и статистику, связанные с этим устройством? Это действие нельзя отменить.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setPurgeLoading(true);
+    setPurgeMessage(null);
+    setPurgeError(null);
+
+    try {
+      const response = await fetch('/api/device/purge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setPurgeError(result?.error ?? 'Не получилось очистить данные. Попробуй ещё раз позже.');
+        return;
+      }
+
+      clearGarden();
+      clearDeviceId();
+      setDeviceId(null);
+      setStats(null);
+
+      setPurgeMessage('Данные очищены. Можно начать с чистого листа — при следующем визите создадим новый путь.');
+    } catch (error) {
+      console.error('[settings] Failed to purge device data', error);
+      setPurgeError('Что-то пошло не так. Попробуй ещё раз позже.');
+    } finally {
+      setPurgeLoading(false);
+    }
   };
 
   return (
@@ -83,10 +132,23 @@ export default function SettingsPage() {
           <Button variant="ghost" onClick={handleResetDevice} className="w-full sm:w-auto">
             Сбросить идентификатор устройства
           </Button>
+          <Button onClick={handlePurgeData} className="w-full sm:w-auto" disabled={purgeLoading}>
+            {purgeLoading ? 'Очищаем...' : 'Удалить все мои данные'}
+          </Button>
         </div>
         <p className="text-xs text-text-tertiary">
           После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.
         </p>
+        {purgeMessage ? (
+          <div className="rounded-2xl border border-uyan-light/40 bg-uyan-light/10 p-4 text-sm text-uyan-light">
+            {purgeMessage}
+          </div>
+        ) : null}
+        {purgeError ? (
+          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
+            {purgeError}
+          </div>
+        ) : null}
       </Card>
     </div>
   );

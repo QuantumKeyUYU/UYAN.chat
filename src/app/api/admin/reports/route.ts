@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { isAdminRequest } from '@/lib/adminAuth';
+import { hashDeviceId } from '@/lib/deviceHash';
 
 type ReportStatus = 'pending' | 'reviewed' | 'action_taken';
 
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
           id: string;
           text: string;
           hidden: boolean;
-          deviceId: string;
+          deviceHash: string;
           reportCount: number;
           createdAt: number;
           moderationNote: string | null;
@@ -86,11 +87,19 @@ export async function GET(request: NextRequest) {
           if (responseSnap.exists) {
             const responseData = responseSnap.data() as Record<string, unknown>;
             const createdAt = toMillis(responseData.createdAt) ?? Date.now();
+            const rawDeviceId = typeof responseData.deviceId === 'string' ? responseData.deviceId : null;
+            const deviceHashValue =
+              typeof responseData.deviceHash === 'string' && responseData.deviceHash.length > 0
+                ? String(responseData.deviceHash)
+                : rawDeviceId
+                  ? hashDeviceId(rawDeviceId)
+                  : '';
+
             response = {
               id: responseSnap.id,
               text: String(responseData.text ?? ''),
               hidden: Boolean(responseData.hidden ?? false),
-              deviceId: String(responseData.deviceId ?? ''),
+              deviceHash: deviceHashValue,
               reportCount: Number(responseData.reportCount ?? 0),
               createdAt,
               moderationNote:
