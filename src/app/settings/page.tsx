@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Notice } from '@/components/ui/Notice';
 import { clearDeviceId } from '@/lib/device';
 import { clearGarden } from '@/lib/garden';
@@ -18,6 +19,10 @@ export default function SettingsPage() {
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [purgeMessage, setPurgeMessage] = useState<string | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
+  const [gardenMessage, setGardenMessage] = useState<string | null>(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
 
   const handleReducedMotionToggle = () => {
     const next = !reducedMotion;
@@ -27,31 +32,45 @@ export default function SettingsPage() {
 
   const handleClearGarden = () => {
     clearGarden();
-    window.alert('Сад света очищен. Свет можно собирать заново.');
+    setGardenMessage('Сад света очищен. Свет можно собирать заново.');
+    setPurgeMessage(null);
+    setPurgeError(null);
   };
 
   const handleResetDevice = () => {
-    const confirmReset = window.confirm(
-      'Сбросить идентификатор устройства? Твоя текущая статистика и сад света обнулится.',
-    );
-    if (!confirmReset) return;
+    setResetDialogOpen(true);
+  };
+
+  const confirmResetDevice = () => {
+    setResetLoading(true);
     clearDeviceId();
     setDeviceId(null);
     setStats(null);
     window.location.reload();
   };
 
-  const handlePurgeData = async () => {
+  const cancelResetDevice = () => {
+    if (resetLoading) return;
+    setResetDialogOpen(false);
+  };
+
+  const handlePurgeData = () => {
+    setGardenMessage(null);
+    setPurgeMessage(null);
+    setPurgeError(null);
+    setPurgeDialogOpen(true);
+  };
+
+  const cancelPurgeData = () => {
+    if (purgeLoading) return;
+    setPurgeDialogOpen(false);
+  };
+
+  const confirmPurgeData = async () => {
     if (!deviceId) {
+      setPurgeDialogOpen(false);
       setPurgeMessage(null);
       setPurgeError('Не удалось найти устройство. Обнови страницу и попробуй снова.');
-      return;
-    }
-
-    const confirmed = window.confirm(
-      'Удалить все сообщения, ответы и статистику, связанные с этим устройством? Это действие нельзя отменить.',
-    );
-    if (!confirmed) {
       return;
     }
 
@@ -80,9 +99,10 @@ export default function SettingsPage() {
       setPurgeMessage('Данные очищены. Можно начать с чистого листа — при следующем визите создадим новый путь.');
     } catch (error) {
       console.error('[settings] Failed to purge device data', error);
-      setPurgeError('Что-то пошло не так. Попробуй ещё раз позже.');
+      setPurgeError('Не получилось очистить данные. Попробуй ещё раз позже.');
     } finally {
       setPurgeLoading(false);
+      setPurgeDialogOpen(false);
     }
   };
 
@@ -146,9 +166,34 @@ export default function SettingsPage() {
         <p className="text-xs text-text-tertiary">
           После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.
         </p>
-        {purgeMessage ? <Notice variant="success">{purgeMessage}</Notice> : null}
-        {purgeError ? <Notice variant="error">{purgeError}</Notice> : null}
+        <div aria-live="polite" aria-atomic="true" className="space-y-2">
+          {gardenMessage ? <Notice variant="success">{gardenMessage}</Notice> : null}
+          {purgeMessage ? <Notice variant="success">{purgeMessage}</Notice> : null}
+          {purgeError ? <Notice variant="error">{purgeError}</Notice> : null}
+        </div>
       </Card>
+
+      <ConfirmDialog
+        open={resetDialogOpen}
+        title="Сбросить идентификатор устройства?"
+        description="Твоя текущая статистика и сад света обнулится. Это действие нельзя отменить."
+        confirmLabel="Сбросить"
+        onConfirm={confirmResetDevice}
+        onCancel={cancelResetDevice}
+        loading={resetLoading}
+        danger
+      />
+
+      <ConfirmDialog
+        open={purgeDialogOpen}
+        title="Удалить все мои данные?"
+        description="Будут удалены все сообщения, ответы и статистика, связанные с этим устройством. Это действие нельзя отменить."
+        confirmLabel="Удалить"
+        onConfirm={confirmPurgeData}
+        onCancel={cancelPurgeData}
+        loading={purgeLoading}
+        danger
+      />
     </div>
   );
 }
