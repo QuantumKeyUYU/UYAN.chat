@@ -31,6 +31,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const responderStats = await getOrCreateUserStats(deviceId);
+    const bannedUntil = responderStats.bannedUntil;
+    if (bannedUntil && bannedUntil.toMillis() > Timestamp.now().toMillis()) {
+      return NextResponse.json(
+        { error: 'Твой доступ к ответам временно ограничен.' },
+        { status: 403 },
+      );
+    }
+
     const moderation = await moderateText(text);
     if (!moderation.approved) {
       return NextResponse.json(
@@ -74,6 +83,8 @@ export async function POST(request: NextRequest) {
         moderationPassed: true,
         type: type ?? 'custom',
         reportCount: 0,
+        hidden: false,
+        moderationNote: null,
       });
 
       transaction.update(messageRef, {
@@ -87,7 +98,6 @@ export async function POST(request: NextRequest) {
       await incrementStats(authorDeviceId, { lightsReceived: 1 });
     }
 
-    await getOrCreateUserStats(deviceId);
     await incrementStats(deviceId, { lightsGiven: 1 });
 
     return NextResponse.json({ ok: true }, { status: 201 });

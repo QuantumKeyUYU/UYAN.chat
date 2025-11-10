@@ -19,6 +19,7 @@ export const getOrCreateUserStats = async (deviceId: string) => {
       lastActiveAt: now,
       createdAt: now,
       karmaScore: 0,
+      bannedUntil: null,
     };
     await ref.set(payload);
     return payload;
