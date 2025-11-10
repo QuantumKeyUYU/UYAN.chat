@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAppStore } from '@/store/useAppStore';
 import { useSoftMotion } from '@/lib/animation';
+import { Modal } from '@/components/ui/Modal';
 
 interface FormValues {
   text: string;
@@ -32,12 +33,15 @@ export default function WritePage() {
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showCrisisModal, setShowCrisisModal] = useState(false);
 
   const textValue = watch('text') ?? '';
 
   const onSubmit = handleSubmit(async (values) => {
     if (!deviceId) return;
     setLoading(true);
+    setErrorMessage(null);
     try {
       const response = await fetch('/api/messages/create', {
         method: 'POST',
@@ -51,20 +55,26 @@ export default function WritePage() {
       const result = await response.json();
 
       if (result?.crisis) {
-        router.push('/crisis');
+        setShowCrisisModal(true);
         return;
       }
 
       if (!response.ok) {
-        const reasons = Array.isArray(result?.reasons) && result.reasons.length > 0 ? ` (${result.reasons.join(', ')})` : '';
-        throw new Error(result?.error ? `${result.error}${reasons}` : 'Не удалось сохранить сообщение');
+        if (Array.isArray(result?.reasons) && result.reasons.length > 0) {
+          setErrorMessage(
+            'Сообщение не прошло модерацию. Попробуй смягчить формулировки и избегать оскорблений, угроз или личных данных.',
+          );
+        } else {
+          setErrorMessage(result?.error ?? 'Не удалось сохранить сообщение. Попробуй ещё раз чуть позже.');
+        }
+        return;
       }
 
       reset();
       setSubmitted(true);
     } catch (error) {
       console.error(error);
-      alert('Что-то пошло не так. Попробуй ещё раз чуть позже.');
+      setErrorMessage('Что-то пошло не так. Попробуй ещё раз чуть позже.');
     } finally {
       setLoading(false);
     }
@@ -108,6 +118,12 @@ export default function WritePage() {
         <p className="text-text-secondary">Мы здесь, чтобы услышать. Пиши от сердца, 10–280 символов.</p>
       </div>
 
+      {errorMessage ? (
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
+          {errorMessage}
+        </div>
+      ) : null}
+
       <Card>
         <form onSubmit={onSubmit} className="space-y-6">
           <div>
@@ -133,6 +149,20 @@ export default function WritePage() {
           </Button>
         </form>
       </Card>
+
+      <Modal open={showCrisisModal} onClose={() => setShowCrisisModal(false)} title="Похоже, тебе сейчас очень тяжело">
+        <p className="text-text-secondary">
+          Этот чат — про поддержку, но он не подходит в момент острой опасности. Пожалуйста, обратись за живой помощью.
+        </p>
+        <ul className="list-disc space-y-2 pl-6 text-sm text-text-secondary">
+          <li>Свяжись с близким человеком, которому доверяешь.</li>
+          <li>Обратись в местную линию помощи или экстренные службы.</li>
+          <li>Если есть возможность — запиши, что чувствуешь, и покажи специалисту.</li>
+        </ul>
+        <div className="flex justify-end">
+          <Button onClick={() => setShowCrisisModal(false)}>Понятно</Button>
+        </div>
+      </Modal>
     </motion.div>
   );
 }
