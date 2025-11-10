@@ -1,189 +1,114 @@
-import type { MessageCategory } from '@/types/firestore';
+import OpenAI from 'openai';
 
 export interface ModerationResult {
   approved: boolean;
   reasons?: string[];
-  crisis?: boolean;
   cleanedText?: string;
-  emotion?: MessageCategory;
+  crisis?: boolean;
 }
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const MODERATION_MODEL = process.env.OPENAI_MODERATION_MODEL ?? 'omni-moderation-latest';
-const EMOTION_MODEL = process.env.OPENAI_EMOTION_MODEL ?? 'gpt-4o-mini';
-
-const phoneRegex =
-  /(?:(?:\+?\d{1,3}[\s.-]?)?(?:\(\d{2,4}\)[\s.-]?)?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4})/g;
-const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-const urlRegex =
-  /(?:(?:https?:\/\/)?(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[\w.#?=&%+-]*)?)/gi;
-const addressRegex =
-  /(\d{1,5}\s+\b(?:улица|ул\.|street|st\.|проспект|пр\.|avenue|ave\.|дорога|road|rd\.|lane|ln\.|drive|dr\.)\b[^.,\n]*)/gim;
+const openaiClient = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const CRISIS_KEYWORDS = [
-  'самоуб',
   'суицид',
-  'умирать',
-  'умереть',
-  'повеситься',
-  'покончить',
+  'хочу умереть',
   'не хочу жить',
-  'самоповреж',
-  'cut myself',
+  'убить себя',
+  'покончить с собой',
+  'самоубийство',
+  'самоубийцей',
+  'повеситься',
+  'убью себя',
+  'suicide',
   'kill myself',
-  'take my life',
-  'end my life',
   'i want to die',
+  'end my life',
+  'take my life',
   'hurt myself',
+  'self harm',
+  'self-harm',
 ];
 
-const EMOTION_OPTIONS: MessageCategory[] = [
-  'anxiety',
-  'sadness',
-  'loneliness',
-  'tiredness',
-  'fear',
-  'other',
-];
+const phoneRegex = /(\+7|8)[\s\-()]?\d{3}[\s\-()]?\d{3}[\s\-()]?\d{2}[\s\-()]?\d{2}/g;
+const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const urlRegex = /https?:\/\/[^\s]+|www\.[^\s]+/gi;
 
-type ModerationFlagResponse = {
-  flagged: boolean;
-  reasons?: string[];
-};
-
-const scrubPII = (text: string) => {
+const scrubPII = (text: string): string => {
   return text
     .replace(phoneRegex, '[номер скрыт]')
     .replace(emailRegex, '[почта скрыта]')
-    .replace(urlRegex, '[ссылка скрыта]')
-    .replace(addressRegex, '[адрес скрыт]');
+    .replace(urlRegex, '[ссылка скрыта]');
 };
 
-const hasCrisisSignal = (text: string) => {
+const detectCrisis = (text: string): boolean => {
   const normalized = text.toLowerCase();
   return CRISIS_KEYWORDS.some((keyword) => normalized.includes(keyword));
 };
 
-const callOpenAIModeration = async (text: string): Promise<ModerationFlagResponse> => {
-  if (!OPENAI_API_KEY) {
-    console.warn('[moderation] Missing OPENAI_API_KEY. Skipping OpenAI moderation call.');
-    return { flagged: false };
+const extractReasons = (categories: Record<string, boolean> | undefined): string[] => {
+  if (!categories) {
+    return [];
   }
 
-  try {
-    const response = await fetch('https://api.openai.com/v1/moderations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({ model: MODERATION_MODEL, input: text }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[moderation] OpenAI moderation request failed', errorText);
-      return { flagged: false, reasons: ['openai_error'] };
+  const reasons: string[] = [];
+  for (const [key, value] of Object.entries(categories)) {
+    if (!value) continue;
+    const normalized = key
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    if (normalized.length > 0) {
+      reasons.push(normalized);
     }
-
-    const payload = (await response.json()) as {
-      results?: { flagged: boolean; categories?: Record<string, boolean> }[];
-    };
-
-    const flagged = payload.results?.some((result) => result.flagged) ?? false;
-
-    return {
-      flagged,
-      reasons: flagged ? ['openai_flagged'] : undefined,
-    };
-  } catch (error) {
-    console.error('[moderation] Failed to call OpenAI moderation', error);
-    return { flagged: false, reasons: ['openai_error'] };
-  }
-};
-
-const classifyEmotion = async (text: string): Promise<MessageCategory> => {
-  if (!OPENAI_API_KEY) {
-    return 'other';
   }
 
-  try {
-    const prompt = `Ты — эмпатичный модератор анонимного чата поддержки.\nОпредели основную эмоцию автора сообщения.\nВыбери только ОДНО слово из списка: ${EMOTION_OPTIONS.join(
-      ', ',
-    )}.\nЕсли сложно понять — ответь "other".\n\nТекст:\n"""${text}"""\n\nОтвет:`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: EMOTION_MODEL,
-        messages: [
-          { role: 'system', content: 'Ты помогаешь классифицировать эмоции коротких сообщений.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0,
-        max_tokens: 4,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[moderation] OpenAI emotion classification failed', errorText);
-      return 'other';
-    }
-
-    const data = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-
-    const content = data.choices?.[0]?.message?.content?.trim().toLowerCase();
-    const match = EMOTION_OPTIONS.find((option) => option === content);
-    return match ?? 'other';
-  } catch (error) {
-    console.error('[moderation] Failed to classify emotion', error);
-    return 'other';
-  }
+  return reasons.length > 0 ? reasons : ['openai_flagged'];
 };
 
 export const moderateText = async (text: string): Promise<ModerationResult> => {
   const trimmed = text.trim();
-  const cleanedText = scrubPII(trimmed);
-  const reasons: string[] = [];
 
-  if (hasCrisisSignal(trimmed)) {
+  if (trimmed.length === 0) {
+    return { approved: false, reasons: ['empty'] };
+  }
+
+  const cleanedText = scrubPII(trimmed);
+
+  if (detectCrisis(trimmed)) {
     return {
       approved: false,
       crisis: true,
-      reasons: ['crisis_keywords'],
+      reasons: ['crisis_detected'],
       cleanedText,
-      emotion: 'other',
     };
   }
 
-  const moderation = await callOpenAIModeration(cleanedText);
-  if (moderation.reasons?.length) {
-    reasons.push(...moderation.reasons);
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn('[moderation] Missing OPENAI_API_KEY, skipping OpenAI moderation');
+    return { approved: true, cleanedText };
   }
 
-  if (moderation.flagged) {
-    return {
-      approved: false,
-      reasons,
-      crisis: false,
-      cleanedText,
-      emotion: 'other',
-    };
+  try {
+    const result = await openaiClient.moderations.create({
+      model: 'omni-moderation-latest',
+      input: cleanedText,
+    });
+
+    const moderation = result.results?.[0];
+    if (moderation?.flagged) {
+      const reasons = extractReasons(moderation.categories as Record<string, boolean> | undefined);
+      return {
+        approved: false,
+        reasons,
+        cleanedText,
+      };
+    }
+
+    return { approved: true, cleanedText };
+  } catch (error) {
+    console.error('[moderation] Failed to call OpenAI moderation API', error);
+    return { approved: true, cleanedText };
   }
-
-  const emotion = await classifyEmotion(cleanedText);
-
-  return {
-    approved: true,
-    cleanedText,
-    emotion,
-    reasons: reasons.length ? reasons : undefined,
-  };
 };
