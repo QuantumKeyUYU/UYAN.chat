@@ -6,6 +6,7 @@ import { toPng } from 'html-to-image';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
+import { Notice } from '@/components/ui/Notice';
 import { ShareCard, shareCardStyles } from '@/components/ShareCard';
 import { loadGarden, removeLight, SavedLight } from '@/lib/garden';
 
@@ -22,6 +23,7 @@ export default function GardenPage() {
   const [shareStyle, setShareStyle] = useState<string>(shareCardStyles[0]);
   const [shareLight, setShareLight] = useState<SavedLight | null>(null);
   const [savingImage, setSavingImage] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const refresh = () => {
     setLights(loadGarden());
@@ -45,14 +47,17 @@ export default function GardenPage() {
   const closeShare = () => {
     setShareOpen(false);
     setShareLight(null);
+    setExportError(null);
   };
 
   const downloadAsImage = async () => {
+    if (savingImage) return;
     if (!shareLight) return;
     const element = document.getElementById('sharecard');
     if (!element) return;
 
     setSavingImage(true);
+    setExportError(null);
     try {
       const dataUrl = await toPng(element, { pixelRatio: 2, cacheBust: true });
       const link = document.createElement('a');
@@ -61,7 +66,7 @@ export default function GardenPage() {
       link.click();
     } catch (error) {
       console.error('Failed to export image', error);
-      alert('Не получилось сохранить открытку. Попробуй ещё раз.');
+      setExportError('Не получилось сохранить открытку. Попробуй ещё раз.');
     } finally {
       setSavingImage(false);
     }
@@ -77,6 +82,8 @@ export default function GardenPage() {
         <h1 className="text-3xl font-semibold text-text-primary">Сад света</h1>
         <p className="text-text-secondary">Здесь живут ответы, которые согрели тебя.</p>
       </div>
+
+      {exportError ? <Notice variant="error">{exportError}</Notice> : null}
 
       {lights.length === 0 ? (
         <Card className="text-center">
@@ -115,10 +122,13 @@ export default function GardenPage() {
         </div>
       )}
 
-      <Modal open={shareOpen} onClose={closeShare} title="Поделиться светом">
+      <Modal open={shareOpen} onClose={savingImage ? () => {} : closeShare} title="Поделиться светом">
         {shareLight ? (
           <div className="space-y-4">
-            <div className="max-h-[70vh] overflow-auto rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4">
+            <div
+              id="sharecard"
+              className="max-h-[70vh] overflow-auto rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4"
+            >
               <ShareCard
                 originalMessage={shareLight.originalMessage}
                 responseText={shareLight.responseText}
@@ -144,8 +154,13 @@ export default function GardenPage() {
                 );
               })}
             </div>
-            <Button onClick={downloadAsImage} disabled={savingImage} className="w-full">
-              {savingImage ? 'Сохраняем...' : 'Скачать PNG'}
+            <Button
+              onClick={downloadAsImage}
+              disabled={savingImage}
+              aria-busy={savingImage}
+              className="w-full sm:w-auto"
+            >
+              {savingImage ? 'Сохраняю…' : 'Скачать открытку'}
             </Button>
           </div>
         ) : (
