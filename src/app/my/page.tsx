@@ -78,7 +78,10 @@ export default function MyLightsPage() {
     if (!deviceId) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/messages/my?deviceId=${deviceId}`);
+      const response = await fetch('/api/messages/my', {
+        headers: { 'x-device-id': deviceId },
+        cache: 'no-store',
+      });
       if (!response.ok) throw new Error('Ошибка загрузки');
       const data = await response.json();
       const normalized = (data.messages ?? []).map((item: any) => normalizeMessageWithResponses(item));

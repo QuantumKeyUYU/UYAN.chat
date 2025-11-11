@@ -10,8 +10,9 @@ import { hashDeviceId } from '@/lib/deviceHash';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const deviceId = searchParams.get('deviceId');
+    const url = new URL(request.url);
+    const deviceId =
+      url.searchParams.get('deviceId') || request.headers.get('x-device-id') || '';
     if (!deviceId) {
       return NextResponse.json({ error: 'deviceId обязателен' }, { status: 400 });
     }
