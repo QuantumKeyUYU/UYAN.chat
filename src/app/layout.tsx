@@ -4,6 +4,7 @@ import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import Providers from '@/components/layout/Providers';
+import DevicePathWidget from '@/components/debug/DevicePathWidget';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className="dark">
-      <body className={`${inter.className} bg-bg-primary text-text-primary`}> 
+      <body className={`${inter.className} bg-bg-primary text-text-primary`}>
         <Providers>
           <div className="flex min-h-screen flex-col">
             <Header />
@@ -28,6 +29,7 @@ export default function RootLayout({
             <Footer />
           </div>
         </Providers>
+        <DevicePathWidget />
       </body>
     </html>
   );
