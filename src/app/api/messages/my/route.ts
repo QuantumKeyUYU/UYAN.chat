@@ -8,11 +8,11 @@ import { serializeDoc } from '@/lib/serializers';
 import type { AdminMessageDoc } from '@/types/firestoreAdmin';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
-import { attachDeviceCookie, readDeviceIdFromRequest } from '@/lib/device/server';
+import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const deviceId = readDeviceIdFromRequest(request);
+    const deviceId = resolveDeviceId(request);
     if (!deviceId) {
       return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
     }
@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
 
     const collection = db.collection('messages');
     const [hashSnapshot, legacySnapshot] = await Promise.all([
-      collection.where('deviceHash', '==', deviceHash).orderBy('createdAt', 'desc').get(),
-      collection.where('deviceId', '==', deviceId).orderBy('createdAt', 'desc').get(),
+      collection.where('deviceHash', '==', deviceHash).get(),
+      collection.where('deviceId', '==', deviceId).get(),
     ]);
 
     const seen = new Set<string>();
@@ -33,10 +33,22 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
+    const getCreatedAtValue = (doc: unknown): number => {
+      const value = (doc as { createdAt?: unknown })?.createdAt;
+      if (typeof value === 'number') return value;
+      if (value && typeof (value as { toMillis?: () => unknown }).toMillis === 'function') {
+        const millis = (value as { toMillis: () => unknown }).toMillis();
+        if (typeof millis === 'number') return millis;
+      }
+      return 0;
+    };
+
     const messages = allDocs.map((doc) => {
       const data = doc.data() as AdminMessageDoc;
       return serializeDoc({ id: doc.id, ...data });
     });
+
+    messages.sort((a, b) => getCreatedAtValue(b) - getCreatedAtValue(a));
 
     if (messages.length === 0) {
       return attachDeviceCookie(NextResponse.json({ messages: [] }), deviceId);
@@ -45,16 +57,18 @@ export async function GET(request: NextRequest) {
     const responsesCollection = db.collection('responses');
     const responseSnapshots = await Promise.all(
       messages.map((message) =>
-        responsesCollection.where('messageId', '==', message.id).orderBy('createdAt', 'asc').get(),
+        responsesCollection.where('messageId', '==', message.id as string).get(),
       ),
     );
 
     const responsesByMessageId = new Map<string, Record<string, unknown>[]>();
     responseSnapshots.forEach((snapshot, index) => {
       const messageId = messages[index].id as string;
-      const responses = snapshot.docs.map((doc) =>
-        serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) }),
-      );
+      const responses = snapshot.docs
+        .map((doc) =>
+          serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) }),
+        )
+        .sort((a, b) => getCreatedAtValue(a) - getCreatedAtValue(b));
       responsesByMessageId.set(messageId, responses);
     });
 
