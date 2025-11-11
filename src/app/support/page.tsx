@@ -293,7 +293,7 @@ export default function SupportPage() {
     const variant = aiVariants[index];
     if (!variant) return;
     setSelectedAi(index);
-    await sendResponse(variant.text, 'ai');
+    await sendResponse(variant.text, 'ai-assisted');
   };
 
   const remainingTime = typeof cooldownSeconds === 'number' ? formatSeconds(cooldownSeconds) : null;
