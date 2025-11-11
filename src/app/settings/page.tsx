@@ -426,12 +426,20 @@ export default function SettingsPage() {
               <input
                 type="text"
                 value={attachKey}
-                onChange={(event) => setAttachKey(event.target.value.toUpperCase())}
+                onChange={(e) =>
+                  setAttachKey(
+                    e.target.value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase()
+                  )
+                }
                 placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
                 className="w-full rounded-xl border border-white/10 bg-bg-primary/60 p-3 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline focus:outline-2 focus:outline-uyan-light"
                 autoComplete="off"
+                autoCorrect="off"
                 spellCheck={false}
-                inputMode="latin"
+                inputMode="text"
+                autoCapitalize="characters"
+                pattern="[A-Z0-9-]{8,}"
+                maxLength={29}
               />
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button type="submit" disabled={attachLoading || attachKey.trim().length < 8} className="w-full sm:w-auto">
