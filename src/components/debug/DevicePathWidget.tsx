@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEVICE_ID_HEADER, DEVICE_STORAGE_KEY } from '@/lib/device/constants';
 import { readPersistedDeviceId } from '@/lib/device';
 import type { DeviceIdDebugInfo } from '@/lib/device/server';
-import { useAppStore } from '@/store/useAppStore';
+import { useDeviceStore } from '@/store/device';
+import { useStatsStore } from '@/store/stats';
+import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
 
 const isDebugFlagEnabled = (): boolean => {
   const value = String(process.env.NEXT_PUBLIC_DEBUG_DEVICE ?? '').toLowerCase();
@@ -48,9 +50,9 @@ interface StorageStatusMap {
 const DevicePathWidgetInner = () => {
   const mounted = useClientMounted();
 
-  const deviceId = useAppStore((state) => state.deviceId);
-  const stats = useAppStore((state) => state.stats);
-  const loadStats = useAppStore((state) => state.loadStats);
+  const deviceId = useDeviceStore((state) => state.id);
+  const stats = useStatsStore((state) => state.data);
+  const { refresh } = useDeviceJourney({ autoloadStats: false });
 
   const [requestedStatsFor, setRequestedStatsFor] = useState<string | null>(null);
   const [storageSnapshot, setStorageSnapshot] = useState<StorageSnapshot>({
@@ -110,8 +112,8 @@ const DevicePathWidgetInner = () => {
     if (!mounted || !deviceId || stats || requestedStatsFor === deviceId) return;
 
     setRequestedStatsFor(deviceId);
-    void loadStats();
-  }, [deviceId, loadStats, mounted, requestedStatsFor, stats]);
+    void refresh();
+  }, [deviceId, mounted, refresh, requestedStatsFor, stats]);
 
   useEffect(() => {
     if (!deviceId) {

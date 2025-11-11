@@ -9,7 +9,10 @@ import { clearDeviceId } from '@/lib/device';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { clearGarden } from '@/lib/garden';
 import { saveReducedMotion } from '@/lib/motion';
-import { useAppStore } from '@/store/useAppStore';
+import { useDeviceStore } from '@/store/device';
+import { useStatsStore } from '@/store/stats';
+import { useSettingsStore } from '@/store/settings';
+import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
 
 interface JourneyStatus {
   journeyId: string;
@@ -25,12 +28,12 @@ interface JourneyStatus {
 }
 
 export default function SettingsPage() {
-  const deviceId = useAppStore((state) => state.deviceId);
-  const reducedMotion = useAppStore((state) => state.reducedMotion);
-  const setReducedMotion = useAppStore((state) => state.setReducedMotion);
-  const setDeviceId = useAppStore((state) => state.setDeviceId);
-  const setStats = useAppStore((state) => state.setStats);
-  const loadStats = useAppStore((state) => state.loadStats);
+  const deviceId = useDeviceStore((state) => state.id);
+  const setDeviceId = useDeviceStore((state) => state.setId);
+  const reducedMotion = useSettingsStore((state) => state.reducedMotion);
+  const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
+  const setStats = useStatsStore((state) => state.setData);
+  const { refresh } = useDeviceJourney();
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [purgeMessage, setPurgeMessage] = useState<string | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
@@ -72,7 +75,7 @@ export default function SettingsPage() {
       setJourneyStatus(data.status);
       if (data.status.effectiveDeviceId && data.status.effectiveDeviceId !== deviceId) {
         setDeviceId(data.status.effectiveDeviceId);
-        void loadStats();
+        void refresh();
       }
     } catch (error) {
       console.warn('[settings] Failed to load journey status', error);
@@ -80,7 +83,7 @@ export default function SettingsPage() {
     } finally {
       setJourneyLoading(false);
     }
-  }, [deviceId, loadStats, setDeviceId]);
+  }, [deviceId, refresh, setDeviceId]);
 
   useEffect(() => {
     void refreshJourneyStatus();
@@ -94,7 +97,7 @@ export default function SettingsPage() {
 
   const handleClearGarden = () => {
     clearGarden();
-    setGardenMessage('Сад света очищен. Свет можно собирать заново.');
+    setGardenMessage('Сад эх очищен. Эхо можно собирать заново.');
     setPurgeMessage(null);
     setPurgeError(null);
   };
@@ -123,7 +126,7 @@ export default function SettingsPage() {
       setJourneyStatus(data.status);
       if (data.status.effectiveDeviceId && data.status.effectiveDeviceId !== deviceId) {
         setDeviceId(data.status.effectiveDeviceId);
-        void loadStats();
+        void refresh();
       }
     } catch (error) {
       console.error('[settings] Failed to create backup key', error);
@@ -193,10 +196,10 @@ export default function SettingsPage() {
         setJourneyStatus(nextStatus);
         if (nextStatus.effectiveDeviceId && nextStatus.effectiveDeviceId !== deviceId) {
           setDeviceId(nextStatus.effectiveDeviceId);
-          void loadStats();
+          void refresh();
         }
       }
-      setAttachMessage('Путь восстановлен. Теперь этот девайс идёт вместе с сохранённым светом.');
+      setAttachMessage('Путь восстановлен. Теперь этот девайс идёт вместе с сохранёнными искрами и эхом.');
       setAttachKey('');
       setBackupKey(null);
       void refreshJourneyStatus();
@@ -211,7 +214,7 @@ export default function SettingsPage() {
       setAttachLoading(false);
       setConfirmAttachOpen(false);
     }
-  }, [attachKey, deviceId, loadStats, refreshJourneyStatus, setDeviceId]);
+  }, [attachKey, deviceId, refresh, refreshJourneyStatus, setDeviceId]);
 
   const handleAttachSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -307,7 +310,7 @@ export default function SettingsPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-8">
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
-        <p className="text-text-secondary">Немного управления светом и тенью.</p>
+        <p className="text-text-secondary">Немного управления искрами и эхом.</p>
       </div>
 
       <Card className="space-y-6">
@@ -358,7 +361,7 @@ export default function SettingsPage() {
               </p>
               <p>
                 Ключ знает о <span className="font-semibold text-text-primary">{journeyStatus.attachedDevices}</span>{' '}
-                устройстве(ах). Сохрани его — и можно продолжать светлый путь на любом девайсе.
+                устройстве(ах). Сохрани его — и можно продолжать путь искры на любом девайсе.
               </p>
               {journeyStatus.lastKeyPreview ? (
                 <p className="text-xs text-text-tertiary">
@@ -467,7 +470,7 @@ export default function SettingsPage() {
         </div>
 
         <p className="text-xs text-text-tertiary">
-          Не делись ключом с незнакомыми людьми. Он не содержит личных данных, но открывает доступ к твоему свету.
+          Не делись ключом с незнакомыми людьми. Он не содержит личных данных, но открывает доступ к твоим искрам и эхам.
         </p>
       </Card>
 
@@ -485,7 +488,7 @@ export default function SettingsPage() {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
-            Очистить сад света
+            Очистить сад эх
           </Button>
           <Button variant="ghost" onClick={handleResetDevice} className="w-full sm:w-auto">
             Сбросить идентификатор устройства
@@ -517,7 +520,7 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={resetDialogOpen}
         title="Сбросить идентификатор устройства?"
-        description="Твоя текущая статистика и сад света обнулится. Это действие нельзя отменить."
+        description="Твоя текущая статистика и сад эх обнулится. Это действие нельзя отменить."
         confirmLabel="Сбросить"
         onConfirm={confirmResetDevice}
         onCancel={cancelResetDevice}

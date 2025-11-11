@@ -1,7 +1,7 @@
-import { useAppStore } from '@/store/useAppStore';
+import { useSettingsStore } from '@/store/settings';
 
 export const useSoftMotion = () => {
-  const reduced = useAppStore((state) => state.reducedMotion);
+  const reduced = useSettingsStore((state) => state.reducedMotion);
 
   if (reduced) {
     return {

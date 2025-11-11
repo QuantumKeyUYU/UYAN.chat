@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useId } from 'react';
 import type { ReactNode } from 'react';
 import type { SubmitHandler, UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/Button';
 import { Notice } from '@/components/ui/Notice';
 import { Textarea } from '@/components/ui/Textarea';
 import { formatSeconds } from '@/lib/time';
+import { useAutoResizeTextarea } from '@/lib/hooks/useAutoResizeTextarea';
 
 export interface ComposeFormFields {
   text: string;
@@ -54,6 +55,12 @@ export function ComposeForm({
   const textValue = watch('text') ?? '';
   const honeypotRegister = register('honeypot');
   const isInitial = useRef(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fieldId = useId();
+  const hintId = `${fieldId}-hint`;
+  const counterId = `${fieldId}-counter`;
+
+  useAutoResizeTextarea(textareaRef, textValue);
 
   useEffect(() => {
     if (isInitial.current) {
@@ -79,25 +86,36 @@ export function ComposeForm({
 
   return (
     <form onSubmit={submitHandler} className="space-y-6">
-      {description ? <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">{description}</div> : null}
+      {description ? (
+        <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">{description}</div>
+      ) : null}
 
       <div>
         <Textarea
-          rows={6}
+          ref={textareaRef}
+          rows={4}
           maxLength={maxLength}
           placeholder={placeholder}
+          aria-describedby={`${hintId} ${counterId}`}
+          aria-invalid={Boolean(errors.text)}
           {...register('text', {
             required: 'Сообщение не может быть пустым',
             minLength: { value: minLength, message: `Минимум ${minLength} символов` },
             maxLength: { value: maxLength, message: `Максимум ${maxLength} символов` },
           })}
+          className="min-h-[120px] w-full resize-none"
         />
         <div className="mt-2 flex flex-col gap-1 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
-          <span>{textError}</span>
-          <span>
+          <span id={hintId}>От {minLength} до {maxLength} символов</span>
+          <span id={counterId} className="tabular-nums text-text-secondary">
             {textValue.length}/{maxLength}
           </span>
         </div>
+        {textError ? (
+          <div role="status" aria-live="polite" className="mt-1 text-sm text-red-400">
+            {textError}
+          </div>
+        ) : null}
       </div>
 
       <div className="sr-only" aria-hidden>
@@ -115,7 +133,12 @@ export function ComposeForm({
         </Notice>
       ) : null}
 
-      <Button type="submit" disabled={buttonDisabled} className="w-full">
+      <Button
+        type="submit"
+        disabled={buttonDisabled}
+        className="w-full active:scale-[0.98]"
+        aria-busy={busy}
+      >
         {busy ? loadingLabel : submitLabel}
       </Button>
     </form>

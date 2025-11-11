@@ -1,22 +1,34 @@
-export const FLOW_STEPS = [
-  {
-    title: 'Поделиться тьмой',
-    description: 'Расскажи о своём состоянии анонимно — 10–280 символов.',
-    href: '/write',
-  },
-  {
-    title: 'Подарить свет',
-    description: 'Поддержи другого человека, пока ждёшь ответ.',
-    href: '/support',
-  },
-  {
-    title: 'Ждать бережного ответа',
-    description: 'Следи за откликами в разделе «Мои огоньки».',
-    href: '/my',
-  },
-  {
-    title: 'Сохранить свет',
-    description: 'Сохраняй ответы в саду, чтобы возвращаться к ним позже.',
-    href: '/garden',
-  },
-] as const;
+import { getVocabulary, type VocabularyPreset } from '@/content/vocabulary';
+import type { StepDefinition } from '@/components/stepper';
+
+export const getFlowSteps = (preset: VocabularyPreset = 'spark'): StepDefinition[] => {
+  const vocabulary = getVocabulary(preset);
+  return [
+    {
+      id: 'write',
+      title: vocabulary.flow.writeTitle,
+      description: vocabulary.flow.writeDescription,
+      href: '/write',
+    },
+    {
+      id: 'support',
+      title: vocabulary.flow.supportTitle,
+      description: vocabulary.flow.supportDescription,
+      href: '/support',
+    },
+    {
+      id: 'wait',
+      title: vocabulary.flow.waitTitle,
+      description: vocabulary.flow.waitDescription,
+      href: '/my',
+    },
+    {
+      id: 'save',
+      title: vocabulary.flow.saveTitle,
+      description: vocabulary.flow.saveDescription,
+      href: '/garden',
+    },
+  ];
+};
+
+export const FLOW_STEPS = getFlowSteps();

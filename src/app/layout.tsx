@@ -17,12 +17,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className="dark">
-      <body className="bg-bg-primary text-text-primary">
+    <html lang="ru" className="dark h-full">
+      <body className="min-h-dvh bg-bg-primary text-text-primary">
         <Providers>
-          <div className="flex min-h-screen flex-col">
+          <div className="flex min-h-dvh flex-col">
             <Header />
-            <main className="flex-1 px-4 pb-24 pt-20 sm:px-6 lg:px-8">{children}</main>
+            <main
+              className="flex-1 px-4 sm:px-6 lg:px-8"
+              style={{ paddingTop: 'var(--header-h)', paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
+            >
+              {children}
+            </main>
             <Footer />
           </div>
         </Providers>

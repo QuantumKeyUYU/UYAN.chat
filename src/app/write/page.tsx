@@ -1,17 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeForm';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Stepper } from '@/components/ui/Stepper';
-import { useAppStore } from '@/store/useAppStore';
+import { Stepper } from '@/components/stepper';
+import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
+import { useDeviceStore } from '@/store/device';
 import { useSoftMotion } from '@/lib/animation';
-import { FLOW_STEPS } from '@/lib/flowSteps';
+import { getFlowSteps } from '@/lib/flowSteps';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
+import { useStepState } from '@/lib/hooks/useStepState';
+import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 const MIN_LENGTH = 10;
 const MAX_LENGTH = 280;
@@ -28,7 +31,11 @@ const pluralizeMinutes = (minutes: number) => {
 
 export default function WritePage() {
   const router = useRouter();
-  const deviceId = useAppStore((state) => state.deviceId);
+  const deviceId = useDeviceStore((state) => state.id);
+  const { preset, vocabulary } = useVocabulary();
+  const steps = useMemo(() => getFlowSteps(preset), [preset]);
+  const stepState = useStepState({ total: steps.length, initial: 0 });
+  const { active: stepIndex, setActive: setStep } = stepState;
   const { initial, animate, transition } = useSoftMotion();
   const form = useForm<ComposeFormFields>({
     defaultValues: { text: '', honeypot: '' },
@@ -38,6 +45,16 @@ export default function WritePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showCrisisScreen, setShowCrisisScreen] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (showCrisisScreen) {
+      setStep(0);
+    } else if (submitted) {
+      setStep(1);
+    } else {
+      setStep(0);
+    }
+  }, [setStep, showCrisisScreen, submitted]);
 
   useEffect(() => {
     if (!cooldownSeconds || cooldownSeconds <= 0) return;
@@ -145,7 +162,7 @@ export default function WritePage() {
 
     return (
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
-        <Stepper steps={FLOW_STEPS} current={0} />
+        <Stepper steps={steps} activeIndex={stepIndex} />
         <Card>
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-text-primary">Похоже, тебе сейчас очень тяжело</h2>
@@ -178,24 +195,24 @@ export default function WritePage() {
   if (submitted) {
     return (
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-8 text-center" initial={initial} animate={animate} transition={transition}>
-        <Stepper steps={FLOW_STEPS} current={1} />
+        <Stepper steps={steps} activeIndex={stepIndex} />
         <Card>
           <div className="space-y-4">
-            <h2 className="text-2xl font-semibold text-text-primary">Сообщение сохранено</h2>
+            <h2 className="text-2xl font-semibold text-text-primary">Искра отправлена</h2>
             <p className="text-text-secondary">
-              Спасибо, что доверился пространству. Следующий шаг — подарить свет кому-то ещё. После этого возвращайся в «Мои
-              огоньки» и жди ответ — мы пришлём его туда.
+              Спасибо, что поделился искрой. Следующий шаг — {vocabulary.ctaSupport.toLowerCase()} кому-то ещё. После этого
+              возвращайся в «Мои отклики» и жди эхо — мы напомним, когда оно придёт.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/support')} className="w-full sm:w-auto">
-                Поддержать сейчас
+                {vocabulary.ctaSupport}
               </Button>
               <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
-                Перейти к огонькам
+                Перейти к откликам
               </Button>
             </div>
             <p className="text-sm text-text-tertiary">
-              Ответы появятся в разделе «Мои огоньки». Если захочешь сделать паузу, вернуться на главную можно в любой момент.
+              Эхо появятся в разделе «Мои отклики». Если захочется сделать паузу, вернуться на главную можно в любой момент.
             </p>
           </div>
         </Card>
@@ -204,27 +221,28 @@ export default function WritePage() {
   }
 
   return (
-    <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
-      <Stepper steps={FLOW_STEPS} current={0} />
+    <>
+      <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
+        <Stepper steps={steps} activeIndex={stepIndex} />
 
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">🌑 Что сейчас на душе?</h1>
-        <p className="text-text-secondary">Мы здесь, чтобы услышать. Пиши от сердца, 10–280 символов.</p>
-      </div>
-      <Card>
-        <ComposeForm
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.writeTitle}</h1>
+          <p className="text-text-secondary">{vocabulary.writeSubtitle}</p>
+        </div>
+        <Card>
+          <ComposeForm
           form={form}
           onSubmit={onSubmit}
           minLength={MIN_LENGTH}
           maxLength={MAX_LENGTH}
-          placeholder="Расскажи о своём состоянии, страхах или усталости..."
-          submitLabel="Продолжить"
+          placeholder="Расскажи, что чувствуешь прямо сейчас..."
+          submitLabel={vocabulary.ctaWrite}
           loadingLabel="Отправляем..."
           description={
             <>
-              <p>Твоё сообщение остаётся полностью анонимным — мы видим только текст.</p>
+              <p>Твоя искра остаётся полностью анонимной — мы видим только текст.</p>
               <p className="mt-2">
-                Его прочитает живой человек из сообщества, а ответ может прийти не сразу: иногда на поддержку нужно немного времени.
+                Её прочитает живой человек из сообщества, а эхо может прийти не сразу: иногда на поддержку нужно немного времени.
               </p>
             </>
           }
@@ -234,6 +252,8 @@ export default function WritePage() {
           onChange={() => setErrorMessage(null)}
         />
       </Card>
-    </motion.div>
+      </motion.div>
+      <MobileStickyActions />
+    </>
   );
 }

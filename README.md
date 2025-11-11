@@ -109,7 +109,7 @@ OPENAI_API_KEY=...
 * `src/components/ui` — базовые UI-компоненты (`Button`, `Card`, `Modal`, `Notice`, `ConfirmDialog`, `Input`, `Textarea` и др.)
 * `src/components/ShareCard.tsx` — открытки для шаринга ответов из сада света
 * `src/lib` — работа с Firebase, deviceId, локальным садом (`device.ts`, `garden.ts`, `motion.ts` и др.)
-* `src/store/useAppStore.ts` — Zustand-хранилище для глобального состояния (deviceId, статистика, настройки)
+* `src/store/device.ts`, `src/store/stats.ts`, `src/store/settings.ts` — Zustand-слайсы для устройства, статистики и настроек
 
 ---
 

@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { OnboardingModal } from '@/components/OnboardingModal';
-import { Stepper } from '@/components/ui/Stepper';
-import { FLOW_STEPS } from '@/lib/flowSteps';
-import { getOrCreateDeviceId } from '@/lib/device';
+import { Stepper } from '@/components/stepper';
+import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
+import { getFlowSteps } from '@/lib/flowSteps';
 import { isOnboardingDone } from '@/lib/onboarding';
 import { useSoftMotion } from '@/lib/animation';
-import { useAppStore } from '@/store/useAppStore';
+import { useStepState } from '@/lib/hooks/useStepState';
+import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 interface GlobalStats {
   totalMessages: number;
@@ -20,32 +21,30 @@ interface GlobalStats {
   lightsToday: number;
 }
 
-const actions = [
-  {
-    title: '🌑 Написать своё',
-    description: 'Выплесни то, что давит на душу. Здесь тебя услышат без оценок.',
-    href: '/write',
-  },
-  {
-    title: '💫 Поддержать кого-то',
-    description: 'Поделись теплом с незнакомцем. Иногда слова поддержки меняют мир.',
-    href: '/support',
-  },
-];
-
 export default function HomePage() {
   const router = useRouter();
-  const setDeviceId = useAppStore((state) => state.setDeviceId);
+  const { preset, vocabulary } = useVocabulary();
+  const steps = useMemo(() => getFlowSteps(preset), [preset]);
+  const stepper = useStepState({ total: steps.length, initial: 0 });
+  const actions = useMemo(
+    () => [
+      {
+        title: `✨ ${vocabulary.ctaWrite}`,
+        description: 'Поделись искрой — коротким сообщением о своём состоянии. Это безопасно и анонимно.',
+        href: '/write',
+      },
+      {
+        title: `💬 ${vocabulary.ctaSupport}`,
+        description: 'Выбери искру другого человека и ответь эхом поддержки, чтобы замкнуть круг заботы.',
+        href: '/support',
+      },
+    ],
+    [vocabulary],
+  );
   const [stats, setStats] = useState<GlobalStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const { initial, animate, transition } = useSoftMotion();
-
-  const handleStart = () => {
-    const id = getOrCreateDeviceId();
-    setDeviceId(id);
-    router.push('/write');
-  };
 
   useEffect(() => {
     const loadStats = async () => {
@@ -85,16 +84,12 @@ export default function HomePage() {
         >
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-4">
-              <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">дай свет — получи свет</p>
-              <h1 className="text-3xl font-semibold text-text-primary sm:text-4xl">
-                Место, где незнакомцы поддерживают друг друга
-              </h1>
-              <p className="max-w-2xl text-lg text-text-secondary">
-                Напиши о своём состоянии анонимно и получи искреннюю поддержку. Перед этим помоги кому-то ещё — так мы создаём круг заботы.
-              </p>
+              <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">зажги искру — ответь эхом</p>
+              <h1 className="text-3xl font-semibold text-text-primary sm:text-4xl">{vocabulary.homeHeroTitle}</h1>
+              <p className="max-w-2xl text-lg text-text-secondary">{vocabulary.homeHeroSubtitle}</p>
             </div>
-            <Button onClick={handleStart} size="lg" className="w-full sm:w-auto">
-              Начать путь света
+            <Button onClick={() => router.push('/write')} size="lg" className="w-full sm:w-auto">
+              {vocabulary.ctaWrite}
             </Button>
           </div>
         </motion.section>
@@ -130,10 +125,10 @@ export default function HomePage() {
           transition={infoTransition}
         >
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Путь света</p>
-            <h3 className="text-xl font-semibold text-text-primary">Как будет выглядеть твой путь</h3>
+            <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Путь искры</p>
+            <h3 className="text-xl font-semibold text-text-primary">Как искра превращается в эхо</h3>
           </div>
-          <Stepper steps={FLOW_STEPS} current={0} />
+          <Stepper steps={steps} activeIndex={stepper.active} />
         </motion.section>
 
         <motion.section
@@ -145,15 +140,15 @@ export default function HomePage() {
           <div className="space-y-3">
             <h3 className="text-xl font-semibold text-text-primary">Как это работает?</h3>
             <ul className="space-y-2 text-text-secondary">
-              <li>1. Напиши о своём состоянии — это останется анонимно.</li>
-              <li>2. Поддержи кого-то другого и почувствуй связь.</li>
-              <li>3. Получи ответ-свет и сохрани его в свой сад.</li>
+              <li>1. Зажги искру — коротко расскажи о своём состоянии анонимно.</li>
+              <li>2. Ответь эхом — поддержи искру другого человека теплом своих слов.</li>
+              <li>3. Сохрани эхо — возвращайся к поддержке в своём саду когда нужно.</li>
             </ul>
           </div>
           <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
             <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">тонкая магия</p>
             <p className="mt-4 text-lg">
-              Каждый свет — это чьи-то тёплые слова. Собирай их, делись ими и помни: ты не один.
+              Каждая искра — это чьи-то чувства, а каждое эхо — живой отклик. Собирай их бережно и возвращайся, когда нужно тепла.
             </p>
           </div>
         </motion.section>
@@ -169,18 +164,18 @@ export default function HomePage() {
               <div className="space-y-1">
                 <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Сегодня</p>
                 <p className="text-2xl font-semibold text-text-primary">{stats.lightsToday}</p>
-                <p className="text-sm text-text-secondary">зажжено огоньков за последние 24 часа</p>
+                <p className="text-sm text-text-secondary">зажжено искр за последние 24 часа</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего сообщений</p>
+                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего искр</p>
                 <p className="text-2xl font-semibold text-text-primary">{stats.totalMessages}</p>
                 <p className="text-sm text-text-secondary">историй, которыми поделились</p>
-                <p className="text-xs text-text-tertiary">ответов отправлено: {stats.totalResponses}</p>
+                <p className="text-xs text-text-tertiary">эхо поддержки: {stats.totalResponses}</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут поддержки</p>
+                <div className="space-y-1">
+                  <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут отклика</p>
                 <p className="text-2xl font-semibold text-text-primary">{stats.messagesWaiting}</p>
-                <p className="text-sm text-text-secondary">сообщений прямо сейчас в очереди</p>
+                <p className="text-sm text-text-secondary">искр прямо сейчас в очереди</p>
               </div>
             </>
           ) : (
@@ -191,6 +186,7 @@ export default function HomePage() {
         </motion.section>
       </div>
       <OnboardingModal open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
+      <MobileStickyActions />
     </>
   );
 }
