@@ -37,7 +37,32 @@ export async function GET(request: NextRequest) {
       return serializeDoc({ id: doc.id, ...data });
     });
 
-    return NextResponse.json({ messages });
+    if (messages.length === 0) {
+      return NextResponse.json({ messages: [] });
+    }
+
+    const responsesCollection = db.collection('responses');
+    const responseSnapshots = await Promise.all(
+      messages.map((message) =>
+        responsesCollection.where('messageId', '==', message.id).orderBy('createdAt', 'asc').get(),
+      ),
+    );
+
+    const responsesByMessageId = new Map<string, Record<string, unknown>[]>();
+    responseSnapshots.forEach((snapshot, index) => {
+      const messageId = messages[index].id as string;
+      const responses = snapshot.docs.map((doc) =>
+        serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) }),
+      );
+      responsesByMessageId.set(messageId, responses);
+    });
+
+    const messagesWithResponses = messages.map((message) => ({
+      ...message,
+      responses: responsesByMessageId.get(message.id as string) ?? [],
+    }));
+
+    return NextResponse.json({ messages: messagesWithResponses });
   } catch (error) {
     console.error('Failed to fetch user messages', error);
     return NextResponse.json({ error: 'Не удалось получить сообщения.' }, { status: 500 });

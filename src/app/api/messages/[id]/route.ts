@@ -28,16 +28,15 @@ export async function GET(_request: NextRequest, { params }: Params) {
       .collection('responses')
       .where('messageId', '==', id)
       .orderBy('createdAt', 'asc')
-      .limit(1)
       .get();
 
-    const responseData = responseSnapshot.docs[0]
-      ? serializeDoc({ id: responseSnapshot.docs[0].id, ...(responseSnapshot.docs[0].data() as Record<string, unknown>) })
-      : undefined;
+    const responses = responseSnapshot.docs.map((doc) =>
+      serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) }),
+    );
 
     return NextResponse.json({
       message: serializeDoc({ id: messageDoc.id, ...(messageDoc.data() as Record<string, unknown>) }),
-      response: responseData,
+      responses,
     });
   } catch (error) {
     console.error('Failed to fetch message detail', error);

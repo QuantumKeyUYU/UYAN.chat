@@ -14,15 +14,6 @@ import { saveLight } from '@/lib/garden';
 
 type MessageStatus = 'waiting' | 'answered' | 'expired';
 
-type MessageSummary = {
-  id: string;
-  text: string;
-  category: string;
-  status: MessageStatus;
-  createdAt: number;
-  answeredAt?: number | null;
-};
-
 type ResponseDetail = {
   id: string;
   text: string;
@@ -32,10 +23,15 @@ type ResponseDetail = {
   moderationNote?: string | null;
 };
 
-interface MessageDetail {
-  message: MessageSummary;
-  response?: ResponseDetail;
-}
+type MessageWithResponses = {
+  id: string;
+  text: string;
+  category: string;
+  status: MessageStatus;
+  createdAt: number;
+  answeredAt?: number | null;
+  responses: ResponseDetail[];
+};
 
 const statusLabels: Record<MessageStatus, string> = {
   waiting: 'Ждёт ответ',
@@ -43,41 +39,39 @@ const statusLabels: Record<MessageStatus, string> = {
   expired: 'История закрыта',
 };
 
-const normalizeMessage = (raw: any): MessageSummary => ({
+const normalizeResponse = (raw: any): ResponseDetail => ({
+  id: raw.id,
+  text: raw.text,
+  createdAt: raw.createdAt,
+  reportCount: raw.reportCount ?? 0,
+  hidden: Boolean(raw.hidden),
+  moderationNote: raw.moderationNote ?? null,
+});
+
+const normalizeMessageWithResponses = (raw: any): MessageWithResponses => ({
   id: raw.id,
   text: raw.text,
   category: raw.category,
   status: raw.status,
   createdAt: raw.createdAt,
   answeredAt: raw.answeredAt ?? null,
-});
-
-const normalizeDetail = (raw: any): MessageDetail => ({
-  message: normalizeMessage(raw.message),
-  response: raw.response
-    ? {
-        id: raw.response.id,
-        text: raw.response.text,
-        createdAt: raw.response.createdAt,
-        reportCount: raw.response.reportCount ?? 0,
-        hidden: Boolean(raw.response.hidden),
-        moderationNote: raw.response.moderationNote ?? null,
-      }
-    : undefined,
+  responses: Array.isArray(raw.responses) ? raw.responses.map((item: any) => normalizeResponse(item)) : [],
 });
 
 export default function MyLightsPage() {
   const deviceId = useAppStore((state) => state.deviceId);
-  const [messages, setMessages] = useState<MessageSummary[]>([]);
+  const [messages, setMessages] = useState<MessageWithResponses[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<MessageDetail | null>(null);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState('offensive');
-  const [reportText, setReportText] = useState('');
-  const [reportLoading, setReportLoading] = useState(false);
   const [pageNotice, setPageNotice] = useState<{
     variant: 'error' | 'success' | 'info';
     message: string;
+  } | null>(null);
+  const [reportReason, setReportReason] = useState('offensive');
+  const [reportText, setReportText] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportContext, setReportContext] = useState<{
+    message: MessageWithResponses;
+    response: ResponseDetail;
   } | null>(null);
 
   const loadMessages = async () => {
@@ -87,7 +81,7 @@ export default function MyLightsPage() {
       const response = await fetch(`/api/messages/my?deviceId=${deviceId}`);
       if (!response.ok) throw new Error('Ошибка загрузки');
       const data = await response.json();
-      const normalized = (data.messages ?? []).map((item: any) => normalizeMessage(item));
+      const normalized = (data.messages ?? []).map((item: any) => normalizeMessageWithResponses(item));
       setMessages(normalized);
       setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
     } catch (err) {
@@ -105,47 +99,55 @@ export default function MyLightsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
-  const openDetail = async (messageId: string) => {
-    try {
-      const response = await fetch(`/api/messages/${messageId}`);
-      if (!response.ok) throw new Error('Ошибка');
-      const data = await response.json();
-      setSelected(normalizeDetail(data));
-    } catch (err) {
-      console.error(err);
-      setPageNotice({ variant: 'error', message: 'Не получилось открыть сообщение. Попробуй обновить страницу.' });
-    }
-  };
+  const sortedMessages = useMemo(
+    () =>
+      [...messages].sort((a, b) => {
+        return b.createdAt - a.createdAt;
+      }),
+    [messages],
+  );
 
-  const saveToGarden = () => {
-    if (!selected?.response) return;
+  const handleSaveToGarden = (message: MessageWithResponses, response: ResponseDetail) => {
+    if (response.hidden) return;
     saveLight({
-      id: selected.response.id,
-      originalMessage: selected.message.text,
-      responseText: selected.response.text,
-      category: selected.message.category,
+      id: response.id,
+      originalMessage: message.text,
+      responseText: response.text,
+      category: message.category,
       savedAt: Date.now(),
     });
     setPageNotice({ variant: 'success', message: 'Ответ сохранён в саду света ✨' });
   };
 
+  const openReportModal = (message: MessageWithResponses, response: ResponseDetail) => {
+    setReportContext({ message, response });
+    setReportReason('offensive');
+    setReportText('');
+  };
+
+  const closeReportModal = () => {
+    setReportContext(null);
+    setReportLoading(false);
+  };
+
   const submitReport = async () => {
-    if (!selected?.response || !deviceId) return;
+    if (!reportContext || !deviceId) return;
     setReportLoading(true);
     try {
       const response = await fetch('/api/reports/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          responseId: selected.response.id,
+          responseId: reportContext.response.id,
           reason: reportReason,
           description: reportText,
           deviceId,
         }),
       });
       if (!response.ok) throw new Error('Не удалось отправить жалобу');
-      setReportOpen(false);
+      closeReportModal();
       setReportText('');
+      setReportReason('offensive');
       setPageNotice({ variant: 'success', message: 'Жалоба отправлена. Спасибо за заботу о пространстве.' });
     } catch (err) {
       console.error(err);
@@ -154,14 +156,6 @@ export default function MyLightsPage() {
       setReportLoading(false);
     }
   };
-
-  const sortedMessages = useMemo(
-    () =>
-      [...messages].sort((a, b) => {
-        return a.createdAt > b.createdAt ? -1 : 1;
-      }),
-    [messages],
-  );
 
   if (!deviceId) {
     return (
@@ -199,7 +193,7 @@ export default function MyLightsPage() {
 
       <div className="space-y-4">
         {sortedMessages.map((message) => (
-          <Card key={message.id} className="space-y-3">
+          <Card key={message.id} className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="rounded-full bg-uyan-darkness/30 px-3 py-1 text-xs uppercase tracking-[0.3em] text-text-secondary">
                 {statusLabels[message.status]}
@@ -207,63 +201,67 @@ export default function MyLightsPage() {
               <span className="text-sm text-text-tertiary">Категория: {message.category}</span>
             </div>
             <p className="text-text-primary">{message.text}</p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-text-tertiary">Создано: {new Date(message.createdAt).toLocaleString()}</span>
-              <Button
-                variant="secondary"
-                onClick={() => openDetail(message.id)}
-                className="w-full sm:w-auto"
-              >
-                Подробнее
-              </Button>
+            </div>
+
+            <div className="space-y-3 rounded-2xl bg-bg-tertiary/40 p-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">ответы</p>
+              {message.responses.length === 0 ? (
+                <p className="text-text-secondary">Ответов пока нет, но кто-то может написать позже ✨</p>
+              ) : (
+                <div className="space-y-4">
+                  {message.responses.map((response) => (
+                    <div key={response.id} className="space-y-3 rounded-xl bg-bg-primary/40 p-4">
+                      {response.hidden ? (
+                        <div className="space-y-2">
+                          <p className="text-text-secondary">Этот ответ скрыт модерацией.</p>
+                          {response.moderationNote ? (
+                            <p className="text-sm text-text-tertiary">Комментарий модератора: {response.moderationNote}</p>
+                          ) : null}
+                          <span className="text-sm text-text-tertiary">
+                            Получен: {new Date(response.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-text-primary">{response.text}</p>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <span className="text-sm text-text-tertiary">
+                              Получен: {new Date(response.createdAt).toLocaleString()}
+                            </span>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <Button onClick={() => handleSaveToGarden(message, response)} className="w-full sm:w-auto">
+                                Сохранить в сад
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={() => openReportModal(message, response)}
+                                className="w-full sm:w-auto"
+                              >
+                                Пожаловаться
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         ))}
       </div>
 
-      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title="Ответ на твоё сообщение">
-        {selected ? (
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-uyan-darkness">твоё сообщение</p>
-              <p className="mt-2 rounded-xl bg-bg-tertiary/40 p-4 text-text-primary">{selected.message.text}</p>
-            </div>
-            {selected.response ? (
-              selected.response.hidden ? (
-                <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">свет, который ты получил</p>
-                  <p className="rounded-xl bg-uyan-light/10 p-4 text-text-secondary">
-                    Этот ответ скрыт модерацией.
-                  </p>
-                  {selected.response.moderationNote ? (
-                    <p className="text-sm text-text-tertiary">
-                      Комментарий модератора: {selected.response.moderationNote}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">свет, который ты получил</p>
-                  <p className="rounded-xl bg-uyan-light/10 p-4 text-text-primary">{selected.response.text}</p>
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button onClick={saveToGarden} className="w-full sm:w-auto">
-                      Сохранить в сад
-                    </Button>
-                    <Button variant="secondary" onClick={() => setReportOpen(true)} className="w-full sm:w-auto">
-                      Пожаловаться
-                    </Button>
-                  </div>
-                </div>
-              )
-            ) : (
-              <p className="text-text-secondary">Ответ пока в пути. Возвращайся позже ✨</p>
-            )}
-          </div>
-        ) : null}
-      </Modal>
-
-      <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Пожаловаться на ответ">
+      <Modal open={Boolean(reportContext)} onClose={closeReportModal} title="Пожаловаться на ответ">
         <div className="space-y-4">
+          <div className="space-y-2 rounded-xl bg-bg-tertiary/40 p-4">
+            <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">фрагмент ответа</p>
+            <p className="text-text-primary">
+              {reportContext?.response.hidden ? 'Ответ скрыт модерацией.' : reportContext?.response.text}
+            </p>
+          </div>
           <label className="flex flex-col gap-2 text-sm text-text-secondary">
             Причина
             <select
