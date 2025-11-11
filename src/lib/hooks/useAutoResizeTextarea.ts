@@ -1,8 +1,11 @@
 'use client';
 
-import { RefObject, useLayoutEffect } from 'react';
+import { MutableRefObject, useLayoutEffect } from 'react';
 
-export const useAutoResizeTextarea = (ref: RefObject<HTMLTextAreaElement>, value: string) => {
+export const useAutoResizeTextarea = (
+  ref: MutableRefObject<HTMLTextAreaElement | null>,
+  value: string,
+) => {
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;

@@ -54,8 +54,13 @@ export function ComposeForm({
 
   const textValue = watch('text') ?? '';
   const honeypotRegister = register('honeypot');
+  const textRegister = register('text', {
+    required: 'Сообщение не может быть пустым',
+    minLength: { value: minLength, message: `Минимум ${minLength} символов` },
+    maxLength: { value: maxLength, message: `Максимум ${maxLength} символов` },
+  });
   const isInitial = useRef(true);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fieldId = useId();
   const hintId = `${fieldId}-hint`;
   const counterId = `${fieldId}-counter`;
@@ -92,17 +97,16 @@ export function ComposeForm({
 
       <div>
         <Textarea
-          ref={textareaRef}
           rows={4}
           maxLength={maxLength}
           placeholder={placeholder}
           aria-describedby={`${hintId} ${counterId}`}
           aria-invalid={Boolean(errors.text)}
-          {...register('text', {
-            required: 'Сообщение не может быть пустым',
-            minLength: { value: minLength, message: `Минимум ${minLength} символов` },
-            maxLength: { value: maxLength, message: `Максимум ${maxLength} символов` },
-          })}
+          {...textRegister}
+          ref={(node) => {
+            textRegister.ref(node);
+            textareaRef.current = node;
+          }}
           className="min-h-[120px] w-full resize-none"
         />
         <div className="mt-2 flex flex-col gap-1 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
