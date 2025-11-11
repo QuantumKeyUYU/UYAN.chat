@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -53,6 +53,16 @@ export default function SettingsPage() {
   const [attachMessage, setAttachMessage] = useState<string | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [confirmAttachOpen, setConfirmAttachOpen] = useState(false);
+  const [deviceKeyInput, setDeviceKeyInput] = useState('');
+  const [deviceKeyBusy, setDeviceKeyBusy] = useState(false);
+  const [deviceKeyMessage, setDeviceKeyMessage] = useState<string | null>(null);
+  const [deviceKeyError, setDeviceKeyError] = useState<string | null>(null);
+
+  const maskedDeviceId = useMemo(() => {
+    if (!deviceId) return '—';
+    if (deviceId.length <= 8) return deviceId;
+    return `${deviceId.slice(0, 4)}…${deviceId.slice(-4)}`;
+  }, [deviceId]);
 
   const refreshJourneyStatus = useCallback(async () => {
     if (!deviceId) {
@@ -89,6 +99,54 @@ export default function SettingsPage() {
     void refreshJourneyStatus();
   }, [refreshJourneyStatus]);
 
+  const handleCopyDeviceKey = async () => {
+    if (!deviceId) {
+      setDeviceKeyError('Ключ ещё не создан. Поделись мыслью или откликом, чтобы мы его сформировали.');
+      setDeviceKeyMessage(null);
+      return;
+    }
+    if (!navigator.clipboard) {
+      setDeviceKeyError('Clipboard API недоступен. Скопируй ключ вручную.');
+      setDeviceKeyMessage(null);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(deviceId);
+      setDeviceKeyMessage('Ключ скопирован. Сохрани его в надёжном месте.');
+      setDeviceKeyError(null);
+    } catch (error) {
+      console.warn('[settings] Failed to copy device key', error);
+      setDeviceKeyError('Не получилось скопировать ключ. Сохрани его вручную.');
+      setDeviceKeyMessage(null);
+    }
+  };
+
+  const handleApplyDeviceKey = async () => {
+    const nextKey = deviceKeyInput.trim();
+    if (nextKey.length < 8) {
+      setDeviceKeyError('Введите ключ целиком — минимум 8 символов.');
+      setDeviceKeyMessage(null);
+      return;
+    }
+    setDeviceKeyBusy(true);
+    setDeviceKeyMessage(null);
+    setDeviceKeyError(null);
+    try {
+      setDeviceId(nextKey);
+      setStats(null);
+      setDeviceKeyMessage('Ключ применён. Обновляем данные для этого устройства.');
+      setDeviceKeyInput('');
+      await refresh();
+      await refreshJourneyStatus();
+    } catch (error) {
+      console.warn('[settings] Failed to apply device key', error);
+      setDeviceKeyError('Не удалось применить ключ. Попробуй ещё раз.');
+      setDeviceKeyMessage(null);
+    } finally {
+      setDeviceKeyBusy(false);
+    }
+  };
+
   const handleReducedMotionToggle = () => {
     const next = !reducedMotion;
     setReducedMotion(next);
@@ -97,7 +155,7 @@ export default function SettingsPage() {
 
   const handleClearGarden = () => {
     clearGarden();
-    setGardenMessage('Сад эх очищен. Эхо можно собирать заново.');
+    setGardenMessage('Архив откликов очищен. Можно сохранять заново.');
     setPurgeMessage(null);
     setPurgeError(null);
   };
@@ -199,7 +257,7 @@ export default function SettingsPage() {
           void refresh();
         }
       }
-      setAttachMessage('Путь восстановлен. Теперь этот девайс идёт вместе с сохранёнными искрами и эхом.');
+      setAttachMessage('Путь восстановлен. Теперь это устройство идёт вместе с сохранёнными мыслями и откликами.');
       setAttachKey('');
       setBackupKey(null);
       void refreshJourneyStatus();
@@ -310,8 +368,73 @@ export default function SettingsPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-8">
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
-        <p className="text-text-secondary">Немного управления искрами и эхом.</p>
+        <p className="text-text-secondary">Раздел для управления ключом устройства и настройками.</p>
       </div>
+
+      <Card className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-text-primary">Ключ устройства</h2>
+          <p className="text-sm text-text-secondary">Этот ключ хранит твой путь. Скопируй его, чтобы перенести мысли и отклики на другое устройство.</p>
+        </div>
+        <div className="rounded-2xl border border-white/5 bg-bg-secondary/60 p-4 text-sm text-text-secondary">
+          <p className="text-text-primary">
+            Текущий ключ: <span className="font-mono text-lg text-text-primary">{maskedDeviceId}</span>
+          </p>
+          <p className="mt-2">Полный ключ остаётся скрытым. Мы покажем его целиком при копировании.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button onClick={handleCopyDeviceKey} className="w-full sm:w-auto" disabled={!deviceId}>
+            Скопировать ключ
+          </Button>
+        </div>
+        <div className="space-y-3">
+          <label className="flex flex-col gap-2 text-sm text-text-secondary">
+            Ввести другой ключ
+            <input
+              type="text"
+              value={deviceKeyInput}
+              onChange={(event) => {
+                setDeviceKeyInput(event.target.value);
+                setDeviceKeyError(null);
+                setDeviceKeyMessage(null);
+              }}
+              placeholder="device_XXXXXXXXXXXX"
+              className="w-full rounded-xl border border-white/10 bg-bg-primary/60 p-3 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline focus:outline-2 focus:outline-uyan-light"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="text"
+              autoCapitalize="characters"
+              maxLength={64}
+            />
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              onClick={handleApplyDeviceKey}
+              disabled={deviceKeyBusy || deviceKeyInput.trim().length < 8}
+              className="w-full sm:w-auto"
+            >
+              {deviceKeyBusy ? 'Применяем…' : 'Применить ключ'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setDeviceKeyInput('');
+                setDeviceKeyMessage(null);
+                setDeviceKeyError(null);
+              }}
+            >
+              Очистить поле
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-2 text-sm">
+          {deviceKeyMessage ? <Notice variant="success">{deviceKeyMessage}</Notice> : null}
+          {deviceKeyError ? <Notice variant="error">{deviceKeyError}</Notice> : null}
+        </div>
+      </Card>
 
       <Card className="space-y-6">
         <div className="space-y-2">
@@ -342,10 +465,9 @@ export default function SettingsPage() {
 
       <Card className="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-text-primary">Портативный путь</h2>
+          <h2 className="text-xl font-semibold text-text-primary">Резервная копия ключа</h2>
           <p className="text-sm text-text-secondary">
-            Каждая история, огонёк и статистика привязаны к твоему устройству. Здесь можно бережно сохранить этот путь и
-            восстановить его на другом телефоне или браузере — без логинов и имён.
+            Каждая мысль, отклик и статистика привязаны к твоему устройству. Здесь можно сохранить ключ и перенести путь на другой девайс или восстановить его в другом браузере — без логинов и имён.
           </p>
         </div>
 
@@ -361,7 +483,7 @@ export default function SettingsPage() {
               </p>
               <p>
                 Ключ знает о <span className="font-semibold text-text-primary">{journeyStatus.attachedDevices}</span>{' '}
-                устройстве(ах). Сохрани его — и можно продолжать путь искры на любом девайсе.
+                устройстве(ах). Сохрани его — и можно продолжать путь на любом устройстве.
               </p>
               {journeyStatus.lastKeyPreview ? (
                 <p className="text-xs text-text-tertiary">
@@ -375,7 +497,7 @@ export default function SettingsPage() {
               ) : null}
             </div>
           ) : (
-            <p>Этот путь только рождается — отправь сообщение или сохрани ключ, чтобы начать.</p>
+            <p>Этот путь только начинается — поделись мыслью или сохрани ключ, чтобы продолжить его на других устройствах.</p>
           )}
         </div>
 
@@ -383,7 +505,7 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-text-primary">Сохранить мой путь</h3>
             <p className="text-sm text-text-secondary">
-              Сгенерируй тёплый секретный ключ, запиши его в заметку или сфотографируй. Мы не покажем его повторно.
+              Сгенерируй резервный ключ, запиши его в заметку или сфотографируй. Мы не покажем его повторно.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button onClick={handleCreateBackup} disabled={backupLoading || !deviceId} className="w-full sm:w-auto">
@@ -422,7 +544,7 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-text-primary">Восстановить на этом устройстве</h3>
             <p className="text-sm text-text-secondary">
-              Введи сохранённый ключ — и мы подтянем сообщения, сад и статистику. Никому не передавай его, иначе другой
+              Введи сохранённый ключ — и мы подтянем мысли, отклики и статистику. Никому не передавай его, иначе другой
               человек получит доступ к твоему пути.
             </p>
             <form onSubmit={handleAttachSubmit} className="space-y-3">
@@ -470,7 +592,7 @@ export default function SettingsPage() {
         </div>
 
         <p className="text-xs text-text-tertiary">
-          Не делись ключом с незнакомыми людьми. Он не содержит личных данных, но открывает доступ к твоим искрам и эхам.
+          Не делись ключом с незнакомыми людьми. Он не содержит личных данных, но открывает доступ к твоим мыслям и откликам.
         </p>
       </Card>
 
@@ -488,7 +610,7 @@ export default function SettingsPage() {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
-            Очистить сад эх
+            Очистить архив откликов
           </Button>
           <Button variant="ghost" onClick={handleResetDevice} className="w-full sm:w-auto">
             Сбросить идентификатор устройства
@@ -520,7 +642,7 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={resetDialogOpen}
         title="Сбросить идентификатор устройства?"
-        description="Твоя текущая статистика и сад эх обнулится. Это действие нельзя отменить."
+        description="Твоя текущая статистика и архив откликов обнулятся. Это действие нельзя отменить."
         confirmLabel="Сбросить"
         onConfirm={confirmResetDevice}
         onCancel={cancelResetDevice}

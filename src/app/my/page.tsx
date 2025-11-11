@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -39,9 +40,9 @@ type MessageWithResponses = {
 };
 
 const statusLabels: Record<MessageStatus, string> = {
-  waiting: 'Ждёт эхо',
-  answered: 'Эхо получено',
-  expired: 'Искра закрыта',
+  waiting: 'Ждёт отклик',
+  answered: 'Отклик получен',
+  expired: 'Мысль закрыта',
 };
 
 const normalizeResponse = (raw: any): ResponseDetail => ({
@@ -98,7 +99,7 @@ export default function MyLightsPage() {
       setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
     } catch (err) {
       console.error(err);
-      setPageNotice({ variant: 'error', message: 'Не получилось загрузить сообщения. Попробуй обновить позже.' });
+      setPageNotice({ variant: 'error', message: 'Не получилось загрузить мысли и отклики. Попробуй обновить позже.' });
     } finally {
       setLoading(false);
     }
@@ -142,7 +143,7 @@ export default function MyLightsPage() {
       category: message.category,
       savedAt: Date.now(),
     });
-    setPageNotice({ variant: 'success', message: `Эхо сохранено в ${vocabulary.garden} ✨` });
+    setPageNotice({ variant: 'success', message: `Отклик сохранён в «${vocabulary.garden}» ✨` });
   };
 
   const openReportModal = (message: MessageWithResponses, response: ResponseDetail) => {
@@ -185,10 +186,12 @@ export default function MyLightsPage() {
   if (!deviceId) {
     return (
       <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
+        Не удалось определить ключ устройства. Перезагрузи страницу или попробуй открыть сервис заново.
       </div>
     );
   }
+
+  const hasMessages = sortedMessages.length > 0;
 
   return (
     <motion.div
@@ -200,21 +203,27 @@ export default function MyLightsPage() {
       <Stepper steps={steps} activeIndex={stepIndex} />
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">✨ Мои отклики</h1>
-        <p className="text-text-secondary">Следи за статусом своих искр и сохраняй эхо, которое греет.</p>
+        <p className="text-text-secondary">Следи за статусом своих мыслей и сохраняй важные отклики в архиве.</p>
       </div>
 
       {pageNotice ? <Notice variant={pageNotice.variant}>{pageNotice.message}</Notice> : null}
 
       {loading ? <p className="text-text-secondary">Загружаем...</p> : null}
 
-      {sortedMessages.length === 0 && !loading ? (
-        <Card className="space-y-3 text-center">
+      {!hasMessages && !loading ? (
+        <Card className="space-y-4 text-center">
           <div className="text-3xl">🌱</div>
-          <h2 className="text-xl font-semibold text-text-primary">Здесь появятся твои искры</h2>
+          <h2 className="text-xl font-semibold text-text-primary">Здесь появятся твои мысли и отклики</h2>
           <p className="text-text-secondary">
-            Когда поделишься искрой, мы соберём здесь статусы и эхо, чтобы ты мог возвращаться к ним в любое время. Сохрани ключ
-            в настройках, если хочешь забрать этот путь на другой девайс.
+            Похоже, ты зашёл с нового устройства. Мысли и отклики привязаны к ключу устройства. Если уже делился раньше,
+            импортируй ключ в настройках — и всё подтянется.
           </p>
+          <Link
+            href="/settings"
+            className="inline-flex items-center justify-center rounded-xl bg-uyan-action px-5 py-3 text-sm font-semibold text-bg-primary transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uyan-action"
+          >
+            Открыть настройки
+          </Link>
         </Card>
       ) : null}
 
@@ -233,16 +242,16 @@ export default function MyLightsPage() {
             </div>
 
             <div className="space-y-3 rounded-2xl bg-bg-tertiary/40 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">эхо</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">отклики</p>
               {message.responses.length === 0 ? (
-                <p className="text-text-secondary">Эхо пока нет, но кто-то может ответить позже ✨</p>
+                <p className="text-text-secondary">Откликов пока нет, но кто-то может поддержать чуть позже ✨</p>
               ) : (
                 <div className="space-y-4">
                   {message.responses.map((response) => (
                     <div key={response.id} className="space-y-3 rounded-xl bg-bg-primary/40 p-4">
                       {response.hidden ? (
                         <div className="space-y-2">
-                          <p className="text-text-secondary">Этот ответ скрыт модерацией.</p>
+                          <p className="text-text-secondary">Этот отклик скрыт модерацией.</p>
                           {response.moderationNote ? (
                             <p className="text-sm text-text-tertiary">Комментарий модератора: {response.moderationNote}</p>
                           ) : null}
@@ -259,7 +268,7 @@ export default function MyLightsPage() {
                             </span>
                             <div className="flex flex-col gap-2 sm:flex-row">
                               <Button onClick={() => handleSaveToGarden(message, response)} className="w-full sm:w-auto">
-                                Сохранить в сад
+                                Сохранить в архив
                               </Button>
                               <Button
                                 variant="secondary"
@@ -281,12 +290,12 @@ export default function MyLightsPage() {
         ))}
       </div>
 
-      <Modal open={Boolean(reportContext)} onClose={closeReportModal} title="Пожаловаться на ответ">
+      <Modal open={Boolean(reportContext)} onClose={closeReportModal} title="Пожаловаться на отклик">
         <div className="space-y-4">
           <div className="space-y-2 rounded-xl bg-bg-tertiary/40 p-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">фрагмент ответа</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">фрагмент отклика</p>
             <p className="text-text-primary">
-              {reportContext?.response.hidden ? 'Эхо скрыто модерацией.' : reportContext?.response.text}
+              {reportContext?.response.hidden ? 'Отклик скрыт модерацией.' : reportContext?.response.text}
             </p>
           </div>
           <label className="flex flex-col gap-2 text-sm text-text-secondary">

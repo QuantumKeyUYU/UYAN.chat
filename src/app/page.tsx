@@ -30,12 +30,12 @@ export default function HomePage() {
     () => [
       {
         title: `✨ ${vocabulary.ctaWrite}`,
-        description: 'Поделись искрой — коротким сообщением о своём состоянии. Это безопасно и анонимно.',
+        description: 'Напиши коротко, что происходит внутри. Твой голос останется анонимным, но его услышат.',
         href: '/write',
       },
       {
         title: `💬 ${vocabulary.ctaSupport}`,
-        description: 'Выбери искру другого человека и ответь эхом поддержки, чтобы замкнуть круг заботы.',
+        description: 'Выбери мысль в потоке и ответь словами поддержки, чтобы кто-то почувствовал рядом человека.',
         href: '/support',
       },
     ],
@@ -84,13 +84,18 @@ export default function HomePage() {
         >
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-4">
-              <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">зажги искру — ответь эхом</p>
+              <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">пространство без лайков и шума</p>
               <h1 className="text-3xl font-semibold text-text-primary sm:text-4xl">{vocabulary.homeHeroTitle}</h1>
               <p className="max-w-2xl text-lg text-text-secondary">{vocabulary.homeHeroSubtitle}</p>
             </div>
             <Button onClick={() => router.push('/write')} size="lg" className="w-full sm:w-auto">
               {vocabulary.ctaWrite}
             </Button>
+          </div>
+          <div className="mt-6 grid gap-3 text-sm text-text-tertiary sm:grid-cols-3">
+            <p>Анонимно, без рейтингов и гонки за вниманием.</p>
+            <p>Каждая мысль получает тёплый отклик от человека, а не алгоритма.</p>
+            <p>Можно прийти с телефона, с компьютера и продолжать путь с одним ключом устройства.</p>
           </div>
         </motion.section>
 
@@ -125,8 +130,8 @@ export default function HomePage() {
           transition={infoTransition}
         >
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Путь искры</p>
-            <h3 className="text-xl font-semibold text-text-primary">Как искра превращается в эхо</h3>
+            <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Путь мысли</p>
+            <h3 className="text-xl font-semibold text-text-primary">Как мысль получает отклик</h3>
           </div>
           <Stepper steps={steps} activeIndex={stepper.active} />
         </motion.section>
@@ -138,17 +143,18 @@ export default function HomePage() {
           transition={infoTransition}
         >
           <div className="space-y-3">
-            <h3 className="text-xl font-semibold text-text-primary">Как это работает?</h3>
+            <h3 className="text-xl font-semibold text-text-primary">Что ждёт внутри</h3>
             <ul className="space-y-2 text-text-secondary">
-              <li>1. Зажги искру — коротко расскажи о своём состоянии анонимно.</li>
-              <li>2. Ответь эхом — поддержи искру другого человека теплом своих слов.</li>
-              <li>3. Сохрани эхо — возвращайся к поддержке в своём саду когда нужно.</li>
+              <li>1. Поделиться мыслью — коротко и честно описать своё состояние.</li>
+              <li>2. Откликнуться — выбрать чужую мысль и поддержать несколькими тёплыми фразами.</li>
+              <li>3. Сохранять — важные слова остаются в архиве откликов и всегда рядом.</li>
             </ul>
           </div>
           <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
-            <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">тонкая магия</p>
+            <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">для спокойствия</p>
             <p className="mt-4 text-lg">
-              Каждая искра — это чьи-то чувства, а каждое эхо — живой отклик. Собирай их бережно и возвращайся, когда нужно тепла.
+              Здесь нет оценок и гонки. Только люди, которые готовы услышать и ответить. Всё, что нужно, — поделиться
+              мыслью или откликнуться на чью-то.
             </p>
           </div>
         </motion.section>
@@ -162,20 +168,20 @@ export default function HomePage() {
           {stats ? (
             <>
               <div className="space-y-1">
-                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Сегодня</p>
+                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">За последние 24 часа</p>
                 <p className="text-2xl font-semibold text-text-primary">{stats.lightsToday}</p>
-                <p className="text-sm text-text-secondary">зажжено искр за последние 24 часа</p>
+                <p className="text-sm text-text-secondary">мыслей появилось в потоке</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего искр</p>
+                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего мыслей</p>
                 <p className="text-2xl font-semibold text-text-primary">{stats.totalMessages}</p>
-                <p className="text-sm text-text-secondary">историй, которыми поделились</p>
-                <p className="text-xs text-text-tertiary">эхо поддержки: {stats.totalResponses}</p>
+                <p className="text-sm text-text-secondary">историй уже поделились</p>
+                <p className="text-xs text-text-tertiary">откликов отправлено: {stats.totalResponses}</p>
               </div>
-                <div className="space-y-1">
-                  <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут отклика</p>
+              <div className="space-y-1">
+                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут отклика</p>
                 <p className="text-2xl font-semibold text-text-primary">{stats.messagesWaiting}</p>
-                <p className="text-sm text-text-secondary">искр прямо сейчас в очереди</p>
+                <p className="text-sm text-text-secondary">мыслей сейчас в очереди</p>
               </div>
             </>
           ) : (

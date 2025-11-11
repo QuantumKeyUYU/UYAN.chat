@@ -36,7 +36,7 @@ export const StepperMobile = ({ steps, activeIndex, progress }: StepperMobilePro
       <div
         ref={containerRef}
         className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
-        aria-label="Прогресс"
+        aria-label="Ход участия"
       >
         {steps.map((step, index) => {
           const state = index < activeIndex ? 'done' : index === activeIndex ? 'current' : 'upcoming';
@@ -48,8 +48,8 @@ export const StepperMobile = ({ steps, activeIndex, progress }: StepperMobilePro
               : 'border-white/10 bg-bg-secondary/60';
 
           const content = (
-            <div className={`flex min-h-[160px] w-[82vw] max-w-[300px] snap-center shrink-0 flex-col gap-2 rounded-2xl border p-4 ${transitionClass} ${linkClass}`}>
-              <div className="text-xs uppercase tracking-[0.3em] text-text-tertiary">Шаг {index + 1}</div>
+            <div className={`flex min-h-[150px] w-[82vw] max-w-[300px] snap-center shrink-0 flex-col gap-2 rounded-2xl border p-4 ${transitionClass} ${linkClass}`}>
+              <div className="text-xs uppercase tracking-[0.3em] text-text-tertiary">Этап {index + 1}</div>
               <p className="text-base font-semibold text-text-primary">{step.title}</p>
               {step.description ? (
                 <p className="text-sm leading-relaxed text-text-secondary">{step.description}</p>

@@ -34,12 +34,12 @@ type MessagePayload = {
 type Phase = 'explore' | 'select' | 'custom' | 'quick' | 'ai' | 'success';
 
 const phaseDescriptions: Record<Phase, string> = {
-  explore: 'Ищем искру, которой сейчас особенно нужно эхо.',
-  select: 'Выбираем, каким способом ответить эхом поддержки.',
-  custom: 'Пишем эхо своими словами — бережно и от сердца.',
-  quick: 'Можно выбрать одно из коротких тёплых эх.',
-  ai: 'ИИ предложил подсказки, а финальное эхо — за тобой.',
-  success: 'Эхо уже в пути и скоро согреет автора.',
+  explore: 'Ищем мысль, которой сейчас особенно нужен тёплый отклик.',
+  select: 'Выбираем, каким способом ответить: своими словами или через подсказки.',
+  custom: 'Пишем отклик своими словами — бережно и по-человечески.',
+  quick: 'Можно выбрать короткий готовый отклик и дополнить его.',
+  ai: 'ИИ подскажет идеи, но финальные слова всегда за тобой.',
+  success: 'Отклик уже летит к автору и скоро его согреет.',
 };
 
 interface AiVariant {
@@ -105,12 +105,12 @@ export default function SupportPage() {
         headers: { [DEVICE_ID_HEADER]: deviceId },
       });
       if (!response.ok) {
-        throw new Error('Не удалось получить сообщение');
+        throw new Error('Не удалось получить мысль');
       }
       const data = await response.json();
       if (!data.message) {
         setMessage(null);
-        setError('Все искры уже получили своё эхо. Загляни позже.');
+        setError('Все мысли уже получили отклики. Загляни позже или поделись своей мыслью.');
         reset({ text: '', honeypot: '' });
         setCooldownSeconds(null);
         return;
@@ -120,7 +120,7 @@ export default function SupportPage() {
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setError('Кажется, все искры уже окружены эхом. Попробуй заглянуть позже.');
+      setError('Кажется, сейчас нет свободных мыслей для отклика. Попробуй заглянуть позже.');
       setMessage(null);
     } finally {
       setLoadingMessage(false);
@@ -150,7 +150,7 @@ export default function SupportPage() {
   const sendResponse = async (text: string, type: ResponseType, honeypot?: string) => {
     if (!deviceId || !message) return;
     if (isBanned) {
-      setSubmissionError('Доступ к эхам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
+      setSubmissionError('Доступ к откликам временно ограничен. Мы дадим знать, когда его получится вернуть.');
       return;
     }
     setSubmitting(true);
@@ -169,7 +169,7 @@ export default function SupportPage() {
       const result = await response.json();
       if (response.status === 403) {
         setIsBanned(true);
-        setSubmissionError('Доступ к эхам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
+        setSubmissionError('Доступ к откликам временно ограничен. Мы дадим знать, когда его получится вернуть.');
         return;
       }
       if (!response.ok) {
@@ -177,7 +177,7 @@ export default function SupportPage() {
           const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
           const minutes = Math.max(1, Math.ceil(retryAfter / 60));
           setSubmissionError(
-            `Сегодня ты уже ответил на много искр. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+            `Сегодня ты уже много откликался. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
           setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
           return;
@@ -190,11 +190,11 @@ export default function SupportPage() {
 
         const reasonMessages: Record<string, string> = {
           contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
-          spam: 'Эхо выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
-          too_short: 'Добавь немного больше тепла и конкретики, чтобы автор почувствовал эхо.',
-          too_long: 'Сократи эхо до 200 символов, чтобы его легко было дочитать.',
+          spam: 'Текст выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
+          too_short: 'Добавь ещё немного тепла и конкретики, чтобы автор почувствовал поддержку.',
+          too_long: 'Сократи отклик до 200 символов, чтобы его легко было дочитать.',
           crisis:
-            'Если текст задевает кризисную тему, лучше направить автора к специалистам и избегать подробностей.',
+            'Если текст затрагивает тему кризиса, лучше мягко направить автора к специалистам и избегать подробностей.',
         };
 
         if (result?.reason && reasonMessages[result.reason]) {
@@ -202,7 +202,7 @@ export default function SupportPage() {
           return;
         }
 
-        setSubmissionError(result?.error ?? 'Не удалось отправить эхо. Попробуй ещё раз.');
+        setSubmissionError(result?.error ?? 'Не удалось отправить отклик. Попробуй ещё раз.');
         return;
       }
       reset({ text: '', honeypot: '' });
@@ -214,7 +214,7 @@ export default function SupportPage() {
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setSubmissionError('Не получилось отправить эхо. Попробуй ещё раз.');
+      setSubmissionError('Не получилось отправить отклик. Попробуй ещё раз.');
     } finally {
       setSubmitting(false);
     }
@@ -240,15 +240,15 @@ export default function SupportPage() {
           category: message.category,
         }),
       });
-      const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error ?? 'Не удалось получить предложения');
+        throw new Error('Не удалось подготовить быстрые отклики');
       }
-      setQuickSuggestions((result.suggestions as string[]) ?? []);
+      const payload = await response.json();
+      const options = Array.isArray(payload?.suggestions) ? (payload.suggestions as string[]) : [];
+      setQuickSuggestions(options);
     } catch (err) {
       console.error(err);
-      setSubmissionError('Не получилось загрузить быстрые эхо. Попробуй ещё раз позже.');
-      setPhase('select');
+      setSubmissionError('Не получилось подготовить быстрые отклики. Попробуй позже.');
     } finally {
       setGenerating(false);
     }
@@ -262,7 +262,7 @@ export default function SupportPage() {
     setAiVariants([]);
     setSelectedAi(null);
     try {
-      const response = await fetch('/api/responses/ai-assist', {
+      const response = await fetch('/api/responses/generate-ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -270,294 +270,226 @@ export default function SupportPage() {
           category: message.category,
         }),
       });
-      const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error ?? 'Не удалось получить варианты');
+        throw new Error('Не удалось подготовить подсказки');
       }
-      setAiVariants((result.variants as AiVariant[]) ?? []);
+      const payload = await response.json();
+      const variants = Array.isArray(payload?.variants) ? (payload.variants as AiVariant[]) : [];
+      setAiVariants(variants);
     } catch (err) {
       console.error(err);
-      setSubmissionError('Не получилось получить подсказки от ИИ. Попробуй чуть позже.');
-      setPhase('select');
+      setSubmissionError('Не получилось подготовить подсказки. Попробуй ещё раз позже.');
     } finally {
       setGenerating(false);
     }
   };
 
+  const submitQuickSuggestion = async (text: string) => {
+    setSelectedQuick(text);
+    await sendResponse(text, 'quick');
+  };
+
+  const submitAiVariant = async (index: number) => {
+    const variant = aiVariants[index];
+    if (!variant) return;
+    setSelectedAi(index);
+    await sendResponse(variant.text, 'ai');
+  };
+
+  const remainingTime = typeof cooldownSeconds === 'number' ? formatSeconds(cooldownSeconds) : null;
+
   if (!deviceId) {
     return (
       <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
+        Не удалось определить ключ устройства. Перезагрузи страницу или попробуй открыть сервис заново.
       </div>
     );
   }
 
-  const baseTransition = softMotion.transition;
-  const successInitial =
-    baseTransition.duration === 0 ? softMotion.initial : { ...softMotion.initial, scale: 0.96 };
-  const successAnimate =
-    baseTransition.duration === 0 ? softMotion.animate : { ...softMotion.animate, scale: 1 };
-
-  if (phase === 'success') {
-    return (
-      <motion.div
-        className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center"
-        initial={successInitial}
-        animate={successAnimate}
-        transition={baseTransition}
-      >
-        <Stepper steps={steps} activeIndex={stepIndex} />
-        <Card className="w-full">
-          <div className="space-y-4">
-            <motion.div
-              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-uyan-light/20 text-3xl"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1.1, opacity: 1 }}
-              transition={{ repeat: Infinity, repeatType: 'reverse', duration: 1.6 }}
-            >
-              💫
-            </motion.div>
-            <h2 className="text-2xl font-semibold text-text-primary">Эхо отправлено</h2>
-            <p className="text-text-secondary">Ты отправил тёплое эхо поддержки. Пусть автор искры почувствует, что он не один.</p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button onClick={() => fetchRandomMessage()} className="w-full sm:w-auto">
-                Ответить ещё эхом
-              </Button>
-              <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
-                Проверить «Мои отклики»
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </motion.div>
-    );
-  }
-
-  const showSticky = !['success', 'custom', 'quick', 'ai'].includes(phase);
-
   return (
-    <>
-      <motion.div
-        className="mx-auto flex max-w-4xl flex-col gap-8"
-        initial={softMotion.initial}
-        animate={softMotion.animate}
-        transition={baseTransition}
-      >
-        <Stepper steps={steps} activeIndex={stepIndex} />
+    <motion.div
+      className="mx-auto flex max-w-5xl flex-col gap-8"
+      initial={softMotion.initial}
+      animate={softMotion.animate}
+      transition={softMotion.transition}
+    >
+      <Stepper steps={steps} activeIndex={stepIndex} />
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.supportTitle}</h1>
         <p className="text-text-secondary">{vocabulary.supportSubtitle}</p>
       </div>
 
-      <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
-        <p>Здесь собраны искры людей, которым сейчас нужно эхо — каждая из них анонимна.</p>
-        <p className="mt-2">Эхо тоже остаётся анонимным. Пиши бережно и помни, что по ту сторону — живой человек.</p>
+      {error ? <Notice variant="info">{error}</Notice> : null}
+      {submissionError ? <Notice variant="error">{submissionError}</Notice> : null}
+      {remainingTime ? <Notice variant="info">Пауза перед следующим откликом — осталось {remainingTime}.</Notice> : null}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+        <Card className="space-y-6">
+          <div className="space-y-2">
+            <p className="text-sm uppercase tracking-[0.3em] text-text-tertiary">{phaseDescriptions[phase]}</p>
+            {message ? (
+              <p className="rounded-2xl bg-bg-secondary/60 p-4 text-text-primary">{message.text}</p>
+            ) : (
+              <p className="rounded-2xl bg-bg-secondary/60 p-4 text-text-secondary">
+                {loadingMessage ? 'Подбираем мысль...' : 'Нет мыслей для отклика прямо сейчас.'}
+              </p>
+            )}
+          </div>
+
+          {message ? (
+            <div className="space-y-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Button onClick={fetchRandomMessage} variant="secondary" className="w-full sm:w-auto" disabled={loadingMessage}>
+                  {loadingMessage ? 'Обновляем...' : 'Показать другую мысль'}
+                </Button>
+                <div className="text-sm text-text-tertiary">
+                  Категория: <span className="font-medium text-text-secondary">{message.category}</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-text-primary">Как хочешь откликнуться?</h2>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Button onClick={() => setPhase('custom')} variant={phase === 'custom' ? 'primary' : 'secondary'} disabled={submitting}>
+                    ✍️ Написать своими словами
+                  </Button>
+                  <Button onClick={startQuickFlow} variant={phase === 'quick' ? 'primary' : 'secondary'} disabled={generating || submitting}>
+                    ⚡ Быстрый отклик
+                  </Button>
+                  <Button onClick={startAiFlow} variant={phase === 'ai' ? 'primary' : 'secondary'} disabled={generating || submitting}>
+                    🤖 Подсказки ИИ
+                  </Button>
+                </div>
+              </div>
+
+              {phase === 'custom' ? (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-text-primary">Свои слова поддержки</h3>
+                  <ComposeForm
+                    form={form}
+                    onSubmit={handleCustomSubmit}
+                    minLength={MIN_LENGTH}
+                    maxLength={MAX_LENGTH}
+                    placeholder="Напиши, что ты рядом, что человек не один..."
+                    submitLabel={submitting ? 'Отправляем...' : 'Отправить отклик'}
+                    loadingLabel="Отправляем..."
+                    description={
+                      <span className="text-sm text-text-secondary">
+                        Постарайся говорить от сердца. Мы проверим текст автоматически и передадим его автору мысли.
+                      </span>
+                    }
+                    busy={submitting}
+                    disabled={generating || Boolean(remainingTime)}
+                    errorMessage={submissionError}
+                    cooldownSeconds={cooldownSeconds}
+                  />
+                </div>
+              ) : null}
+
+              {phase === 'quick' ? (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-text-primary">Выбери быстрый отклик</h3>
+                  {generating ? (
+                    <p className="text-text-secondary">Готовим варианты...</p>
+                  ) : quickSuggestions.length === 0 ? (
+                    <p className="text-text-secondary">Пока нет готовых фраз. Попробуй написать своими словами.</p>
+                  ) : (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {quickSuggestions.map((text) => (
+                        <button
+                          key={text}
+                          type="button"
+                          className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                            selectedQuick === text
+                              ? 'border-uyan-action bg-uyan-action/10 text-text-primary'
+                              : 'border-white/10 bg-bg-secondary/60 text-text-secondary hover:border-uyan-action/40'
+                          }`}
+                          onClick={() => void submitQuickSuggestion(text)}
+                          disabled={submitting || Boolean(remainingTime)}
+                        >
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {phase === 'ai' ? (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-text-primary">Подсказки от ИИ</h3>
+                  {generating ? (
+                    <p className="text-text-secondary">Собираем идеи...</p>
+                  ) : aiVariants.length === 0 ? (
+                    <p className="text-text-secondary">Пока нет подсказок. Попробуй другой способ.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {aiVariants.map((variant, index) => (
+                        <Card
+                          key={`${variant.tone}-${index}`}
+                          className={`space-y-3 border ${
+                            selectedAi === index ? 'border-uyan-action bg-uyan-action/10' : 'border-white/10 bg-bg-secondary/60'
+                          }`}
+                        >
+                          <p className="text-sm uppercase tracking-[0.3em] text-text-tertiary">
+                            {variant.tone === 'empathy' ? 'Эмпатия' : 'Надежда'}
+                          </p>
+                          <p className="text-text-primary">{variant.text}</p>
+                          <Button
+                            onClick={() => void submitAiVariant(index)}
+                            disabled={submitting || Boolean(remainingTime)}
+                            className="w-full sm:w-auto"
+                          >
+                            Использовать этот отклик
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {phase === 'success' ? (
+                <div className="space-y-4 rounded-2xl bg-bg-secondary/60 p-4 text-text-secondary">
+                  <h3 className="text-lg font-semibold text-text-primary">Отклик отправлен</h3>
+                  <p>
+                    Спасибо за поддержку. Отклик уже в пути и скоро окажется у автора мысли. Можно выбрать следующую мысль или
+                    поделиться своей.
+                  </p>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button onClick={fetchRandomMessage} className="w-full sm:w-auto">
+                      Откликнуться ещё
+                    </Button>
+                    <Button variant="secondary" onClick={() => router.push('/write')} className="w-full sm:w-auto">
+                      Поделиться своей мыслью
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+
+        <aside className="space-y-4">
+          <Card className="space-y-3 text-sm text-text-secondary">
+            <h2 className="text-lg font-semibold text-text-primary">Как поддерживать бережно</h2>
+            <ul className="space-y-2">
+              <li>Говори от себя и избегай советов, если о них не просят.</li>
+              <li>Не обещай того, чего не сможешь выполнить. Достаточно пары тёплых фраз.</li>
+              <li>Если текст кажется опасным, направь автора к профессиональной помощи.</li>
+            </ul>
+          </Card>
+          <Card className="space-y-3 text-sm text-text-secondary">
+            <h2 className="text-lg font-semibold text-text-primary">Что дальше?</h2>
+            <p>
+              Все отклики сохраняются у автора мысли и остаются анонимными. Ты можешь вернуться в «Мои отклики», чтобы увидеть
+              ответы, которые получил сам.
+            </p>
+          </Card>
+        </aside>
       </div>
 
-      <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
-
-      {isBanned ? (
-        <Notice variant="info">
-          Доступ к ответам сейчас приостановлен. Мы подскажем, когда снова можно будет поддерживать других.
-        </Notice>
-      ) : null}
-
-      {submissionError && phase !== 'custom' ? <Notice variant="error">{submissionError}</Notice> : null}
-
-      {cooldownSeconds && cooldownSeconds > 0 && phase !== 'custom' ? (
-        <Notice variant="info">
-          Пауза перед следующей попыткой — осталось {formatSeconds(cooldownSeconds)}.
-        </Notice>
-      ) : null}
-
-      {error ? (
-        <Card className="space-y-4">
-          <Notice variant="info">{error}</Notice>
-          <Button
-            variant="secondary"
-            onClick={fetchRandomMessage}
-            className="w-full"
-            disabled={loadingMessage}
-          >
-            Обновить
-          </Button>
-        </Card>
-      ) : null}
-
-      {message ? (
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between text-sm text-text-tertiary">
-            <span className="rounded-full bg-uyan-darkness/20 px-3 py-1 text-text-secondary">
-              Категория: {message.category}
-            </span>
-            <span>Истекает через 24 часа</span>
-          </div>
-          <p className="text-lg text-text-primary">{message.text}</p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button onClick={() => setPhase('select')} className="w-full sm:w-auto" disabled={isBanned}>
-              💬 {vocabulary.ctaSupport}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={fetchRandomMessage}
-              className="w-full sm:w-auto"
-              disabled={loadingMessage}
-            >
-              ⏭ Другое сообщение
-            </Button>
-          </div>
-        </Card>
-      ) : null}
-
-      {phase === 'select' && message ? (
-        <Card className="space-y-4">
-          <h2 className="text-xl font-semibold text-text-primary">Выбери, как хочешь поддержать</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Button
-              onClick={() => {
-                setSubmissionError(null);
-                setPhase('custom');
-              }}
-              variant="secondary"
-              className="w-full"
-            >
-              ✍️ Написать эхо своими словами
-            </Button>
-            <Button onClick={startQuickFlow} variant="secondary" className="w-full" disabled={generating}>
-              ⚡ Быстрое эхо
-            </Button>
-            <Button onClick={startAiFlow} variant="secondary" className="w-full" disabled={generating}>
-              🤖 Подсказка ИИ
-            </Button>
-          </div>
-          <Button variant="ghost" onClick={() => setPhase('explore')} className="w-full">
-            Назад
-          </Button>
-        </Card>
-      ) : null}
-
-      {phase === 'custom' && message ? (
-        <Card className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary">Твоё эхо</h2>
-            <p className="text-text-secondary">20–200 символов тепла и поддержки.</p>
-          </div>
-          <ComposeForm
-            form={form}
-            onSubmit={handleCustomSubmit}
-            minLength={MIN_LENGTH}
-            maxLength={MAX_LENGTH}
-            placeholder="Напиши, что ты рядом, что человек не один, поделись своим эхом..."
-            submitLabel={vocabulary.ctaSupport}
-            loadingLabel="Отправляем..."
-            errorMessage={submissionError}
-            busy={submitting}
-            disabled={isBanned}
-            cooldownSeconds={cooldownSeconds}
-            onChange={() => setSubmissionError(null)}
-          />
-          <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
-            Назад
-          </Button>
-        </Card>
-      ) : null}
-
-      {phase === 'quick' && message ? (
-        <Card className="space-y-5">
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary">Выбери быстрое эхо</h2>
-            <p className="text-text-secondary">Мы подготовили тёплые варианты. Выбери то эхо, что откликается.</p>
-          </div>
-          {generating ? (
-            <p className="text-center text-text-secondary">Готовим тёплые слова...</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {quickSuggestions.map((suggestion, index) => {
-                const active = selectedQuick === suggestion;
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => setSelectedQuick(suggestion)}
-                    className={`rounded-2xl border p-4 text-left transition ${
-                      active
-                        ? 'border-uyan-light bg-uyan-light/10 text-text-primary'
-                        : 'border-white/10 bg-bg-secondary/40 text-text-secondary hover:border-uyan-light/60'
-                    }`}
-                  >
-                    {suggestion}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button
-              onClick={() => selectedQuick && sendResponse(selectedQuick, 'quick')}
-              disabled={!selectedQuick || submitting || generating || isBanned}
-              className="w-full"
-            >
-              {submitting ? 'Отправляем...' : 'Отправить эхо'}
-            </Button>
-            <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
-              Назад
-            </Button>
-          </div>
-        </Card>
-      ) : null}
-
-      {phase === 'ai' && message ? (
-        <Card className="space-y-5">
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary">Эхо с подсказкой ИИ</h2>
-            <p className="text-text-secondary">Один вариант — чистая эмпатия, второй — луч надежды. Выбери, что ближе.</p>
-          </div>
-          {generating ? (
-            <p className="text-center text-text-secondary">Думаем вместе с ИИ...</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {aiVariants.map((variant, index) => {
-                const active = selectedAi === index;
-                return (
-                  <button
-                    key={variant.tone}
-                    type="button"
-                    onClick={() => setSelectedAi(index)}
-                    className={`rounded-2xl border p-4 text-left transition ${
-                      active
-                        ? 'border-uyan-light bg-uyan-light/10 text-text-primary'
-                        : 'border-white/10 bg-bg-secondary/40 text-text-secondary hover:border-uyan-light/60'
-                    }`}
-                  >
-                    <span className="mb-2 block text-sm uppercase tracking-[0.3em] text-uyan-light">
-                      {variant.tone === 'empathy' ? 'ЭМПАТИЯ' : 'НАДЕЖДА'}
-                    </span>
-                    {variant.text}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button
-              onClick={() =>
-                selectedAi !== null &&
-                selectedAi < aiVariants.length &&
-                sendResponse(aiVariants[selectedAi].text, 'ai-assisted')
-              }
-              disabled={selectedAi === null || submitting || generating || isBanned}
-              className="w-full"
-            >
-              {submitting ? 'Отправляем...' : 'Отправить эхо'}
-            </Button>
-            <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
-              Назад
-            </Button>
-          </div>
-        </Card>
-      ) : null}
-      </motion.div>
-      {showSticky ? <MobileStickyActions /> : null}
-    </>
+      <MobileStickyActions />
+    </motion.div>
   );
 }

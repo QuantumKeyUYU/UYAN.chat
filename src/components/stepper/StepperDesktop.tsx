@@ -37,8 +37,8 @@ export const StepperDesktop = ({ steps, activeIndex, progress }: StepperDesktopP
               }`}
             >
               <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-text-tertiary">
-                <span>Шаг {index + 1}</span>
-                <span>{state === 'done' ? 'готово' : state === 'current' ? 'сейчас' : 'дальше'}</span>
+                <span>Этап {index + 1}</span>
+                <span>{state === 'done' ? 'пройдено' : state === 'current' ? 'сейчас' : 'дальше'}</span>
               </div>
               <p className="text-base font-semibold text-text-primary">{step.title}</p>
               {step.description ? (

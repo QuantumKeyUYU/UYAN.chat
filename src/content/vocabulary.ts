@@ -1,4 +1,4 @@
-export type VocabularyPreset = 'spark' | 'pulse' | 'note';
+export type VocabularyPreset = 'core' | 'spark' | 'pulse' | 'note';
 
 interface Vocabulary {
   message: string;
@@ -26,6 +26,31 @@ interface Vocabulary {
 }
 
 const presets: Record<VocabularyPreset, Vocabulary> = {
+  core: {
+    message: 'мысль',
+    reply: 'отклик',
+    queue: 'поток мыслей',
+    garden: 'архив откликов',
+    ctaWrite: 'Поделиться мыслью',
+    ctaSupport: 'Откликнуться',
+    writeTitle: 'Поделись мыслью, которая просится наружу',
+    writeSubtitle: 'Напиши коротко — от 10 до 280 символов. Здесь спокойно, анонимно и по-человечески.',
+    supportTitle: 'Откликнись на чью-то историю',
+    supportSubtitle: 'Выбери мысль в потоке и ответь словами поддержки.',
+    homeHeroTitle: 'Интернет нового поколения: не про лайки и шум, а про нас.',
+    homeHeroSubtitle:
+      'Здесь можно честно написать, что у тебя внутри, и получить бережный отклик от незнакомых людей. Анонимно и по-человечески.',
+    flow: {
+      writeTitle: 'Поделиться мыслью',
+      writeDescription: 'Расскажи, что чувствуешь прямо сейчас. Анонимно и без оценок.',
+      supportTitle: 'Откликнуться',
+      supportDescription: 'Выбери мысль другого человека и подари несколько тёплых фраз поддержки.',
+      waitTitle: 'Дождаться отклика',
+      waitDescription: 'Заглядывай в раздел «Мои отклики» — мы напомним, когда появятся ответы.',
+      saveTitle: 'Сохранять важное',
+      saveDescription: 'Сохраняй бережные слова в архиве откликов и возвращайся к ним, когда хочется тепла.',
+    },
+  },
   spark: {
     message: 'искра',
     reply: 'эхо',
@@ -101,6 +126,6 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
   },
 };
 
-export const getVocabulary = (preset: VocabularyPreset = 'spark'): Vocabulary => presets[preset] ?? presets.spark;
+export const getVocabulary = (preset: VocabularyPreset = 'core'): Vocabulary => presets[preset] ?? presets.core;
 
 export type { Vocabulary };

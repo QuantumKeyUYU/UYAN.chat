@@ -16,15 +16,21 @@ type HeaderLink =
   | { href: string; labelKey: 'ctaWrite' | 'ctaSupport' };
 
 const baseLinks: HeaderLink[] = [
-  { href: '/', label: 'Дом' },
+  { href: '/', label: 'Главная' },
   { href: '/write', labelKey: 'ctaWrite' as const },
   { href: '/support', labelKey: 'ctaSupport' as const },
   { href: '/my', label: 'Мои отклики' },
-  { href: '/garden', label: 'Коллекция' },
+  { href: '/garden', label: 'Архив откликов' },
   { href: '/settings', label: 'Настройки' },
 ];
 
 const formatNumber = (value: number) => new Intl.NumberFormat('ru-RU').format(value);
+
+const formatDeviceKey = (value: string | null) => {
+  if (!value) return '—';
+  if (value.length <= 8) return value;
+  return `${value.slice(0, 4)}…${value.slice(-4)}`;
+};
 
 export const Header = () => {
   const headerRef = useRef<HTMLElement | null>(null);
@@ -62,7 +68,7 @@ export const Header = () => {
     setStatsOpen(false);
   }, [pathname]);
 
-  const statsLabel = `${formatNumber(stats?.lightsGiven ?? 0)} / ${formatNumber(stats?.lightsReceived ?? 0)}`;
+  const statsLabel = `${formatNumber(stats?.messagesSent ?? 0)} · ${formatNumber(stats?.lightsGiven ?? 0)}`;
   const motionProps = reducedMotion
     ? { animate: { rotate: 0 } }
     : { animate: { rotate: [0, 8, -6, 0] }, transition: { repeat: Infinity, duration: 8, ease: 'easeInOut' } };
@@ -140,17 +146,26 @@ export const Header = () => {
               onClick={() => setStatsOpen((prev) => !prev)}
             >
               <BarChart3 className="h-4 w-4" aria-hidden />
-              <span className="tabular-nums text-sm text-text-primary">{statsLabel}</span>
+              <span className="tabular-nums text-sm text-text-primary" aria-label="Мыслей и откликов, связанных с этим ключом">
+                {statsLabel}
+              </span>
             </button>
             {statsOpen ? (
               <div
                 id="header-stats"
-                className="absolute right-0 top-[calc(100%+0.5rem)] w-64 rounded-2xl border border-white/10 bg-bg-primary/95 p-4 text-sm shadow-lg"
+                className="absolute right-0 top-[calc(100%+0.5rem)] w-72 rounded-2xl border border-white/10 bg-bg-primary/95 p-4 text-sm shadow-lg"
               >
-                <p className="text-text-primary">{vocabulary.ctaWrite}: {formatNumber(stats?.lightsGiven ?? 0)}</p>
-                <p className="mt-1 text-text-primary">{vocabulary.ctaSupport}: {formatNumber(stats?.lightsReceived ?? 0)}</p>
+                <p className="text-text-primary">
+                  {formatNumber(stats?.messagesSent ?? 0)} мыслей отправлено.
+                </p>
+                <p className="mt-1 text-text-primary">
+                  {formatNumber(stats?.lightsGiven ?? 0)} откликов подарено.
+                </p>
+                <p className="mt-1 text-text-primary">
+                  {formatNumber(stats?.lightsReceived ?? 0)} откликов получено.
+                </p>
                 <p className="mt-3 text-xs text-text-tertiary">
-                  ID устройства: <span className="font-mono text-text-secondary">{deviceId ?? '—'}</span>
+                  Ключ устройства: <span className="font-mono text-text-secondary">{formatDeviceKey(deviceId)}</span>
                 </p>
               </div>
             ) : null}
@@ -167,7 +182,7 @@ export const Header = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:hidden"
-            aria-label="Открыть меню"
+            aria-label="Открыть навигацию"
             onClick={() => setDrawerOpen(true)}
           >
             <Menu className="h-5 w-5" aria-hidden />

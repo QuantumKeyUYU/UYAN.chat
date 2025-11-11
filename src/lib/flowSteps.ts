@@ -1,7 +1,7 @@
 import { getVocabulary, type VocabularyPreset } from '@/content/vocabulary';
 import type { StepDefinition } from '@/components/stepper';
 
-export const getFlowSteps = (preset: VocabularyPreset = 'spark'): StepDefinition[] => {
+export const getFlowSteps = (preset: VocabularyPreset = 'core'): StepDefinition[] => {
   const vocabulary = getVocabulary(preset);
   return [
     {

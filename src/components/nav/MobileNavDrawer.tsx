@@ -13,11 +13,11 @@ interface MobileNavDrawerProps {
 }
 
 const staticLinks = [
-  { href: '/', label: 'Дом' },
+  { href: '/', label: 'Главная' },
   { href: '/write', dynamic: 'write' as const },
   { href: '/support', dynamic: 'support' as const },
   { href: '/my', label: 'Мои отклики' },
-  { href: '/garden', label: 'Коллекция' },
+  { href: '/garden', label: 'Архив откликов' },
   { href: '/settings', label: 'Настройки' },
 ];
 
@@ -55,7 +55,7 @@ export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
           <motion.button
             type="button"
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-            aria-label="Закрыть меню"
+            aria-label="Закрыть навигацию"
             onClick={onClose}
             initial="hidden"
             animate="visible"
@@ -74,7 +74,7 @@ export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
           >
             <div className="mx-auto flex w-full max-w-md flex-col gap-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-text-secondary">Навигация</p>
+                <p className="text-sm font-medium text-text-secondary">Разделы</p>
                 <button
                   type="button"
                   onClick={onClose}

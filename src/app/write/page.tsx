@@ -95,7 +95,7 @@ export default function WritePage() {
           const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
           const minutes = Math.max(1, Math.ceil(retryAfter / 60));
           setErrorMessage(
-            `Ты сегодня уже много поделился. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+            `Сегодня ты уже делился мыслями. Сделаем небольшую паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
           setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
           return;
@@ -107,13 +107,12 @@ export default function WritePage() {
         }
 
         const reasonMessages: Record<string, string> = {
-          contact:
-            'Мы не показываем контакты и личные данные — так пространство остаётся безопасным и анонимным.',
-          spam: 'Сообщение похоже на случайный набор символов. Лучше опиши, что чувствуешь, простыми словами.',
-          too_short: 'Добавь ещё пару фраз, чтобы мы лучше почувствовали твоё состояние.',
-          too_long: 'Сократи историю до 280 символов, чтобы её смогли дочитать внимательно.',
+          contact: 'Мы не показываем контакты и личные данные — так пространство остаётся безопасным и анонимным.',
+          spam: 'Текст похож на случайный набор символов. Попробуй описать, что чувствуешь, простыми словами.',
+          too_short: 'Добавь ещё пару фраз, чтобы стало понятнее, что внутри.',
+          too_long: 'Сократи мысль до 280 символов, чтобы её смогли дочитать внимательно.',
           crisis:
-            'Похоже, текст касается сильной боли. Пожалуйста, напиши коротко и бережно — а за поддержкой обратись к тем, кто сможет помочь сразу.',
+            'Похоже, текст касается сильной боли. Напиши короче и бережнее — а за срочной помощью обратись к тем, кто сможет помочь сразу.',
         };
 
         if (result?.reason && reasonMessages[result.reason]) {
@@ -121,7 +120,7 @@ export default function WritePage() {
           return;
         }
 
-        setErrorMessage(result?.error ?? 'Не удалось сохранить сообщение. Попробуй ещё раз чуть позже.');
+        setErrorMessage(result?.error ?? 'Не получилось сохранить мысль. Попробуй ещё раз чуть позже.');
         return;
       }
 
@@ -139,7 +138,7 @@ export default function WritePage() {
   if (!deviceId) {
     return (
       <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
+        Не удалось определить ключ устройства. Перезагрузи страницу или попробуй открыть сервис заново.
       </div>
     );
   }
@@ -167,8 +166,8 @@ export default function WritePage() {
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-text-primary">Похоже, тебе сейчас очень тяжело</h2>
             <p className="text-text-secondary">
-              Ты важен. Этот чат — про тёплые слова, но он не заменяет специалистов. Пожалуйста, обратись туда,
-              где могут помочь сразу.
+              Ты важен. Это пространство про тёплые слова, но оно не заменяет специалистов. Пожалуйста, обратись туда, где могут
+              помочь сразу.
             </p>
             <div className="space-y-4 rounded-2xl bg-bg-secondary/60 p-4">
               {crisisResources.map((resource) => (
@@ -198,10 +197,10 @@ export default function WritePage() {
         <Stepper steps={steps} activeIndex={stepIndex} />
         <Card>
           <div className="space-y-4">
-            <h2 className="text-2xl font-semibold text-text-primary">Искра отправлена</h2>
+            <h2 className="text-2xl font-semibold text-text-primary">Мысль отправлена</h2>
             <p className="text-text-secondary">
-              Спасибо, что поделился искрой. Следующий шаг — {vocabulary.ctaSupport.toLowerCase()} кому-то ещё. После этого
-              возвращайся в «Мои отклики» и жди эхо — мы напомним, когда оно придёт.
+              Спасибо, что поделился. Следующий шаг — {vocabulary.ctaSupport.toLowerCase()} кому-то ещё. После этого возвращайся в
+              «Мои отклики» и жди ответ — мы напомним, когда он появится.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/support')} className="w-full sm:w-auto">
@@ -212,7 +211,7 @@ export default function WritePage() {
               </Button>
             </div>
             <p className="text-sm text-text-tertiary">
-              Эхо появятся в разделе «Мои отклики». Если захочется сделать паузу, вернуться на главную можно в любой момент.
+              Отклики появятся в разделе «Мои отклики». Если захочется сделать паузу, на главной всегда можно просто почитать поток мыслей.
             </p>
           </div>
         </Card>
@@ -231,27 +230,28 @@ export default function WritePage() {
         </div>
         <Card>
           <ComposeForm
-          form={form}
-          onSubmit={onSubmit}
-          minLength={MIN_LENGTH}
-          maxLength={MAX_LENGTH}
-          placeholder="Расскажи, что чувствуешь прямо сейчас..."
-          submitLabel={vocabulary.ctaWrite}
-          loadingLabel="Отправляем..."
-          description={
-            <>
-              <p>Твоя искра остаётся полностью анонимной — мы видим только текст.</p>
-              <p className="mt-2">
-                Её прочитает живой человек из сообщества, а эхо может прийти не сразу: иногда на поддержку нужно немного времени.
-              </p>
-            </>
-          }
-          errorMessage={errorMessage}
-          busy={loading}
-          cooldownSeconds={cooldownSeconds}
-          onChange={() => setErrorMessage(null)}
-        />
-      </Card>
+            form={form}
+            onSubmit={onSubmit}
+            minLength={MIN_LENGTH}
+            maxLength={MAX_LENGTH}
+            placeholder="Поделись мыслью, которая крутится внутри..."
+            submitLabel={vocabulary.ctaWrite}
+            loadingLabel="Отправляем..."
+            description={
+              <span>
+                Расскажи, что чувствуешь прямо сейчас. Никто не узнает, кто ты, но твоя мысль поможет получить бережный отклик.
+              </span>
+            }
+            errorMessage={errorMessage}
+            busy={loading}
+            cooldownSeconds={cooldownSeconds}
+            onChange={() => {
+              if (errorMessage) {
+                setErrorMessage(null);
+              }
+            }}
+          />
+        </Card>
       </motion.div>
       <MobileStickyActions />
     </>

@@ -6,9 +6,9 @@ import Providers from '@/components/layout/Providers';
 import DevicePathWidget from '@/components/debug/DevicePathWidget';
 
 export const metadata: Metadata = {
-  title: 'UYAN.chat — Свет внутри',
+  title: 'UYAN.chat — интернет без шума',
   description:
-    'Анонимная платформа взаимопомощи. Дай свет — получи свет. Делитесь переживаниями, поддерживайте других и собирайте сад света.',
+    'Анонимное пространство без лайков и шума. Делитесь своими мыслями, получайте бережные отклики и сохраняйте тёплые слова в архиве.',
 };
 
 export default function RootLayout({
