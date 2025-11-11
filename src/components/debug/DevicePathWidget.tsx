@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { DEVICE_COOKIE_NAME, DEVICE_ID_HEADER, DEVICE_STORAGE_KEY } from '@/lib/device/constants';
+import { DEVICE_ID_HEADER, DEVICE_STORAGE_KEY } from '@/lib/device/constants';
+import { readPersistedDeviceId } from '@/lib/device';
 import type { DeviceIdDebugInfo } from '@/lib/device/server';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -21,30 +22,6 @@ const formatId = (value: string | null) => {
   return `${value.slice(0, 12)}…${value.slice(-4)}`;
 };
 
-const readLocalStorageValue = (): string | null => {
-  try {
-    return window.localStorage.getItem(DEVICE_STORAGE_KEY);
-  } catch (error) {
-    console.warn('[device/debug-widget] Failed to access localStorage', error);
-    return null;
-  }
-};
-
-const readCookieValue = (): string | null => {
-  try {
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [rawName, ...rest] = cookie.trim().split('=');
-      if (rawName === DEVICE_COOKIE_NAME) {
-        return decodeURIComponent(rest.join('='));
-      }
-    }
-  } catch (error) {
-    console.warn('[device/debug-widget] Failed to access cookies', error);
-  }
-  return null;
-};
-
 const useClientMounted = () => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -53,10 +30,7 @@ const useClientMounted = () => {
   return mounted;
 };
 
-interface StorageSnapshot {
-  localStorageId: string | null;
-  cookieId: string | null;
-}
+type StorageSnapshot = ReturnType<typeof readPersistedDeviceId>;
 
 type StorageState = 'match' | 'mismatch' | 'missing';
 
@@ -90,12 +64,7 @@ const DevicePathWidgetInner = () => {
   const [expanded, setExpanded] = useState(false);
 
   const refreshStorageSnapshot = useCallback(() => {
-    if (typeof window === 'undefined') return;
-
-    setStorageSnapshot({
-      localStorageId: readLocalStorageValue(),
-      cookieId: readCookieValue(),
-    });
+    setStorageSnapshot(readPersistedDeviceId());
   }, []);
 
   useEffect(() => {
@@ -250,6 +219,9 @@ const DevicePathWidgetInner = () => {
   );
 
   const resolvedSourceLabel = serverInfo?.resolvedFrom ?? null;
+  const effectiveDeviceId = serverInfo?.effectiveDeviceId ?? serverInfo?.resolvedDeviceId ?? null;
+  const journeyDevices = serverInfo?.journeyDevices ?? null;
+  const journeyIsAlias = serverInfo?.journeyIsAlias ?? false;
 
   if (!mounted) {
     return null;
@@ -260,10 +232,10 @@ const DevicePathWidgetInner = () => {
       <div className="pointer-events-auto">
         {expanded ? (
           <div className="rounded-lg border border-border-primary bg-bg-secondary/95 p-4 shadow-lg backdrop-blur">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-wide text-text-secondary">DeviceId</div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-[10px] uppercase tracking-wide text-text-secondary">DeviceId</div>
                   <button
                     type="button"
                     onClick={toggleExpanded}
@@ -273,6 +245,11 @@ const DevicePathWidgetInner = () => {
                   </button>
                 </div>
                 <div className="font-mono text-sm text-text-primary">{formatId(deviceId)}</div>
+                {effectiveDeviceId && effectiveDeviceId !== deviceId ? (
+                  <div className="mt-1 text-[11px] font-mono text-emerald-300">
+                    ↳ effective {formatId(effectiveDeviceId)}
+                  </div>
+                ) : null}
                 <div className="mt-1 text-[10px] uppercase tracking-wide text-text-secondary">env: {ENVIRONMENT}</div>
               </div>
               <button
@@ -316,6 +293,23 @@ const DevicePathWidgetInner = () => {
               <div>
                 <div className="text-[10px] uppercase tracking-wide text-text-secondary">Статистика</div>
                 <div className="mt-1 font-mono text-text-primary">{statsSummary}</div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-text-secondary">Портативный путь</div>
+                {journeyDevices && journeyDevices.length > 0 ? (
+                  <div className="mt-1 space-y-1 font-mono">
+                    <div className={journeyIsAlias ? 'text-amber-300' : 'text-text-primary'}>
+                      {journeyIsAlias ? 'alias' : 'primary'} · {journeyDevices.length} devices
+                    </div>
+                    <div className="text-text-secondary">{journeyDevices.map((value) => formatId(value)).join(', ')}</div>
+                    {serverInfo?.journeyKeyPreview ? (
+                      <div className="text-text-secondary">key: {serverInfo.journeyKeyPreview}</div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="mt-1 font-mono text-text-secondary">—</div>
+                )}
               </div>
 
               <div>

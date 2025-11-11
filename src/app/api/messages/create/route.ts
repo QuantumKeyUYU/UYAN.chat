@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { text, deviceId: deviceIdFromBody } = body as { text?: string; deviceId?: string };
 
-    const deviceId = resolveDeviceId(request, deviceIdFromBody);
+    const deviceId = await resolveDeviceId(request, deviceIdFromBody);
 
     if (!text || typeof text !== 'string' || text.trim().length < 10 || text.trim().length > 280) {
       return NextResponse.json({ error: 'Сообщение должно быть от 10 до 280 символов.' }, { status: 400 });

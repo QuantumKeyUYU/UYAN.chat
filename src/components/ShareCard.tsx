@@ -1,7 +1,10 @@
+import { forwardRef } from 'react';
+
 interface ShareCardProps {
   originalMessage: string;
   responseText: string;
   styleId: string;
+  className?: string;
 }
 
 const STYLES: Record<
@@ -46,28 +49,48 @@ const STYLES: Record<
 
 export const shareCardStyles = Object.keys(STYLES);
 
-export const ShareCard = ({ originalMessage, responseText, styleId }: ShareCardProps) => {
-  const style = STYLES[styleId] ?? STYLES.dawn;
+export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
+  ({ originalMessage, responseText, styleId, className }, ref) => {
+    const style = STYLES[styleId] ?? STYLES.dawn;
+    const containerClassName = [
+      'relative flex h-full w-full flex-col justify-between gap-[8%] overflow-hidden rounded-[12%] bg-gradient-to-br p-[8%] shadow-2xl',
+      style.background,
+      className ?? '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
-  return (
-    <div
-      id="sharecard"
-      className={`relative flex h-[1350px] w-[1080px] flex-col justify-between overflow-hidden rounded-[60px] bg-gradient-to-br p-20 shadow-2xl ${style.background}`}
-    >
-      <div className="absolute inset-0 bg-white/5" aria-hidden />
-      <div className="relative flex flex-col gap-12">
-        <div className={`inline-flex w-min items-center gap-3 rounded-full px-6 py-3 text-sm font-medium uppercase tracking-[0.4em] ${style.badgeColor} ${style.badgeTextColor}`}>
-          uyan.chat
+    return (
+      <div ref={ref} className={containerClassName}>
+        <div className="absolute inset-0 bg-white/5" aria-hidden />
+        <div className="relative flex flex-col gap-[6%]">
+          <div
+            className={`inline-flex w-min items-center gap-2 rounded-full px-[1.2em] py-[0.55em] text-[clamp(0.55rem,0.4rem+0.6vw,0.85rem)] font-medium uppercase tracking-[0.35em] ${style.badgeColor} ${style.badgeTextColor}`}
+          >
+            uyan.chat
+          </div>
+          <div
+            className={`rounded-[10%] ${style.accent} p-[6%] text-[clamp(1.15rem,0.95rem+2vw,2.2rem)] font-medium leading-[clamp(1.6rem,1.2rem+2.4vw,2.8rem)] ${style.textColor} whitespace-pre-wrap break-words`}
+          >
+            “{originalMessage}”
+          </div>
         </div>
-        <div className={`rounded-3xl ${style.accent} p-10 text-3xl leading-relaxed ${style.textColor}`}>
-          “{originalMessage}”
+        <div className="relative flex flex-col gap-[5%]">
+          <div className={`text-[clamp(0.6rem,0.5rem+0.6vw,0.9rem)] uppercase tracking-[0.4em] ${style.textColor} opacity-80`}>
+            свет для тебя
+          </div>
+          <div
+            className={`rounded-[10%] bg-white/90 p-[7%] text-[clamp(1.25rem,1.05rem+2.2vw,2.3rem)] font-semibold leading-[clamp(1.8rem,1.4rem+2.6vw,3.1rem)] text-slate-900 shadow-xl shadow-black/10 whitespace-pre-wrap break-words`}
+          >
+            “{responseText}”
+          </div>
+          <div className={`text-right text-[clamp(0.55rem,0.45rem+0.55vw,0.85rem)] uppercase tracking-[0.35em] ${style.textColor} opacity-70`}>
+            делись светом • #uyan
+          </div>
         </div>
       </div>
-      <div className="relative flex flex-col gap-6">
-        <div className={`text-sm uppercase tracking-[0.4em] ${style.textColor} opacity-80`}>свет для тебя</div>
-        <div className={`rounded-3xl bg-white/90 p-12 text-3xl font-medium leading-relaxed text-slate-900 shadow-xl shadow-black/10`}>“{responseText}”</div>
-        <div className={`text-right text-sm uppercase tracking-[0.4em] ${style.textColor} opacity-70`}>делись светом • #uyan</div>
-      </div>
-    </div>
-  );
-};
+    );
+  },
+);
+
+ShareCard.displayName = 'ShareCard';

@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { clearDeviceCookie, resolveDeviceId } from '@/lib/device/server';
+import { detachDeviceFromJourney } from '@/lib/journey';
 
 const BATCH_LIMIT = 500;
 
@@ -30,7 +31,7 @@ const deleteByField = async (collection: string, field: string, value: string) =
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const deviceId = resolveDeviceId(request, body?.deviceId);
+    const deviceId = await resolveDeviceId(request, body?.deviceId);
 
     if (!deviceId) {
       return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
@@ -72,6 +73,8 @@ export async function POST(request: NextRequest) {
         statsDeleted += 1;
       }
     }
+
+    await detachDeviceFromJourney(deviceId);
 
     const response = NextResponse.json(
       {

@@ -59,7 +59,6 @@ export default function WritePage() {
         headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
         body: JSON.stringify({
           text: values.text,
-          deviceId,
         }),
       });
 
@@ -117,7 +116,7 @@ export default function WritePage() {
   if (!deviceId) {
     return (
       <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Загружаем твой путь... Обнови страницу, если ожидание затянулось.
+        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
       </div>
     );
   }

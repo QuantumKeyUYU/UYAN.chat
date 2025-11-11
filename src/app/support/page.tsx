@@ -141,7 +141,6 @@ export default function SupportPage() {
           messageId: message.id,
           text,
           type,
-          deviceId,
         }),
       });
       const result = await response.json();
@@ -261,7 +260,7 @@ export default function SupportPage() {
   if (!deviceId) {
     return (
       <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Загружаем твой путь... Обнови страницу, если ожидание затянулось.
+        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
       </div>
     );
   }

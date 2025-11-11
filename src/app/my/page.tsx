@@ -145,7 +145,6 @@ export default function MyLightsPage() {
           responseId: reportContext.response.id,
           reason: reportReason,
           description: reportText,
-          deviceId,
         }),
       });
       if (!response.ok) throw new Error('Не удалось отправить жалобу');
@@ -164,7 +163,7 @@ export default function MyLightsPage() {
   if (!deviceId) {
     return (
       <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Загружаем твой путь... Обнови страницу, если ожидание затянулось.
+        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
       </div>
     );
   }
@@ -190,7 +189,7 @@ export default function MyLightsPage() {
           <h2 className="text-xl font-semibold text-text-primary">Здесь появятся твои истории</h2>
           <p className="text-text-secondary">
             Когда поделишься своим состоянием, мы соберём здесь статусы и ответы, чтобы ты мог возвращаться к ним в любое
-            время.
+            время. Сохрани ключ в настройках, если хочешь забрать этот путь на другой девайс.
           </p>
         </Card>
       ) : null}

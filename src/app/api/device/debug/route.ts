@@ -30,10 +30,10 @@ const readBodyDeviceId = async (request: NextRequest): Promise<string | undefine
   }
 };
 
-const buildDebugResponse = (request: NextRequest, bodyDeviceId?: string) =>
-  NextResponse.json(resolveDeviceIdDebugInfo(request, bodyDeviceId));
+const buildDebugResponse = async (request: NextRequest, bodyDeviceId?: string) =>
+  NextResponse.json(await resolveDeviceIdDebugInfo(request, bodyDeviceId));
 
-export const GET = (request: NextRequest) => buildDebugResponse(request);
+export const GET = async (request: NextRequest) => buildDebugResponse(request);
 
 export const POST = async (request: NextRequest) => {
   const bodyDeviceId = await readBodyDeviceId(request);

@@ -8,14 +8,24 @@ import { serializeDoc } from '@/lib/serializers';
 import type { AdminMessageDoc } from '@/types/firestoreAdmin';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
-import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
+import { attachDeviceCookie, resolveDeviceIdDebugInfo } from '@/lib/device/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const deviceId = resolveDeviceId(request);
+    const debugInfo = await resolveDeviceIdDebugInfo(request);
+    const deviceId = debugInfo.effectiveDeviceId ?? debugInfo.resolvedDeviceId;
     if (!deviceId) {
+      console.warn('[api/messages/my] Unable to resolve deviceId', debugInfo);
       return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
     }
+
+    console.info('[api/messages/my] Device resolution', {
+      resolvedDeviceId: deviceId,
+      resolvedFrom: debugInfo.resolvedFrom,
+      conflicts: debugInfo.conflicts,
+      journeyId: debugInfo.journeyId,
+      journeyIsAlias: debugInfo.journeyIsAlias,
+    });
 
     const db = getAdminDb();
     const deviceHash = hashDeviceId(deviceId);
@@ -25,6 +35,12 @@ export async function GET(request: NextRequest) {
       collection.where('deviceHash', '==', deviceHash).get(),
       collection.where('deviceId', '==', deviceId).get(),
     ]);
+
+    console.info('[api/messages/my] Snapshot stats', {
+      resolvedDeviceId: deviceId,
+      hashDocs: hashSnapshot.size,
+      legacyDocs: legacySnapshot.size,
+    });
 
     const seen = new Set<string>();
     const allDocs = [...hashSnapshot.docs, ...legacySnapshot.docs].filter((doc) => {

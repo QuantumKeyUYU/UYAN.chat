@@ -65,7 +65,10 @@ export const Header = () => {
             <span>
               ID устройства: <span className="text-text-secondary">{deviceId ?? '—'}</span>
             </span>
-            <div className="mt-1 flex items-center gap-2">
+            <p className="mt-1 max-w-xs text-[11px] text-text-secondary">
+              Этот путь привязан к твоему устройству. Захочешь забрать свет с собой — загляни в настройки и сохрани ключ.
+            </p>
+            <div className="mt-2 flex items-center gap-2">
               <span className="flex items-center gap-1 rounded-xl bg-bg-secondary/70 px-2 py-1 text-text-secondary">
                 <span aria-hidden>🔥</span>
                 <span className="font-semibold text-text-primary tabular-nums">{lightsGiven}</span>
@@ -76,7 +79,10 @@ export const Header = () => {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-text-secondary sm:hidden">
+          <div className="flex flex-col items-end gap-1 text-xs text-text-secondary sm:hidden">
+            <span className="text-[11px] text-text-tertiary">
+              Путь хранится на этом устройстве. Сохрани ключ в настройках — и возьми свет с собой ✨
+            </span>
             <span>
               🔥 <span className="tabular-nums text-text-primary">{lightsGiven}</span>
             </span>

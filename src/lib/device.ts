@@ -1,12 +1,12 @@
 import { DEVICE_COOKIE_MAX_AGE, DEVICE_COOKIE_NAME, DEVICE_STORAGE_KEY } from './device/constants';
 
-const generateDeviceId = () => {
+const generateDeviceId = (): string => {
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 10);
   return `device_${timestamp}_${random}`;
 };
 
-const getCookie = (): string | null => {
+const readCookie = (): string | null => {
   if (typeof document === 'undefined') return null;
   try {
     const cookies = document.cookie.split(';');
@@ -22,7 +22,7 @@ const getCookie = (): string | null => {
   return null;
 };
 
-const setCookie = (deviceId: string) => {
+const writeCookie = (deviceId: string) => {
   if (typeof document === 'undefined') return;
   try {
     document.cookie = `${DEVICE_COOKIE_NAME}=${encodeURIComponent(deviceId)}; path=/; max-age=${DEVICE_COOKIE_MAX_AGE}; samesite=lax`;
@@ -31,7 +31,7 @@ const setCookie = (deviceId: string) => {
   }
 };
 
-const getLocalStorage = (): string | null => {
+const readLocalStorage = (): string | null => {
   if (typeof window === 'undefined') return null;
   try {
     return window.localStorage.getItem(DEVICE_STORAGE_KEY);
@@ -41,7 +41,7 @@ const getLocalStorage = (): string | null => {
   }
 };
 
-const setLocalStorage = (deviceId: string) => {
+const writeLocalStorage = (deviceId: string) => {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
@@ -50,44 +50,81 @@ const setLocalStorage = (deviceId: string) => {
   }
 };
 
-const persistDeviceId = (deviceId: string) => {
-  setLocalStorage(deviceId);
-  setCookie(deviceId);
+export interface DeviceStorageSnapshot {
+  localStorageId: string | null;
+  cookieId: string | null;
+}
+
+export const readPersistedDeviceId = (): DeviceStorageSnapshot => ({
+  localStorageId: readLocalStorage(),
+  cookieId: readCookie(),
+});
+
+export const persistDeviceId = (deviceId: string) => {
+  const { localStorageId, cookieId } = readPersistedDeviceId();
+
+  if (localStorageId && localStorageId !== deviceId && cookieId && cookieId !== deviceId) {
+    console.warn('[device] Conflicting stored identifiers detected', {
+      localStorageId,
+      cookieId,
+      nextDeviceId: deviceId,
+    });
+  }
+
+  if (localStorageId !== deviceId) {
+    writeLocalStorage(deviceId);
+  }
+
+  if (cookieId !== deviceId) {
+    writeCookie(deviceId);
+  }
+};
+
+export const clearPersistedDeviceId = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.removeItem(DEVICE_STORAGE_KEY);
+    } catch (error) {
+      console.warn('[device] Failed to clear device from localStorage', error);
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    try {
+      document.cookie = `${DEVICE_COOKIE_NAME}=; path=/; max-age=0; samesite=lax`;
+    } catch (error) {
+      console.warn('[device] Failed to clear device cookie', error);
+    }
+  }
 };
 
 export const getOrCreateDeviceId = (): string => {
   if (typeof window === 'undefined') {
+    console.warn('[device] getOrCreateDeviceId called on the server. Returning ephemeral identifier.');
     return generateDeviceId();
   }
 
-  const stored = getLocalStorage();
-  const cookie = getCookie();
-  const existing = stored || cookie;
-  if (existing) {
-    if (!stored) {
-      setLocalStorage(existing);
-    }
-    if (!cookie) {
-      setCookie(existing);
-    }
-    return existing;
+  const { localStorageId, cookieId } = readPersistedDeviceId();
+
+  if (localStorageId && cookieId && localStorageId !== cookieId) {
+    console.warn('[device] Conflicting device identifiers detected', {
+      localStorageId,
+      cookieId,
+    });
   }
 
-  const id = generateDeviceId();
-  persistDeviceId(id);
-  return id;
+  const resolved = localStorageId ?? cookieId;
+
+  if (resolved) {
+    persistDeviceId(resolved);
+    return resolved;
+  }
+
+  const deviceId = generateDeviceId();
+  persistDeviceId(deviceId);
+  return deviceId;
 };
 
 export const clearDeviceId = () => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(DEVICE_STORAGE_KEY);
-  } catch (error) {
-    console.warn('[device] Failed to clear device from localStorage', error);
-  }
-  try {
-    document.cookie = `${DEVICE_COOKIE_NAME}=; path=/; max-age=0; samesite=lax`;
-  } catch (error) {
-    console.warn('[device] Failed to clear device cookie', error);
-  }
+  clearPersistedDeviceId();
 };
