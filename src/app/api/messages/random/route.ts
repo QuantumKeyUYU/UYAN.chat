@@ -8,13 +8,14 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import { serializeDoc } from '@/lib/serializers';
 import type { AdminMessage, AdminMessageDoc } from '@/types/firestoreAdmin';
 import { hashDeviceId } from '@/lib/deviceHash';
+import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
+import { attachDeviceCookie, readDeviceIdFromRequest } from '@/lib/device/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const deviceId = searchParams.get('deviceId');
+    const deviceId = readDeviceIdFromRequest(request);
     if (!deviceId) {
-      return NextResponse.json({ error: 'deviceId обязателен' }, { status: 400 });
+      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
     }
 
     const deviceHash = hashDeviceId(deviceId);
@@ -45,13 +46,13 @@ export async function GET(request: NextRequest) {
       .filter((doc) => doc.expiresAt.toMillis() > now.toMillis());
 
     if (!messages.length) {
-      return NextResponse.json({ message: null }, { status: 200 });
+      return attachDeviceCookie(NextResponse.json({ message: null }, { status: 200 }), deviceId);
     }
 
     const randomIndex = Math.floor(Math.random() * messages.length);
     const message = messages[randomIndex];
 
-    return NextResponse.json({ message: serializeDoc(message) });
+    return attachDeviceCookie(NextResponse.json({ message: serializeDoc(message) }), deviceId);
   } catch (error) {
     console.error('Failed to fetch random message', error);
     return NextResponse.json({ error: 'Не удалось получить сообщение.' }, { status: 500 });

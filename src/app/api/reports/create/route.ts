@@ -3,18 +3,26 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { checkRateLimit } from '@/lib/rateLimiter';
 import { hashDeviceId } from '@/lib/deviceHash';
+import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
+import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { responseId, reason, description, deviceId } = body as {
+    const { responseId, reason, description, deviceId: deviceIdFromBody } = body as {
       responseId?: string;
       reason?: string;
       description?: string;
       deviceId?: string;
     };
 
-    if (!responseId || !reason || !deviceId) {
+    const deviceId = resolveDeviceId(request, deviceIdFromBody);
+
+    if (!deviceId) {
+      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
+    }
+
+    if (!responseId || !reason) {
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
     }
 
@@ -54,7 +62,7 @@ export async function POST(request: NextRequest) {
         { merge: true },
       );
 
-    return NextResponse.json({ ok: true }, { status: 201 });
+    return attachDeviceCookie(NextResponse.json({ ok: true }, { status: 201 }), deviceId);
   } catch (error) {
     console.error('Failed to create report', error);
     return NextResponse.json({ error: 'Не удалось отправить жалобу.' }, { status: 500 });

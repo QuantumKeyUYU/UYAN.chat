@@ -7,14 +7,14 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import { serializeDoc } from '@/lib/serializers';
 import type { AdminMessageDoc } from '@/types/firestoreAdmin';
 import { hashDeviceId } from '@/lib/deviceHash';
+import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
+import { attachDeviceCookie, readDeviceIdFromRequest } from '@/lib/device/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url);
-    const deviceId =
-      url.searchParams.get('deviceId') || request.headers.get('x-device-id') || '';
+    const deviceId = readDeviceIdFromRequest(request);
     if (!deviceId) {
-      return NextResponse.json({ error: 'deviceId обязателен' }, { status: 400 });
+      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
     }
 
     const db = getAdminDb();
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (messages.length === 0) {
-      return NextResponse.json({ messages: [] });
+      return attachDeviceCookie(NextResponse.json({ messages: [] }), deviceId);
     }
 
     const responsesCollection = db.collection('responses');
@@ -63,7 +63,10 @@ export async function GET(request: NextRequest) {
       responses: responsesByMessageId.get(message.id as string) ?? [],
     }));
 
-    return NextResponse.json({ messages: messagesWithResponses });
+    return attachDeviceCookie(
+      NextResponse.json({ messages: messagesWithResponses }),
+      deviceId,
+    );
   } catch (error) {
     console.error('Failed to fetch user messages', error);
     return NextResponse.json({ error: 'Не удалось получить сообщения.' }, { status: 500 });
