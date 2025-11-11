@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -25,6 +25,127 @@ interface JourneyStatus {
   lastKeyPreview: string | null;
   localHasHistory: boolean;
   primaryDeviceId: string;
+}
+
+interface DeviceKeyState {
+  deviceKey: string;
+  setDeviceKey: (value: string) => void;
+  copyToClipboard: () => Promise<void>;
+  applyKey: () => Promise<boolean>;
+  isApplying: boolean;
+  status: { variant: 'success' | 'error' | 'info'; message: string } | null;
+  error: string | null;
+  maskedDeviceId: string;
+}
+
+function useDeviceKey({
+  deviceId,
+  setDeviceId,
+  refresh,
+  refreshJourneyStatus,
+}: {
+  deviceId: string | null;
+  setDeviceId: (next: string) => void;
+  refresh: () => Promise<void>;
+  refreshJourneyStatus: (overrideDeviceId?: string) => Promise<void>;
+}): DeviceKeyState {
+  const [deviceKey, setDeviceKeyState] = useState('');
+  const [status, setStatus] = useState<{ variant: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
+
+  const maskedDeviceId = useMemo(() => {
+    if (!deviceId) return '—';
+    if (deviceId.length <= 8) return deviceId;
+    return `${deviceId.slice(0, 4)}…${deviceId.slice(-4)}`;
+  }, [deviceId]);
+
+  const setDeviceKey = useCallback((value: string) => {
+    setStatus(null);
+    setDeviceKeyState(value);
+  }, []);
+
+  const copyToClipboard = useCallback(async () => {
+    if (!deviceId) {
+      setStatus({ variant: 'info', message: 'Ключ появится, как только мы определим устройство.' });
+      return;
+    }
+
+    const copyWithFallback = async (text: string) => {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      if (typeof document === 'undefined') {
+        return false;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      const succeeded = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return succeeded;
+    };
+
+    try {
+      const ok = await copyWithFallback(deviceId);
+      if (!ok) {
+        throw new Error('Copy not supported');
+      }
+      setStatus({ variant: 'success', message: 'Ключ устройства скопирован.' });
+    } catch (error) {
+      console.warn('[settings] Failed to copy device key', error);
+      setStatus({ variant: 'error', message: 'Не получилось скопировать ключ. Попробуй ещё раз.' });
+    }
+  }, [deviceId]);
+
+  const applyKey = useCallback(async () => {
+    const nextKey = deviceKey.trim();
+    if (!nextKey) {
+      setStatus({ variant: 'error', message: 'Введи ключ устройства.' });
+      return false;
+    }
+    if (nextKey.length < 8) {
+      setStatus({ variant: 'error', message: 'Ключ выглядит слишком коротким. Проверь запись.' });
+      return false;
+    }
+
+    setIsApplying(true);
+    setStatus(null);
+    try {
+      setDeviceId(nextKey);
+      await Promise.allSettled([
+        refresh(),
+        refreshJourneyStatus(nextKey),
+        fetch('/api/messages/my', { headers: { [DEVICE_ID_HEADER]: nextKey }, cache: 'no-store' }),
+      ]);
+      setDeviceKeyState('');
+      setStatus({ variant: 'success', message: 'Ключ применён. Мы обновили данные для этого устройства.' });
+      return true;
+    } catch (error) {
+      console.warn('[settings] Failed to apply device key', error);
+      setStatus({ variant: 'error', message: 'Не получилось применить ключ. Попробуй ещё раз позже.' });
+      return false;
+    } finally {
+      setIsApplying(false);
+    }
+  }, [deviceKey, refresh, refreshJourneyStatus, setDeviceId]);
+
+  return {
+    deviceKey,
+    setDeviceKey,
+    copyToClipboard,
+    applyKey,
+    isApplying,
+    status,
+    error: status?.variant === 'error' ? status.message : null,
+    maskedDeviceId,
+  };
 }
 
 export default function SettingsPage() {
@@ -53,9 +174,6 @@ export default function SettingsPage() {
   const [attachMessage, setAttachMessage] = useState<string | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [confirmAttachOpen, setConfirmAttachOpen] = useState(false);
-  const [deviceKeyInput, setDeviceKeyInput] = useState('');
-  const [deviceKeyStatus, setDeviceKeyStatus] = useState<{ variant: 'success' | 'error' | 'info'; message: string } | null>(null);
-  const [deviceKeyLoading, setDeviceKeyLoading] = useState(false);
 
   const refreshJourneyStatus = useCallback(
     async (overrideDeviceId?: string) => {
@@ -96,59 +214,27 @@ export default function SettingsPage() {
     void refreshJourneyStatus();
   }, [refreshJourneyStatus]);
 
-  const maskedDeviceId = useMemo(() => {
-    if (!deviceId) return '—';
-    if (deviceId.length <= 8) return deviceId;
-    return `${deviceId.slice(0, 4)}…${deviceId.slice(-4)}`;
-  }, [deviceId]);
+  const {
+    deviceKey,
+    setDeviceKey,
+    copyToClipboard,
+    applyKey,
+    isApplying,
+    status: deviceKeyStatus,
+    error: deviceKeyError,
+    maskedDeviceId,
+  } = useDeviceKey({
+    deviceId,
+    setDeviceId,
+    refresh,
+    refreshJourneyStatus,
+  });
 
-  const handleCopyDeviceId = async () => {
-    if (!deviceId) {
-      setDeviceKeyStatus({ variant: 'info', message: 'Ключ появится, как только мы определим устройство.' });
-      return;
-    }
-    if (!navigator.clipboard) {
-      setDeviceKeyStatus({ variant: 'error', message: 'Не удалось скопировать автоматически. Скопируй ключ вручную.' });
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(deviceId);
-      setDeviceKeyStatus({ variant: 'success', message: 'Ключ устройства скопирован.' });
-    } catch (error) {
-      console.warn('[settings] Failed to copy device key', error);
-      setDeviceKeyStatus({ variant: 'error', message: 'Не получилось скопировать ключ. Попробуй ещё раз.' });
-    }
-  };
+  const isApplyDisabled = isApplying || deviceKey.trim().length < 8;
 
   const handleDeviceKeySubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setDeviceKeyStatus(null);
-    const nextKey = deviceKeyInput.trim();
-    if (!nextKey) {
-      setDeviceKeyStatus({ variant: 'error', message: 'Введи ключ устройства.' });
-      return;
-    }
-    if (nextKey.length < 10) {
-      setDeviceKeyStatus({ variant: 'error', message: 'Ключ выглядит слишком коротким. Проверь запись.' });
-      return;
-    }
-
-    setDeviceKeyLoading(true);
-    try {
-      setDeviceId(nextKey);
-      await Promise.allSettled([
-        refresh(),
-        refreshJourneyStatus(nextKey),
-        fetch('/api/messages/my', { headers: { [DEVICE_ID_HEADER]: nextKey }, cache: 'no-store' }),
-      ]);
-      setDeviceKeyStatus({ variant: 'success', message: 'Ключ применён. Мы обновили данные для этого устройства.' });
-      setDeviceKeyInput('');
-    } catch (error) {
-      console.warn('[settings] Failed to apply device key', error);
-      setDeviceKeyStatus({ variant: 'error', message: 'Не получилось применить ключ. Попробуй ещё раз позже.' });
-    } finally {
-      setDeviceKeyLoading(false);
-    }
+    await applyKey();
   };
 
   const handleReducedMotionToggle = () => {
@@ -388,7 +474,7 @@ export default function SettingsPage() {
             <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">текущий ключ</p>
             <p className="mt-2 font-mono text-sm text-text-primary">{maskedDeviceId}</p>
           </div>
-          <Button variant="secondary" onClick={handleCopyDeviceId} disabled={!deviceId} className="w-full sm:w-auto">
+          <Button variant="secondary" onClick={copyToClipboard} disabled={!deviceId} className="w-full sm:w-auto">
             Скопировать ключ
           </Button>
         </div>
@@ -397,21 +483,20 @@ export default function SettingsPage() {
             Ввести сохранённый ключ
             <input
               type="text"
-              value={deviceKeyInput}
-              onChange={(event) => {
-                setDeviceKeyInput(event.target.value);
-                if (deviceKeyStatus) {
-                  setDeviceKeyStatus(null);
-                }
-              }}
-              className="rounded-xl border border-white/10 bg-bg-secondary/60 px-4 py-3 text-text-primary placeholder:text-text-tertiary"
+              value={deviceKey}
+              onChange={(event) => setDeviceKey(event.target.value)}
+              className={`rounded-xl border bg-bg-secondary/60 px-4 py-3 text-text-primary placeholder:text-text-terтиary focus:outline-none focus:ring-2 focus:ring-uyan-light/80 ${
+                deviceKeyError ? 'border-rose-400/60 focus:ring-rose-300/60' : 'border-white/10'
+              }`}
               placeholder="device_..."
               autoComplete="off"
+              aria-invalid={deviceKeyError ? 'true' : 'false'}
             />
+            <p className="text-xs text-text-tertiary">Ключ хранится локально на устройстве. Делись им только с теми, кому доверяешь.</p>
           </label>
           {deviceKeyStatus ? <Notice variant={deviceKeyStatus.variant}>{deviceKeyStatus.message}</Notice> : null}
-          <Button type="submit" disabled={deviceKeyLoading} className="w-full sm:w-auto">
-            {deviceKeyLoading ? 'Применяем...' : 'Применить ключ'}
+          <Button type="submit" disabled={isApplyDisabled} className="w-full sm:w-auto">
+            {isApplying ? 'Применяем…' : 'Применить ключ'}
           </Button>
         </form>
       </Card>
