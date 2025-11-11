@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Notice } from '@/components/ui/Notice';
 import { clearDeviceId } from '@/lib/device';
+import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { clearGarden } from '@/lib/garden';
 import { saveReducedMotion } from '@/lib/motion';
 import { useAppStore } from '@/store/useAppStore';
@@ -81,7 +82,7 @@ export default function SettingsPage() {
     try {
       const response = await fetch('/api/device/purge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
         body: JSON.stringify({ deviceId }),
       });
       const result = await response.json();

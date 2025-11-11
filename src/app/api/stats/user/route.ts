@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import type { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase/admin';
 import type { UserStats } from '@/types/firestore';
 import { hashDeviceId } from '@/lib/deviceHash';
+import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
+import { attachDeviceCookie, readDeviceIdFromRequest } from '@/lib/device/server';
 
 interface SerializedUserStats {
   deviceId: string;
@@ -34,12 +36,11 @@ const emptyStats = (deviceId: string): SerializedUserStats => ({
   lastActiveAt: null,
 });
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const deviceId = searchParams.get('deviceId');
+export async function GET(request: NextRequest) {
+  const deviceId = readDeviceIdFromRequest(request);
 
   if (!deviceId) {
-    return NextResponse.json({ error: 'deviceId обязателен' }, { status: 400 });
+    return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
   }
 
   try {
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     const snapshot = hashSnapshot.exists ? hashSnapshot : legacySnapshot;
 
     if (!snapshot.exists) {
-      return NextResponse.json({ stats: emptyStats(deviceId) }, { status: 200 });
+      return attachDeviceCookie(NextResponse.json({ stats: emptyStats(deviceId) }, { status: 200 }), deviceId);
     }
 
     const data = snapshot.data() as UserStats | (UserStats & { deviceId?: string });
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
       lastActiveAt: serializeTimestamp(data.lastActiveAt),
     };
 
-    return NextResponse.json({ stats }, { status: 200 });
+    return attachDeviceCookie(NextResponse.json({ stats }, { status: 200 }), deviceId);
   } catch (error) {
     console.error('[stats/user] Failed to load user stats', error);
     return NextResponse.json({ error: 'Не удалось загрузить статистику.' }, { status: 500 });

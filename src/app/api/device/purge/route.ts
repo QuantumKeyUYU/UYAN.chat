@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { hashDeviceId } from '@/lib/deviceHash';
+import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
+import { clearDeviceCookie, resolveDeviceId } from '@/lib/device/server';
 
 const BATCH_LIMIT = 500;
 
@@ -28,10 +30,10 @@ const deleteByField = async (collection: string, field: string, value: string) =
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const deviceId = (body?.deviceId as string | undefined)?.trim();
+    const deviceId = resolveDeviceId(request, body?.deviceId);
 
     if (!deviceId) {
-      return NextResponse.json({ error: 'Не удалось определить устройство.' }, { status: 400 });
+      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
     }
 
     const deviceHash = hashDeviceId(deviceId);
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ok: true,
         removed: {
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 },
     );
+    return clearDeviceCookie(response);
   } catch (error) {
     console.error('[device/purge] Failed to purge device data', error);
     return NextResponse.json(

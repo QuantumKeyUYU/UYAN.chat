@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 
 type NullableTimestamp = number | null;
 
@@ -40,7 +41,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!deviceId) return;
 
     try {
-      const response = await fetch(`/api/stats/user?deviceId=${encodeURIComponent(deviceId)}`);
+      const response = await fetch('/api/stats/user', {
+        headers: { [DEVICE_ID_HEADER]: deviceId },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch user stats');
       }

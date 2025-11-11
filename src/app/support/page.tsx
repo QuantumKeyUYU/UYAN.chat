@@ -14,6 +14,7 @@ import { Notice } from '@/components/ui/Notice';
 import { useAppStore } from '@/store/useAppStore';
 import type { MessageCategory, ResponseType } from '@/types/firestore';
 import { useSoftMotion } from '@/lib/animation';
+import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 
 type MessagePayload = {
   id: string;
@@ -93,7 +94,9 @@ export default function SupportPage() {
     setAiVariants([]);
     setSelectedAi(null);
     try {
-      const response = await fetch(`/api/messages/random?deviceId=${deviceId}`);
+      const response = await fetch('/api/messages/random', {
+        headers: { [DEVICE_ID_HEADER]: deviceId },
+      });
       if (!response.ok) {
         throw new Error('Не удалось получить сообщение');
       }
@@ -133,7 +136,7 @@ export default function SupportPage() {
     try {
       const response = await fetch('/api/responses/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
         body: JSON.stringify({
           messageId: message.id,
           text,

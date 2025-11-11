@@ -10,6 +10,8 @@ import { getOrCreateUserStats, incrementStats } from '@/lib/stats';
 import { serializeDoc } from '@/lib/serializers';
 import { checkRateLimit } from '@/lib/rateLimiter';
 import { hashDeviceId } from '@/lib/deviceHash';
+import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
+import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
 
 const CRISIS_RESPONSE = {
   crisis: true,
@@ -20,14 +22,16 @@ const CRISIS_RESPONSE = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { text, deviceId } = body as { text?: string; deviceId?: string };
+    const { text, deviceId: deviceIdFromBody } = body as { text?: string; deviceId?: string };
+
+    const deviceId = resolveDeviceId(request, deviceIdFromBody);
 
     if (!text || typeof text !== 'string' || text.trim().length < 10 || text.trim().length > 280) {
       return NextResponse.json({ error: 'Сообщение должно быть от 10 до 280 символов.' }, { status: 400 });
     }
 
     if (!deviceId) {
-      return NextResponse.json({ error: 'Не удалось определить устройство.' }, { status: 400 });
+      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
     }
 
     const rateLimit = await checkRateLimit({ deviceId, action: 'message' });
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     const message = serializeDoc({ id: docRef.id, ...messagePayload });
 
-    return NextResponse.json({ message }, { status: 201 });
+    return attachDeviceCookie(NextResponse.json({ message }, { status: 201 }), deviceId);
   } catch (error) {
     console.error('Failed to create message', error);
     return NextResponse.json({ error: 'Не удалось создать сообщение.' }, { status: 500 });

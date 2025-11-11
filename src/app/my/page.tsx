@@ -11,6 +11,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Notice } from '@/components/ui/Notice';
 import { useAppStore } from '@/store/useAppStore';
 import { saveLight } from '@/lib/garden';
+import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 
 type MessageStatus = 'waiting' | 'answered' | 'expired';
 
@@ -79,7 +80,7 @@ export default function MyLightsPage() {
     setLoading(true);
     try {
       const response = await fetch('/api/messages/my', {
-        headers: { 'x-device-id': deviceId },
+        headers: { [DEVICE_ID_HEADER]: deviceId },
         cache: 'no-store',
       });
       if (!response.ok) throw new Error('Ошибка загрузки');
@@ -139,7 +140,7 @@ export default function MyLightsPage() {
     try {
       const response = await fetch('/api/reports/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
         body: JSON.stringify({
           responseId: reportContext.response.id,
           reason: reportReason,

@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
 import { useAppStore } from '@/store/useAppStore';
 import { useSoftMotion } from '@/lib/animation';
+import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 
 interface FormValues {
   text: string;
@@ -55,7 +56,7 @@ export default function WritePage() {
     try {
       const response = await fetch('/api/messages/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
         body: JSON.stringify({
           text: values.text,
           deviceId,

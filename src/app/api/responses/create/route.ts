@@ -9,19 +9,27 @@ import { moderateResponse } from '@/lib/moderation';
 import { getOrCreateUserStats, incrementStats, incrementStatsByHash } from '@/lib/stats';
 import { checkRateLimit } from '@/lib/rateLimiter';
 import { hashDeviceId } from '@/lib/deviceHash';
+import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
+import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
 import type { ResponseType } from '@/types/firestore';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messageId, text, type, deviceId } = body as {
+    const { messageId, text, type, deviceId: deviceIdFromBody } = body as {
       messageId?: string;
       text?: string;
       type?: string;
       deviceId?: string;
     };
 
-    if (!messageId || !text || !deviceId) {
+    const deviceId = resolveDeviceId(request, deviceIdFromBody);
+
+    if (!deviceId) {
+      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
+    }
+
+    if (!messageId || !text) {
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
     }
 
@@ -122,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     await incrementStats(deviceId, { lightsGiven: 1 });
 
-    return NextResponse.json({ ok: true }, { status: 201 });
+    return attachDeviceCookie(NextResponse.json({ ok: true }, { status: 201 }), deviceId);
   } catch (error) {
     console.error('Failed to create response', error);
     const rawMessage = error instanceof Error ? error.message : 'Не удалось создать ответ.';
