@@ -1,10 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import {
-  DEVICE_COOKIE_MAX_AGE,
-  DEVICE_COOKIE_NAME,
-  DEVICE_ID_HEADER,
-} from './constants';
+import { DEVICE_COOKIE_MAX_AGE, DEVICE_COOKIE_NAME, DEVICE_ID_HEADER } from './constants';
+import { getJourneyDebugSnapshot, resolveJourneyForDevice } from '../journey';
 
 const sanitize = (value: string | null | undefined): string | null => {
   if (typeof value !== 'string') return null;
@@ -37,6 +34,8 @@ const SOURCE_LABELS: Record<DeviceIdResolvedSourceKey, DeviceIdResolvedFrom> = {
   bodyDeviceId: 'body',
 };
 
+// Device resolution intentionally stays decoupled from any future identityKey logic.
+// We can replace the raw deviceId with another key without restructuring the API surface.
 const readDeviceIdSources = (
   request: NextRequest,
   bodyDeviceId?: unknown,
@@ -84,12 +83,30 @@ const detectConflicts = (sources: DeviceIdSources): string[] => {
 export const readDeviceIdFromRequest = (request: NextRequest): string | null =>
   resolveFromSources(readDeviceIdSources(request)).resolvedDeviceId;
 
-export const resolveDeviceId = (
+export interface DeviceIdDebugInfo extends DeviceIdSources {
+  resolvedDeviceId: string | null;
+  resolvedFrom?: DeviceIdResolvedFrom | null;
+  conflicts: string[];
+  effectiveDeviceId?: string | null;
+  journeyId?: string | null;
+  journeyDevices?: string[];
+  journeyDeviceHashes?: string[];
+  journeyIsAlias?: boolean;
+  journeyKeyPreview?: string | null;
+}
+
+export interface DeviceIdentityResolution extends DeviceIdDebugInfo {
+  effectiveDeviceId: string | null;
+  journeyId: string | null;
+  journeyIsAlias: boolean;
+}
+
+export const resolveDeviceIdentity = async (
   request: NextRequest,
   bodyDeviceId?: unknown,
-): string | null => {
+): Promise<DeviceIdentityResolution> => {
   const sources = readDeviceIdSources(request, bodyDeviceId);
-  const { resolvedDeviceId } = resolveFromSources(sources);
+  const { resolvedDeviceId, resolvedFrom } = resolveFromSources(sources);
   const conflicts = detectConflicts(sources);
 
   if (conflicts.length > 0) {
@@ -99,29 +116,55 @@ export const resolveDeviceId = (
     });
   }
 
-  return resolvedDeviceId;
-};
+  let effectiveDeviceId: string | null = resolvedDeviceId;
+  let journeyId: string | null = null;
+  let journeyDevices: string[] | undefined;
+  let journeyDeviceHashes: string[] | undefined;
+  let journeyIsAlias = false;
+  let journeyKeyPreview: string | null | undefined;
 
-export interface DeviceIdDebugInfo extends DeviceIdSources {
-  resolvedDeviceId: string | null;
-  resolvedFrom?: DeviceIdResolvedFrom | null;
-  conflicts: string[];
-}
+  if (resolvedDeviceId) {
+    const resolution = await resolveJourneyForDevice(resolvedDeviceId);
+    if (resolution) {
+      effectiveDeviceId = resolution.effectiveDeviceId;
+      journeyId = resolution.journeyId;
+      journeyDevices = resolution.attachedDevices;
+      journeyDeviceHashes = resolution.attachedDeviceHashes;
+      journeyIsAlias = resolution.isAlias;
 
-export const resolveDeviceIdDebugInfo = (
-  request: NextRequest,
-  bodyDeviceId?: unknown,
-): DeviceIdDebugInfo => {
-  const sources = readDeviceIdSources(request, bodyDeviceId);
-  const { resolvedDeviceId, resolvedFrom } = resolveFromSources(sources);
+      if (journeyIsAlias) {
+        const debugSnapshot = await getJourneyDebugSnapshot(resolvedDeviceId);
+        journeyKeyPreview = debugSnapshot?.lastKeyPreview ?? null;
+      }
+    }
+  }
 
   return {
     ...sources,
     resolvedDeviceId,
     resolvedFrom,
-    conflicts: detectConflicts(sources),
+    conflicts,
+    effectiveDeviceId,
+    journeyId,
+    journeyDevices,
+    journeyDeviceHashes,
+    journeyIsAlias,
+    journeyKeyPreview,
   };
 };
+
+export const resolveDeviceId = async (
+  request: NextRequest,
+  bodyDeviceId?: unknown,
+): Promise<string | null> => {
+  const resolution = await resolveDeviceIdentity(request, bodyDeviceId);
+  return resolution.effectiveDeviceId ?? resolution.resolvedDeviceId;
+};
+
+export const resolveDeviceIdDebugInfo = (
+  request: NextRequest,
+  bodyDeviceId?: unknown,
+): Promise<DeviceIdDebugInfo> => resolveDeviceIdentity(request, bodyDeviceId);
 
 export const attachDeviceCookie = (response: NextResponse, deviceId: string) => {
   response.cookies.set({

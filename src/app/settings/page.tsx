@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -11,12 +11,26 @@ import { clearGarden } from '@/lib/garden';
 import { saveReducedMotion } from '@/lib/motion';
 import { useAppStore } from '@/store/useAppStore';
 
+interface JourneyStatus {
+  journeyId: string;
+  effectiveDeviceId: string;
+  isAttached: boolean;
+  isPrimary: boolean;
+  attachedDevices: number;
+  attachedDeviceIds: string[];
+  attachedDeviceHashes: string[];
+  lastKeyPreview: string | null;
+  localHasHistory: boolean;
+  primaryDeviceId: string;
+}
+
 export default function SettingsPage() {
   const deviceId = useAppStore((state) => state.deviceId);
   const reducedMotion = useAppStore((state) => state.reducedMotion);
   const setReducedMotion = useAppStore((state) => state.setReducedMotion);
   const setDeviceId = useAppStore((state) => state.setDeviceId);
   const setStats = useAppStore((state) => state.setStats);
+  const loadStats = useAppStore((state) => state.loadStats);
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [purgeMessage, setPurgeMessage] = useState<string | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
@@ -24,6 +38,53 @@ export default function SettingsPage() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
+  const [journeyStatus, setJourneyStatus] = useState<JourneyStatus | null>(null);
+  const [journeyLoading, setJourneyLoading] = useState(false);
+  const [journeyError, setJourneyError] = useState<string | null>(null);
+  const [backupKey, setBackupKey] = useState<string | null>(null);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [attachKey, setAttachKey] = useState('');
+  const [attachLoading, setAttachLoading] = useState(false);
+  const [attachMessage, setAttachMessage] = useState<string | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [confirmAttachOpen, setConfirmAttachOpen] = useState(false);
+
+  const refreshJourneyStatus = useCallback(async () => {
+    if (!deviceId) {
+      setJourneyStatus(null);
+      return;
+    }
+
+    setJourneyLoading(true);
+    setJourneyError(null);
+    try {
+      const response = await fetch('/api/journey/status', {
+        headers: { [DEVICE_ID_HEADER]: deviceId },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? 'Failed to load');
+      }
+      const data = (await response.json()) as { status: JourneyStatus };
+      setJourneyStatus(data.status);
+      if (data.status.effectiveDeviceId && data.status.effectiveDeviceId !== deviceId) {
+        setDeviceId(data.status.effectiveDeviceId);
+        void loadStats();
+      }
+    } catch (error) {
+      console.warn('[settings] Failed to load journey status', error);
+      setJourneyError('Не удалось получить информацию о пути. Попробуй обновить страницу.');
+    } finally {
+      setJourneyLoading(false);
+    }
+  }, [deviceId, loadStats, setDeviceId]);
+
+  useEffect(() => {
+    void refreshJourneyStatus();
+  }, [refreshJourneyStatus]);
 
   const handleReducedMotionToggle = () => {
     const next = !reducedMotion;
@@ -36,6 +97,141 @@ export default function SettingsPage() {
     setGardenMessage('Сад света очищен. Свет можно собирать заново.');
     setPurgeMessage(null);
     setPurgeError(null);
+  };
+
+  const handleCreateBackup = async () => {
+    if (!deviceId) return;
+
+    setBackupLoading(true);
+    setBackupMessage(null);
+    setBackupError(null);
+    try {
+      const response = await fetch('/api/journey/backup', {
+        method: 'POST',
+        headers: { [DEVICE_ID_HEADER]: deviceId },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? 'Failed to create backup');
+      }
+      const data = (await response.json()) as {
+        identityKey: string;
+        status: JourneyStatus;
+      };
+      setBackupKey(data.identityKey);
+      setBackupMessage('Ключ создан. Сохрани его — мы не покажем его снова.');
+      setJourneyStatus(data.status);
+      if (data.status.effectiveDeviceId && data.status.effectiveDeviceId !== deviceId) {
+        setDeviceId(data.status.effectiveDeviceId);
+        void loadStats();
+      }
+    } catch (error) {
+      console.error('[settings] Failed to create backup key', error);
+      setBackupError('Не удалось сгенерировать ключ. Попробуй ещё раз позже.');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleCopyBackupKey = async () => {
+    if (!backupKey || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(backupKey);
+      setBackupMessage('Ключ скопирован. Сохрани его в надёжном месте.');
+    } catch (error) {
+      console.warn('[settings] Failed to copy key', error);
+      setBackupError('Не получилось скопировать ключ. Сохрани его вручную.');
+    }
+  };
+
+  const handleDownloadBackupKey = () => {
+    if (!backupKey) return;
+    try {
+      const blob = new Blob([
+        `Ключ пути для UYAN.chat:\n${backupKey}\nХрани его в надёжном месте и не делись с незнакомыми людьми.`,
+      ]);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'uyan-path-key.txt';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setBackupMessage('Ключ сохранён в файл. Береги его.');
+    } catch (error) {
+      console.warn('[settings] Failed to download key', error);
+      setBackupError('Не получилось сохранить файл с ключом.');
+    }
+  };
+
+  const performAttach = useCallback(async () => {
+    if (!attachKey.trim()) {
+      setAttachError('Введи ключ пути.');
+      return;
+    }
+    if (!deviceId) {
+      setAttachError('Не удалось определить устройство.');
+      return;
+    }
+
+    setAttachLoading(true);
+    setAttachMessage(null);
+    setAttachError(null);
+    try {
+      const response = await fetch('/api/journey/attach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
+        body: JSON.stringify({ identityKey: attachKey.trim() }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Failed to attach');
+      }
+      const nextStatus = (payload?.status ?? null) as JourneyStatus | null;
+      if (nextStatus) {
+        setJourneyStatus(nextStatus);
+        if (nextStatus.effectiveDeviceId && nextStatus.effectiveDeviceId !== deviceId) {
+          setDeviceId(nextStatus.effectiveDeviceId);
+          void loadStats();
+        }
+      }
+      setAttachMessage('Путь восстановлен. Теперь этот девайс идёт вместе с сохранённым светом.');
+      setAttachKey('');
+      setBackupKey(null);
+      void refreshJourneyStatus();
+    } catch (error) {
+      console.warn('[settings] Failed to attach journey', error);
+      setAttachError(
+        error instanceof Error
+          ? error.message
+          : 'Не получилось восстановить путь. Проверь ключ и попробуй снова.',
+      );
+    } finally {
+      setAttachLoading(false);
+      setConfirmAttachOpen(false);
+    }
+  }, [attachKey, deviceId, loadStats, refreshJourneyStatus, setDeviceId]);
+
+  const handleAttachSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAttachMessage(null);
+    setAttachError(null);
+    if (journeyStatus?.localHasHistory && !journeyStatus.isPrimary) {
+      setConfirmAttachOpen(true);
+      return;
+    }
+    void performAttach();
+  };
+
+  const confirmAttach = () => {
+    if (attachLoading) return;
+    void performAttach();
+  };
+
+  const cancelAttach = () => {
+    if (attachLoading) return;
+    setConfirmAttachOpen(false);
   };
 
   const handleResetDevice = () => {
@@ -83,7 +279,7 @@ export default function SettingsPage() {
       const response = await fetch('/api/device/purge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
-        body: JSON.stringify({ deviceId }),
+        body: JSON.stringify({}),
       });
       const result = await response.json();
 
@@ -143,6 +339,140 @@ export default function SettingsPage() {
 
       <Card className="space-y-6">
         <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-text-primary">Портативный путь</h2>
+          <p className="text-sm text-text-secondary">
+            Каждая история, огонёк и статистика привязаны к твоему устройству. Здесь можно бережно сохранить этот путь и
+            восстановить его на другом телефоне или браузере — без логинов и имён.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/5 bg-bg-secondary/60 p-4 text-sm text-text-secondary">
+          {journeyLoading ? (
+            <p>Собираем сведения о пути…</p>
+          ) : journeyError ? (
+            <p className="text-amber-300">{journeyError}</p>
+          ) : journeyStatus ? (
+            <div className="space-y-2">
+              <p className="text-text-primary">
+                Сейчас путь хранится как <span className="font-semibold">{journeyStatus.isPrimary ? 'основной' : 'гость'}</span>.
+              </p>
+              <p>
+                Ключ знает о <span className="font-semibold text-text-primary">{journeyStatus.attachedDevices}</span>{' '}
+                устройстве(ах). Сохрани его — и можно продолжать светлый путь на любом девайсе.
+              </p>
+              {journeyStatus.lastKeyPreview ? (
+                <p className="text-xs text-text-tertiary">
+                  Последний созданный ключ начинается так: <span className="font-mono">{journeyStatus.lastKeyPreview}</span>
+                </p>
+              ) : null}
+              {journeyStatus.localHasHistory && !journeyStatus.isPrimary ? (
+                <p className="text-xs text-amber-200">
+                  У этого устройства уже есть своя история. При восстановлении мы бережно присоединим её к сохранённому пути.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p>Этот путь только рождается — отправь сообщение или сохрани ключ, чтобы начать.</p>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-text-primary">Сохранить мой путь</h3>
+            <p className="text-sm text-text-secondary">
+              Сгенерируй тёплый секретный ключ, запиши его в заметку или сфотографируй. Мы не покажем его повторно.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button onClick={handleCreateBackup} disabled={backupLoading || !deviceId} className="w-full sm:w-auto">
+                {backupLoading ? 'Создаём…' : 'Создать ключ'}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleCopyBackupKey}
+                disabled={!backupKey}
+                className="w-full sm:w-auto"
+              >
+                Скопировать
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleDownloadBackupKey}
+                disabled={!backupKey}
+                className="w-full sm:w-auto"
+              >
+                Скачать
+              </Button>
+            </div>
+            {backupKey ? (
+              <div className="rounded-xl bg-bg-tertiary/70 p-4 text-center">
+                <p className="text-xs uppercase tracking-[0.3em] text-text-secondary">твой ключ</p>
+                <p className="mt-2 font-mono text-lg text-text-primary">{backupKey}</p>
+                <p className="mt-2 text-xs text-text-tertiary">Сохрани этот код. Он открывает твой путь на других устройствах.</p>
+              </div>
+            ) : null}
+            <div className="space-y-2 text-sm">
+              {backupMessage ? <Notice variant="success">{backupMessage}</Notice> : null}
+              {backupError ? <Notice variant="error">{backupError}</Notice> : null}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-text-primary">Восстановить на этом устройстве</h3>
+            <p className="text-sm text-text-secondary">
+              Введи сохранённый ключ — и мы подтянем сообщения, сад и статистику. Никому не передавай его, иначе другой
+              человек получит доступ к твоему пути.
+            </p>
+            <form onSubmit={handleAttachSubmit} className="space-y-3">
+              <input
+                type="text"
+                value={attachKey}
+                onChange={(e) =>
+                  setAttachKey(
+                    e.target.value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase()
+                  )
+                }
+                placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+                className="w-full rounded-xl border border-white/10 bg-bg-primary/60 p-3 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline focus:outline-2 focus:outline-uyan-light"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="text"
+                autoCapitalize="characters"
+                pattern="[A-Z0-9-]{8,}"
+                maxLength={29}
+              />
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button type="submit" disabled={attachLoading || attachKey.trim().length < 8} className="w-full sm:w-auto">
+                  {attachLoading ? 'Соединяем…' : 'Подключить путь'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full sm:w-auto"
+                  onClick={() => {
+                    setAttachKey('');
+                    setAttachError(null);
+                    setAttachMessage(null);
+                  }}
+                >
+                  Очистить поле
+                </Button>
+              </div>
+            </form>
+            <div className="space-y-2 text-sm">
+              {attachMessage ? <Notice variant="success">{attachMessage}</Notice> : null}
+              {attachError ? <Notice variant="error">{attachError}</Notice> : null}
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-text-tertiary">
+          Не делись ключом с незнакомыми людьми. Он не содержит личных данных, но открывает доступ к твоему свету.
+        </p>
+      </Card>
+
+      <Card className="space-y-6">
+        <div className="space-y-2">
           <h2 className="text-xl font-semibold text-text-primary">Данные устройства</h2>
           <p className="text-sm text-text-secondary">
             Мы используем только технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе — ни логинов,
@@ -173,6 +503,16 @@ export default function SettingsPage() {
           {purgeError ? <Notice variant="error">{purgeError}</Notice> : null}
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={confirmAttachOpen}
+        title="Присоединить этот путь к сохранённому?"
+        description="Мы аккуратно перенесём текущие истории и статистику в сохранённый путь. Это действие нельзя отменить."
+        confirmLabel="Присоединить"
+        onConfirm={confirmAttach}
+        onCancel={cancelAttach}
+        loading={attachLoading}
+      />
 
       <ConfirmDialog
         open={resetDialogOpen}

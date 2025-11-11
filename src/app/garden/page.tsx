@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toPng } from 'html-to-image';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +24,7 @@ export default function GardenPage() {
   const [shareLight, setShareLight] = useState<SavedLight | null>(null);
   const [savingImage, setSavingImage] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const shareCardRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = () => {
     setLights(loadGarden());
@@ -53,13 +54,31 @@ export default function GardenPage() {
   const downloadAsImage = async () => {
     if (savingImage) return;
     if (!shareLight) return;
-    const element = document.getElementById('sharecard');
-    if (!element) return;
+    const element = shareCardRef.current;
+    if (!element) {
+      console.warn('[garden] Share card element not ready');
+      setExportError('Открытка ещё загружается. Попробуй через мгновение.');
+      return;
+    }
+
+    const { clientWidth, clientHeight } = element;
+    if (!clientWidth || !clientHeight) {
+      console.warn('[garden] Share card element has zero size', { clientWidth, clientHeight });
+      setExportError('Не удалось подготовить открытку для сохранения.');
+      return;
+    }
 
     setSavingImage(true);
     setExportError(null);
     try {
-      const dataUrl = await toPng(element, { pixelRatio: 2, cacheBust: true });
+      const upscale = Math.max(2, Math.min(4, 1080 / clientWidth));
+      const dataUrl = await toPng(element, {
+        cacheBust: true,
+        pixelRatio: upscale,
+        width: clientWidth,
+        height: clientHeight,
+        style: { transform: 'none' },
+      });
       const link = document.createElement('a');
       link.download = `svetlya-${shareLight.id}.png`;
       link.href = dataUrl;
@@ -90,7 +109,8 @@ export default function GardenPage() {
           <div className="space-y-4">
             <p className="text-4xl">🌱</p>
             <p className="text-lg text-text-secondary">
-              Пока твой сад пуст. Сохраняй ответы, которые хочется перечитывать и делиться ими.
+              Пока твой сад пуст. Сохраняй ответы, которые хочется перечитывать и делиться ими. С ключом из настроек этот сад
+              переедет с тобой на любой девайс.
             </p>
           </div>
         </Card>
@@ -125,15 +145,19 @@ export default function GardenPage() {
       <Modal open={shareOpen} onClose={savingImage ? () => {} : closeShare} title="Поделиться светом">
         {shareLight ? (
           <div className="space-y-4">
-            <div
-              id="sharecard"
-              className="max-h-[70vh] overflow-auto rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4"
-            >
-              <ShareCard
-                originalMessage={shareLight.originalMessage}
-                responseText={shareLight.responseText}
-                styleId={shareStyle}
-              />
+            <div className="mx-auto w-full max-w-[min(420px,90vw)]">
+              <div
+                className="relative rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4"
+                style={{ aspectRatio: '4 / 5' }}
+              >
+                <ShareCard
+                  ref={shareCardRef}
+                  originalMessage={shareLight.originalMessage}
+                  responseText={shareLight.responseText}
+                  styleId={shareStyle}
+                  className="absolute inset-0"
+                />
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {shareCardStyles.map((style) => {

@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
+import { clearPersistedDeviceId, persistDeviceId } from '@/lib/device';
 
 type NullableTimestamp = number | null;
 
@@ -33,7 +34,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   deviceId: null,
   stats: null,
   reducedMotion: false,
-  setDeviceId: (deviceId) => set({ deviceId }),
+  setDeviceId: (deviceId) => {
+    set({ deviceId });
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (deviceId) {
+      persistDeviceId(deviceId);
+    } else {
+      clearPersistedDeviceId();
+    }
+  },
   setStats: (stats) => set({ stats }),
   setReducedMotion: (value) => set({ reducedMotion: value }),
   loadStats: async () => {

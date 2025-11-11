@@ -4,7 +4,7 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import type { UserStats } from '@/types/firestore';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
-import { attachDeviceCookie, readDeviceIdFromRequest } from '@/lib/device/server';
+import { attachDeviceCookie, resolveDeviceIdDebugInfo } from '@/lib/device/server';
 
 interface SerializedUserStats {
   deviceId: string;
@@ -37,11 +37,21 @@ const emptyStats = (deviceId: string): SerializedUserStats => ({
 });
 
 export async function GET(request: NextRequest) {
-  const deviceId = readDeviceIdFromRequest(request);
+  const debugInfo = await resolveDeviceIdDebugInfo(request);
+  const deviceId = debugInfo.effectiveDeviceId ?? debugInfo.resolvedDeviceId;
 
   if (!deviceId) {
+    console.warn('[stats/user] Unable to resolve deviceId', debugInfo);
     return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
   }
+
+  console.info('[stats/user] Device resolution', {
+    resolvedDeviceId: deviceId,
+    resolvedFrom: debugInfo.resolvedFrom,
+    conflicts: debugInfo.conflicts,
+    journeyId: debugInfo.journeyId,
+    journeyIsAlias: debugInfo.journeyIsAlias,
+  });
 
   try {
     const db = getAdminDb();
@@ -51,6 +61,12 @@ export async function GET(request: NextRequest) {
       db.collection('user_stats').doc(deviceHash).get(),
       db.collection('user_stats').doc(deviceId).get(),
     ]);
+
+    console.info('[stats/user] Snapshot stats', {
+      resolvedDeviceId: deviceId,
+      hashDocExists: hashSnapshot.exists,
+      legacyDocExists: legacySnapshot.exists,
+    });
 
     const snapshot = hashSnapshot.exists ? hashSnapshot : legacySnapshot;
 

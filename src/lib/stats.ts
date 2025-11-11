@@ -5,6 +5,8 @@ import { hashDeviceId } from './deviceHash';
 
 const COLLECTION = 'user_stats';
 
+// Stats are keyed by a hash so that we can re-map deviceId to another identity key later
+// without rewriting historical documents.
 const buildInitialStats = (deviceHash: string): UserStats => {
   const now = Timestamp.now();
   return {

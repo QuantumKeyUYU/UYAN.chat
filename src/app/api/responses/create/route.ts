@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       deviceId?: string;
     };
 
-    const deviceId = resolveDeviceId(request, deviceIdFromBody);
+    const deviceId = await resolveDeviceId(request, deviceIdFromBody);
 
     if (!deviceId) {
       return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
