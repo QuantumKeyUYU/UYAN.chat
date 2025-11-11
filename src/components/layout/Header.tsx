@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Menu, Sparkles, BarChart3 } from 'lucide-react';
+import { Menu, Sparkles, BarChart3, PenSquare } from 'lucide-react';
 import { MobileNavDrawer } from '@/components/nav/MobileNavDrawer';
 import { useDeviceStore } from '@/store/device';
 import { useStatsStore } from '@/store/stats';
@@ -16,11 +16,11 @@ type HeaderLink =
   | { href: string; labelKey: 'ctaWrite' | 'ctaSupport' };
 
 const baseLinks: HeaderLink[] = [
-  { href: '/', label: 'Дом' },
+  { href: '/', label: 'Главная' },
   { href: '/write', labelKey: 'ctaWrite' as const },
   { href: '/support', labelKey: 'ctaSupport' as const },
   { href: '/my', label: 'Мои отклики' },
-  { href: '/garden', label: 'Коллекция' },
+  { href: '/garden', label: 'Архив откликов' },
   { href: '/settings', label: 'Настройки' },
 ];
 
@@ -147,14 +147,22 @@ export const Header = () => {
                 id="header-stats"
                 className="absolute right-0 top-[calc(100%+0.5rem)] w-64 rounded-2xl border border-white/10 bg-bg-primary/95 p-4 text-sm shadow-lg"
               >
-                <p className="text-text-primary">{vocabulary.ctaWrite}: {formatNumber(stats?.lightsGiven ?? 0)}</p>
-                <p className="mt-1 text-text-primary">{vocabulary.ctaSupport}: {formatNumber(stats?.lightsReceived ?? 0)}</p>
+                <p className="text-text-primary">Мыслей отправлено: {formatNumber(stats?.lightsGiven ?? 0)}</p>
+                <p className="mt-1 text-text-primary">Получено откликов: {formatNumber(stats?.lightsReceived ?? 0)}</p>
                 <p className="mt-3 text-xs text-text-tertiary">
-                  ID устройства: <span className="font-mono text-text-secondary">{deviceId ?? '—'}</span>
+                  Ключ устройства: <span className="font-mono text-text-secondary">{deviceId ?? '—'}</span>
                 </p>
               </div>
             ) : null}
           </div>
+
+          <Link
+            href="/write"
+            className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
+          >
+            <PenSquare className="h-4 w-4" aria-hidden />
+            <span>{vocabulary.ctaWrite}</span>
+          </Link>
 
           <Link
             href="/support"

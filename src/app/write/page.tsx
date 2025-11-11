@@ -95,7 +95,7 @@ export default function WritePage() {
           const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
           const minutes = Math.max(1, Math.ceil(retryAfter / 60));
           setErrorMessage(
-            `Ты сегодня уже много поделился. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+            `Сегодня ты уже поделился многими мыслями. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
           setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
           return;
@@ -108,12 +108,12 @@ export default function WritePage() {
 
         const reasonMessages: Record<string, string> = {
           contact:
-            'Мы не показываем контакты и личные данные — так пространство остаётся безопасным и анонимным.',
-          spam: 'Сообщение похоже на случайный набор символов. Лучше опиши, что чувствуешь, простыми словами.',
-          too_short: 'Добавь ещё пару фраз, чтобы мы лучше почувствовали твоё состояние.',
+            'Мы не публикуем контакты и личные данные — так пространство остаётся безопасным и анонимным.',
+          spam: 'Мысль похожа на случайный набор символов. Лучше напиши простыми словами, что происходит внутри.',
+          too_short: 'Добавь ещё пару фраз, чтобы люди лучше почувствовали твоё состояние.',
           too_long: 'Сократи историю до 280 символов, чтобы её смогли дочитать внимательно.',
           crisis:
-            'Похоже, текст касается сильной боли. Пожалуйста, напиши коротко и бережно — а за поддержкой обратись к тем, кто сможет помочь сразу.',
+            'Похоже, текст касается сильной боли. Напиши короче и бережнее, а за срочной помощью обратись к тем, кто сможет поддержать прямо сейчас.',
         };
 
         if (result?.reason && reasonMessages[result.reason]) {
@@ -198,10 +198,10 @@ export default function WritePage() {
         <Stepper steps={steps} activeIndex={stepIndex} />
         <Card>
           <div className="space-y-4">
-            <h2 className="text-2xl font-semibold text-text-primary">Искра отправлена</h2>
+            <h2 className="text-2xl font-semibold text-text-primary">Мысль сохранена</h2>
             <p className="text-text-secondary">
-              Спасибо, что поделился искрой. Следующий шаг — {vocabulary.ctaSupport.toLowerCase()} кому-то ещё. После этого
-              возвращайся в «Мои отклики» и жди эхо — мы напомним, когда оно придёт.
+              Спасибо, что доверил нам эту мысль. Следующий шаг — {vocabulary.ctaSupport.toLowerCase()} кому-то ещё. После
+              этого заглядывай в «Мои отклики» — мы напомним, когда появятся ответы.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/support')} className="w-full sm:w-auto">
@@ -212,7 +212,7 @@ export default function WritePage() {
               </Button>
             </div>
             <p className="text-sm text-text-tertiary">
-              Эхо появятся в разделе «Мои отклики». Если захочется сделать паузу, вернуться на главную можно в любой момент.
+              Отклики появятся в разделе «Мои отклики». Если захочется передохнуть, можно вернуться на главную в любой момент.
             </p>
           </div>
         </Card>
@@ -240,9 +240,9 @@ export default function WritePage() {
           loadingLabel="Отправляем..."
           description={
             <>
-              <p>Твоя искра остаётся полностью анонимной — мы видим только текст.</p>
+              <p>Твоя мысль остаётся полностью анонимной — мы видим только текст.</p>
               <p className="mt-2">
-                Её прочитает живой человек из сообщества, а эхо может прийти не сразу: иногда на поддержку нужно немного времени.
+                Её прочитает живой человек из сообщества. Отклик может прийти не сразу — иногда тёплые слова требуют времени.
               </p>
             </>
           }

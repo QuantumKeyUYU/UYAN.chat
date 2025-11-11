@@ -13,11 +13,11 @@ interface MobileNavDrawerProps {
 }
 
 const staticLinks = [
-  { href: '/', label: 'Дом' },
+  { href: '/', label: 'Главная' },
   { href: '/write', dynamic: 'write' as const },
   { href: '/support', dynamic: 'support' as const },
   { href: '/my', label: 'Мои отклики' },
-  { href: '/garden', label: 'Коллекция' },
+  { href: '/garden', label: 'Архив откликов' },
   { href: '/settings', label: 'Настройки' },
 ];
 

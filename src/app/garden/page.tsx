@@ -98,8 +98,8 @@ export default function GardenPage() {
       animate={{ opacity: 1, y: 0 }}
     >
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">Сад света</h1>
-        <p className="text-text-secondary">Здесь живут ответы, которые согрели тебя.</p>
+        <h1 className="text-3xl font-semibold text-text-primary">Архив откликов</h1>
+        <p className="text-text-secondary">Здесь живут слова поддержки, к которым хочется возвращаться.</p>
       </div>
 
       {exportError ? <Notice variant="error">{exportError}</Notice> : null}
@@ -107,10 +107,10 @@ export default function GardenPage() {
       {lights.length === 0 ? (
         <Card className="text-center">
           <div className="space-y-4">
-            <p className="text-4xl">🌱</p>
+            <p className="text-4xl">📬</p>
             <p className="text-lg text-text-secondary">
-              Пока твой сад пуст. Сохраняй ответы, которые хочется перечитывать и делиться ими. С ключом из настроек этот сад
-              переедет с тобой на любой девайс.
+              Пока здесь пусто. Сохраняй отклики, которые хочется перечитывать. С ключом устройства из настроек архив переедет с
+              тобой на любой девайс.
             </p>
           </div>
         </Card>
@@ -119,11 +119,11 @@ export default function GardenPage() {
           {lights.map((light) => (
             <Card key={light.id} className="space-y-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-uyan-darkness">ты поделился</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-uyan-darkness">твоя мысль</p>
                 <p className="mt-2 rounded-xl bg-bg-tertiary/50 p-4 text-sm text-text-secondary">{light.originalMessage}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">в ответ получил</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">бережный отклик</p>
                 <p className="mt-2 rounded-xl bg-uyan-light/10 p-4 text-text-primary">{light.responseText}</p>
               </div>
               <div className="flex flex-col gap-3 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
@@ -142,7 +142,7 @@ export default function GardenPage() {
         </div>
       )}
 
-      <Modal open={shareOpen} onClose={savingImage ? () => {} : closeShare} title="Поделиться светом">
+      <Modal open={shareOpen} onClose={savingImage ? () => {} : closeShare} title="Поделиться откликом">
         {shareLight ? (
           <div className="space-y-4">
             <div className="mx-auto w-full max-w-[min(420px,90vw)]">
@@ -188,7 +188,7 @@ export default function GardenPage() {
             </Button>
           </div>
         ) : (
-          <p className="text-center text-text-secondary">Выбери ответ, чтобы поделиться светом.</p>
+          <p className="text-center text-text-secondary">Выбери отклик, чтобы поделиться им.</p>
         )}
       </Modal>
     </motion.div>
