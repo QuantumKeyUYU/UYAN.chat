@@ -1,69 +1,77 @@
-import { NextResponse } from 'next/server'
-import admin from 'firebase-admin'
+import { NextRequest, NextResponse } from 'next/server';
+import type { Firestore, WhereFilterOp } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase/admin';
 
-/** --- простая авторизация для крона --- */
-function checkAuth(req: Request) {
-  const auth = req.headers.get('authorization') || ''
-  const expected = `Bearer ${process.env.CRON_SECRET || ''}`
-  return auth === expected
-}
+const getExpectedBearer = () => {
+  const secret = process.env.CRON_SECRET;
+  return secret ? `Bearer ${secret}` : null;
+};
 
-/** --- инициализация Admin SDK --- */
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-    }),
-  })
-}
-const db = admin.firestore()
+const isAuthorized = (request: NextRequest): boolean => {
+  const provided = request.headers.get('authorization') ?? request.headers.get('Authorization');
+  const expected = getExpectedBearer();
 
-/** --- batched delete для больших коллекций --- */
-async function deleteByQuery(
-  colPath: string,
-  whereField: string,
-  op: FirebaseFirestore.WhereFilterOp,
-  value: any,
-  batchSize = 300
-) {
-  let total = 0
-  while (true) {
-    const snap = await db
-      .collection(colPath)
-      .where(whereField, op, value)
-      .orderBy(whereField)
+  if (!expected) {
+    console.warn('[tasks/cleanup] CRON_SECRET is not configured. Rejecting request.');
+    return false;
+  }
+
+  return provided === expected;
+};
+
+const deleteByQuery = async (
+  db: Firestore,
+  collectionPath: string,
+  field: string,
+  operator: WhereFilterOp,
+  value: unknown,
+  batchSize = 300,
+): Promise<number> => {
+  let total = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const snapshot = await db
+      .collection(collectionPath)
+      .where(field, operator, value)
+      .orderBy(field)
       .limit(batchSize)
-      .get()
+      .get();
 
-    if (snap.empty) break
+    if (snapshot.empty) {
+      hasMore = false;
+      continue;
+    }
 
-    const batch = db.batch()
-    snap.docs.forEach((d) => batch.delete(d.ref))
-    await batch.commit()
-    total += snap.size
-    if (snap.size < batchSize) break
-  }
-  return total
-}
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
 
-export async function GET(req: Request) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    total += snapshot.size;
+    hasMore = snapshot.size === batchSize;
   }
 
-  const now = admin.firestore.Timestamp.now()
+  return total;
+};
 
-  // 1) чистим просроченные сообщения
-  const deletedMessages = await deleteByQuery('messages', 'expiresAt', '<=', now)
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
 
-  // 2) (опционально) чистим старые ответы, если хочешь хранить не дольше 90 дней:
-  // const cutoff = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 90*24*60*60*1000))
-  // const deletedResponses = await deleteByQuery('responses', 'createdAt', '<=', cutoff)
+  try {
+    const db = getAdminDb();
+    const now = Timestamp.now();
 
-  return NextResponse.json({
-    ok: true,
-    deleted: { messages: deletedMessages /*, responses: deletedResponses */ },
-  })
+    const deletedMessages = await deleteByQuery(db, 'messages', 'expiresAt', '<=', now);
+
+    return NextResponse.json({
+      ok: true,
+      deleted: { messages: deletedMessages },
+    });
+  } catch (error) {
+    console.error('[tasks/cleanup] Failed to run cleanup job', error);
+    return NextResponse.json({ ok: false, error: 'Internal Server Error' }, { status: 500 });
+  }
 }

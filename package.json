@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "node -e \"const fs=require('fs');fs.rmSync('.tmp/test-dist',{recursive:true,force:true});\" && tsc -p tsconfig.test.json && node --test .tmp/test-dist/tests/*.test.js"
   },
   "dependencies": {
     "firebase": "^10.8.1",

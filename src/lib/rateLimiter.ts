@@ -9,10 +9,53 @@ interface RateLimitConfig {
   windowMs: number;
 }
 
+const parsePositiveInt = (value: string | undefined): number | null => {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.floor(parsed);
+};
+
+const minutesToMs = (minutes: number) => minutes * 60 * 1000;
+
+const buildConfig = ({
+  limitEnv,
+  windowEnv,
+  defaultLimit,
+  defaultWindowMinutes,
+}: {
+  limitEnv: string | undefined;
+  windowEnv: string | undefined;
+  defaultLimit: number;
+  defaultWindowMinutes: number;
+}): RateLimitConfig => {
+  const limit = parsePositiveInt(limitEnv) ?? defaultLimit;
+  const windowMinutes = parsePositiveInt(windowEnv) ?? defaultWindowMinutes;
+  return {
+    limit,
+    windowMs: minutesToMs(windowMinutes),
+  };
+};
+
 const RATE_LIMITS: Record<RateLimitAction, RateLimitConfig> = {
-  message: { limit: 3, windowMs: 60 * 60 * 1000 },
-  response: { limit: 10, windowMs: 60 * 60 * 1000 },
-  report: { limit: 5, windowMs: 24 * 60 * 60 * 1000 },
+  message: buildConfig({
+    limitEnv: process.env.RATE_LIMIT_MESSAGE_PER_HOUR,
+    windowEnv: process.env.RATE_LIMIT_MESSAGE_WINDOW_MINUTES,
+    defaultLimit: 3,
+    defaultWindowMinutes: 60,
+  }),
+  response: buildConfig({
+    limitEnv: process.env.RATE_LIMIT_RESPONSE_PER_HOUR,
+    windowEnv: process.env.RATE_LIMIT_RESPONSE_WINDOW_MINUTES,
+    defaultLimit: 10,
+    defaultWindowMinutes: 60,
+  }),
+  report: buildConfig({
+    limitEnv: process.env.RATE_LIMIT_REPORT_PER_DAY,
+    windowEnv: process.env.RATE_LIMIT_REPORT_WINDOW_MINUTES,
+    defaultLimit: 5,
+    defaultWindowMinutes: 24 * 60,
+  }),
 };
 
 interface RateLimitDoc {

@@ -1,12 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import Providers from '@/components/layout/Providers';
 import DevicePathWidget from '@/components/debug/DevicePathWidget';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'UYAN.chat — Свет внутри',
@@ -21,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className="dark">
-      <body className={`${inter.className} bg-bg-primary text-text-primary`}>
+      <body className="bg-bg-primary text-text-primary">
         <Providers>
           <div className="flex min-h-screen flex-col">
             <Header />
