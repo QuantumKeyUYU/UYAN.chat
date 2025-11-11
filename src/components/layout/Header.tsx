@@ -1,101 +1,181 @@
 'use client';
 
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Sparkles, Moon } from 'lucide-react';
-import { useAppStore } from '@/store/useAppStore';
+import { Menu, Sparkles, BarChart3 } from 'lucide-react';
+import { MobileNavDrawer } from '@/components/nav/MobileNavDrawer';
+import { useDeviceStore } from '@/store/device';
+import { useStatsStore } from '@/store/stats';
+import { useSettingsStore } from '@/store/settings';
+import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
-const links = [
+type HeaderLink =
+  | { href: string; label: string }
+  | { href: string; labelKey: 'ctaWrite' | 'ctaSupport' };
+
+const baseLinks: HeaderLink[] = [
   { href: '/', label: 'Дом' },
-  { href: '/write', label: 'Написать' },
-  { href: '/support', label: 'Поддержать' },
-  { href: '/my', label: 'Мои огоньки' },
-  { href: '/garden', label: 'Сад света' },
+  { href: '/write', labelKey: 'ctaWrite' as const },
+  { href: '/support', labelKey: 'ctaSupport' as const },
+  { href: '/my', label: 'Мои отклики' },
+  { href: '/garden', label: 'Коллекция' },
   { href: '/settings', label: 'Настройки' },
 ];
 
-const primaryButtonClass =
-  'inline-flex items-center gap-2 rounded-xl bg-uyan-action px-4 py-2 text-sm font-medium text-bg-primary shadow-lg shadow-uyan-action/20 transition-all duration-200 hover:scale-[1.02] hover:bg-uyan-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uyan-action';
+const formatNumber = (value: number) => new Intl.NumberFormat('ru-RU').format(value);
 
 export const Header = () => {
+  const headerRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
-  const deviceId = useAppStore((state) => state.deviceId);
-  const stats = useAppStore((state) => state.stats);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const statsRef = useRef<HTMLDivElement | null>(null);
+  const deviceId = useDeviceStore((state) => state.id);
+  const stats = useStatsStore((state) => state.data);
+  const reducedMotion = useSettingsStore((state) => state.reducedMotion);
+  const { vocabulary } = useVocabulary();
 
-  const lightsGiven = stats?.lightsGiven ?? 0;
-  const lightsReceived = stats?.lightsReceived ?? 0;
+  const links = useMemo(() => {
+    return baseLinks.map((link) => {
+      if ('labelKey' in link) {
+        return { href: link.href, label: vocabulary[link.labelKey] };
+      }
+      return { href: link.href, label: link.label };
+    });
+  }, [vocabulary]);
+
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      const height = headerRef.current?.offsetHeight ?? 64;
+      document.documentElement.style.setProperty('--header-h', `${height}px`);
+    };
+
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+    return () => window.removeEventListener('resize', updateHeaderHeight);
+  }, []);
+
+  useEffect(() => {
+    setDrawerOpen(false);
+    setStatsOpen(false);
+  }, [pathname]);
+
+  const statsLabel = `${formatNumber(stats?.lightsGiven ?? 0)} / ${formatNumber(stats?.lightsReceived ?? 0)}`;
+  const motionProps = reducedMotion
+    ? { animate: { rotate: 0 } }
+    : { animate: { rotate: [0, 8, -6, 0] }, transition: { repeat: Infinity, duration: 8, ease: 'easeInOut' } };
+
+  useEffect(() => {
+    if (!statsOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!statsRef.current) return;
+      if (!statsRef.current.contains(event.target as Node)) {
+        setStatsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setStatsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [statsOpen]);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-white/5 bg-bg-primary/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+    <header
+      ref={(node) => {
+        headerRef.current = node;
+      }}
+      className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-bg-primary/80 backdrop-blur-xl"
+    >
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-text-primary">
           <motion.span
             className="flex h-9 w-9 items-center justify-center rounded-2xl bg-uyan-darkness/30 text-uyan-light"
-            animate={{ rotate: [0, 8, -6, 0] }}
-            transition={{ repeat: Infinity, duration: 6, ease: 'easeInOut' }}
+            initial={{ rotate: 0 }}
+            {...motionProps}
           >
-            <Moon className="h-5 w-5" />
+            <Sparkles className="h-4 w-4" aria-hidden />
           </motion.span>
-          <span>UYAN.chat</span>
+          <span className="leading-none">UYAN.chat</span>
         </Link>
-        <nav className="hidden items-center gap-4 text-sm text-text-secondary sm:flex">
+
+        <nav className="hidden items-center gap-3 text-sm text-text-secondary sm:flex">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`relative px-3 py-2 transition hover:text-text-primary ${isActive ? 'text-text-primary' : ''}`}
+                className={`relative rounded-xl px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action ${
+                  isActive ? 'text-text-primary' : 'hover:text-text-primary'
+                }`}
+                aria-current={isActive ? 'page' : undefined}
               >
                 {isActive ? (
-                  <motion.span
-                    layoutId="navHighlight"
-                    className="absolute inset-0 rounded-xl bg-bg-secondary/80"
-                    transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                  />
+                  <span className="absolute inset-0 rounded-xl bg-white/5" aria-hidden />
                 ) : null}
                 <span className="relative z-10">{link.label}</span>
               </Link>
             );
           })}
         </nav>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex flex-col text-xs text-text-tertiary">
-            <span>
-              ID устройства: <span className="text-text-secondary">{deviceId ?? '—'}</span>
-            </span>
-            <p className="mt-1 max-w-xs text-[11px] text-text-secondary">
-              Этот путь привязан к твоему устройству. Захочешь забрать свет с собой — загляни в настройки и сохрани ключ.
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="flex items-center gap-1 rounded-xl bg-bg-secondary/70 px-2 py-1 text-text-secondary">
-                <span aria-hidden>🔥</span>
-                <span className="font-semibold text-text-primary tabular-nums">{lightsGiven}</span>
-              </span>
-              <span className="flex items-center gap-1 rounded-xl bg-bg-secondary/70 px-2 py-1 text-text-secondary">
-                <span aria-hidden>💫</span>
-                <span className="font-semibold text-text-primary tabular-nums">{lightsReceived}</span>
-              </span>
-            </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative" ref={statsRef}>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-text-secondary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action"
+              aria-expanded={statsOpen}
+              aria-controls="header-stats"
+              onClick={() => setStatsOpen((prev) => !prev)}
+            >
+              <BarChart3 className="h-4 w-4" aria-hidden />
+              <span className="tabular-nums text-sm text-text-primary">{statsLabel}</span>
+            </button>
+            {statsOpen ? (
+              <div
+                id="header-stats"
+                className="absolute right-0 top-[calc(100%+0.5rem)] w-64 rounded-2xl border border-white/10 bg-bg-primary/95 p-4 text-sm shadow-lg"
+              >
+                <p className="text-text-primary">{vocabulary.ctaWrite}: {formatNumber(stats?.lightsGiven ?? 0)}</p>
+                <p className="mt-1 text-text-primary">{vocabulary.ctaSupport}: {formatNumber(stats?.lightsReceived ?? 0)}</p>
+                <p className="mt-3 text-xs text-text-tertiary">
+                  ID устройства: <span className="font-mono text-text-secondary">{deviceId ?? '—'}</span>
+                </p>
+              </div>
+            ) : null}
           </div>
-          <div className="flex flex-col items-end gap-1 text-xs text-text-secondary sm:hidden">
-            <span className="text-[11px] text-text-tertiary">
-              Путь хранится на этом устройстве. Сохрани ключ в настройках — и возьми свет с собой ✨
-            </span>
-            <span>
-              🔥 <span className="tabular-nums text-text-primary">{lightsGiven}</span>
-            </span>
-            <span>
-              💫 <span className="tabular-nums text-text-primary">{lightsReceived}</span>
-            </span>
-          </div>
-          <Link href="/support" className={primaryButtonClass}>
-            <Sparkles className="h-4 w-4" />
-            <span>Дать свет</span>
+
+          <Link
+            href="/support"
+            className="hidden items-center gap-2 rounded-xl bg-uyan-action px-4 py-2 text-sm font-semibold text-bg-primary shadow-lg shadow-uyan-action/20 transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden />
+            <span>{vocabulary.ctaSupport}</span>
           </Link>
+
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:hidden"
+            aria-label="Открыть меню"
+            onClick={() => setDrawerOpen(true)}
+          >
+            <Menu className="h-5 w-5" aria-hidden />
+          </button>
         </div>
       </div>
+
+      <MobileNavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </header>
   );
 };

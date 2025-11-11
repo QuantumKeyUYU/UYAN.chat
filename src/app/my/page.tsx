@@ -9,11 +9,13 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Notice } from '@/components/ui/Notice';
-import { Stepper } from '@/components/ui/Stepper';
-import { useAppStore } from '@/store/useAppStore';
+import { Stepper } from '@/components/stepper';
+import { useDeviceStore } from '@/store/device';
 import { saveLight } from '@/lib/garden';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
-import { FLOW_STEPS } from '@/lib/flowSteps';
+import { getFlowSteps } from '@/lib/flowSteps';
+import { useStepState } from '@/lib/hooks/useStepState';
+import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 type MessageStatus = 'waiting' | 'answered' | 'expired';
 
@@ -37,9 +39,9 @@ type MessageWithResponses = {
 };
 
 const statusLabels: Record<MessageStatus, string> = {
-  waiting: 'Ждёт ответ',
-  answered: 'Ответ получен',
-  expired: 'История закрыта',
+  waiting: 'Ждёт эхо',
+  answered: 'Эхо получено',
+  expired: 'Искра закрыта',
 };
 
 const normalizeResponse = (raw: any): ResponseDetail => ({
@@ -62,7 +64,11 @@ const normalizeMessageWithResponses = (raw: any): MessageWithResponses => ({
 });
 
 export default function MyLightsPage() {
-  const deviceId = useAppStore((state) => state.deviceId);
+  const deviceId = useDeviceStore((state) => state.id);
+  const { preset, vocabulary } = useVocabulary();
+  const steps = useMemo(() => getFlowSteps(preset), [preset]);
+  const stepState = useStepState({ total: steps.length, initial: 1 });
+  const { active: stepIndex, setActive: setStep } = stepState;
   const [messages, setMessages] = useState<MessageWithResponses[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageNotice, setPageNotice] = useState<{
@@ -113,7 +119,7 @@ export default function MyLightsPage() {
     [messages],
   );
 
-  const currentStepIndex = useMemo(() => {
+  const derivedStepIndex = useMemo(() => {
     if (sortedMessages.some((message) => message.status === 'answered')) {
       return 3;
     }
@@ -122,6 +128,10 @@ export default function MyLightsPage() {
     }
     return 1;
   }, [sortedMessages]);
+
+  useEffect(() => {
+    setStep(derivedStepIndex);
+  }, [derivedStepIndex, setStep]);
 
   const handleSaveToGarden = (message: MessageWithResponses, response: ResponseDetail) => {
     if (response.hidden) return;
@@ -132,7 +142,7 @@ export default function MyLightsPage() {
       category: message.category,
       savedAt: Date.now(),
     });
-    setPageNotice({ variant: 'success', message: 'Ответ сохранён в саду света ✨' });
+    setPageNotice({ variant: 'success', message: `Эхо сохранено в ${vocabulary.garden} ✨` });
   };
 
   const openReportModal = (message: MessageWithResponses, response: ResponseDetail) => {
@@ -187,10 +197,10 @@ export default function MyLightsPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Stepper steps={FLOW_STEPS} current={currentStepIndex} />
+      <Stepper steps={steps} activeIndex={stepIndex} />
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">✨ Мои огоньки</h1>
-        <p className="text-text-secondary">Следи за статусом своих историй и сохраняй ответы, которые греют.</p>
+        <h1 className="text-3xl font-semibold text-text-primary">✨ Мои отклики</h1>
+        <p className="text-text-secondary">Следи за статусом своих искр и сохраняй эхо, которое греет.</p>
       </div>
 
       {pageNotice ? <Notice variant={pageNotice.variant}>{pageNotice.message}</Notice> : null}
@@ -200,10 +210,10 @@ export default function MyLightsPage() {
       {sortedMessages.length === 0 && !loading ? (
         <Card className="space-y-3 text-center">
           <div className="text-3xl">🌱</div>
-          <h2 className="text-xl font-semibold text-text-primary">Здесь появятся твои истории</h2>
+          <h2 className="text-xl font-semibold text-text-primary">Здесь появятся твои искры</h2>
           <p className="text-text-secondary">
-            Когда поделишься своим состоянием, мы соберём здесь статусы и ответы, чтобы ты мог возвращаться к ним в любое
-            время. Сохрани ключ в настройках, если хочешь забрать этот путь на другой девайс.
+            Когда поделишься искрой, мы соберём здесь статусы и эхо, чтобы ты мог возвращаться к ним в любое время. Сохрани ключ
+            в настройках, если хочешь забрать этот путь на другой девайс.
           </p>
         </Card>
       ) : null}
@@ -223,9 +233,9 @@ export default function MyLightsPage() {
             </div>
 
             <div className="space-y-3 rounded-2xl bg-bg-tertiary/40 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">ответы</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">эхо</p>
               {message.responses.length === 0 ? (
-                <p className="text-text-secondary">Ответов пока нет, но кто-то может написать позже ✨</p>
+                <p className="text-text-secondary">Эхо пока нет, но кто-то может ответить позже ✨</p>
               ) : (
                 <div className="space-y-4">
                   {message.responses.map((response) => (
@@ -276,7 +286,7 @@ export default function MyLightsPage() {
           <div className="space-y-2 rounded-xl bg-bg-tertiary/40 p-4">
             <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">фрагмент ответа</p>
             <p className="text-text-primary">
-              {reportContext?.response.hidden ? 'Ответ скрыт модерацией.' : reportContext?.response.text}
+              {reportContext?.response.hidden ? 'Эхо скрыто модерацией.' : reportContext?.response.text}
             </p>
           </div>
           <label className="flex flex-col gap-2 text-sm text-text-secondary">
