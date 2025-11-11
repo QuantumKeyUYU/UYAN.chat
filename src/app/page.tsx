@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { Stepper } from '@/components/ui/Stepper';
+import { FLOW_STEPS } from '@/lib/flowSteps';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { isOnboardingDone } from '@/lib/onboarding';
 import { useSoftMotion } from '@/lib/animation';
@@ -120,6 +122,19 @@ export default function HomePage() {
             );
           })}
         </section>
+
+        <motion.section
+          className="space-y-4 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6"
+          initial={initial}
+          animate={animate}
+          transition={infoTransition}
+        >
+          <div className="space-y-2">
+            <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Путь света</p>
+            <h3 className="text-xl font-semibold text-text-primary">Как будет выглядеть твой путь</h3>
+          </div>
+          <Stepper steps={FLOW_STEPS} current={0} />
+        </motion.section>
 
         <motion.section
           className="grid gap-6 rounded-3xl bg-bg-secondary/60 p-8 sm:grid-cols-2"

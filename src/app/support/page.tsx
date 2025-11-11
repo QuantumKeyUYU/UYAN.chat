@@ -5,16 +5,19 @@ export const revalidate = 0;
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
+import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeForm';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Textarea } from '@/components/ui/Textarea';
 import { Notice } from '@/components/ui/Notice';
+import { Stepper } from '@/components/ui/Stepper';
 import { useAppStore } from '@/store/useAppStore';
 import type { MessageCategory, ResponseType } from '@/types/firestore';
 import { useSoftMotion } from '@/lib/animation';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
+import { FLOW_STEPS } from '@/lib/flowSteps';
+import { formatSeconds } from '@/lib/time';
 
 type MessagePayload = {
   id: string;
@@ -24,10 +27,6 @@ type MessagePayload = {
   expiresAt: number;
   status: string;
 };
-
-interface ResponseForm {
-  text: string;
-}
 
 type Phase = 'explore' | 'select' | 'custom' | 'quick' | 'ai' | 'success';
 
@@ -74,15 +73,11 @@ export default function SupportPage() {
   const [selectedAi, setSelectedAi] = useState<number | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isBanned, setIsBanned] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
+  const form = useForm<ComposeFormFields>({ defaultValues: { text: '', honeypot: '' } });
   const {
-    register,
-    handleSubmit,
-    watch,
     reset,
-    formState: { errors },
-  } = useForm<ResponseForm>({ defaultValues: { text: '' } });
-
-  const textValue = watch('text') ?? '';
+  } = form;
 
   const fetchRandomMessage = async () => {
     if (!deviceId) return;
@@ -93,6 +88,7 @@ export default function SupportPage() {
     setSelectedQuick(null);
     setAiVariants([]);
     setSelectedAi(null);
+    setSubmissionError(null);
     try {
       const response = await fetch('/api/messages/random', {
         headers: { [DEVICE_ID_HEADER]: deviceId },
@@ -104,11 +100,13 @@ export default function SupportPage() {
       if (!data.message) {
         setMessage(null);
         setError('Все сообщения уже окружены светом. Загляни позже.');
-        reset();
+        reset({ text: '', honeypot: '' });
+        setCooldownSeconds(null);
         return;
       }
       setMessage(data.message as MessagePayload);
-      reset();
+      reset({ text: '', honeypot: '' });
+      setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
       setError('Кажется, все сообщения уже окружены светом. Попробуй заглянуть позже.');
@@ -125,7 +123,20 @@ export default function SupportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
-  const sendResponse = async (text: string, type: ResponseType) => {
+  useEffect(() => {
+    if (!cooldownSeconds || cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (!prev || prev <= 1) {
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
+
+  const sendResponse = async (text: string, type: ResponseType, honeypot?: string) => {
     if (!deviceId || !message) return;
     if (isBanned) {
       setSubmissionError('Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
@@ -141,6 +152,7 @@ export default function SupportPage() {
           messageId: message.id,
           text,
           type,
+          honeypot,
         }),
       });
       const result = await response.json();
@@ -156,6 +168,7 @@ export default function SupportPage() {
           setSubmissionError(
             `Сегодня ты уже осветил много историй. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
+          setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
           return;
         }
 
@@ -181,12 +194,13 @@ export default function SupportPage() {
         setSubmissionError(result?.error ?? 'Не удалось отправить ответ. Попробуй ещё раз.');
         return;
       }
-      reset();
+      reset({ text: '', honeypot: '' });
       setQuickSuggestions([]);
       setSelectedQuick(null);
       setAiVariants([]);
       setSelectedAi(null);
       setPhase('success');
+      setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
       setSubmissionError('Не получилось отправить свет. Попробуй ещё раз.');
@@ -195,13 +209,14 @@ export default function SupportPage() {
     }
   };
 
-  const onSubmit = handleSubmit(async (values) => {
-    await sendResponse(values.text, 'custom');
-  });
+  const handleCustomSubmit: SubmitHandler<ComposeFormFields> = async (values) => {
+    await sendResponse(values.text, 'custom', values.honeypot);
+  };
 
   const startQuickFlow = async () => {
     if (!message) return;
     setPhase('quick');
+    setSubmissionError(null);
     setGenerating(true);
     setQuickSuggestions([]);
     setSelectedQuick(null);
@@ -231,6 +246,7 @@ export default function SupportPage() {
   const startAiFlow = async () => {
     if (!message) return;
     setPhase('ai');
+    setSubmissionError(null);
     setGenerating(true);
     setAiVariants([]);
     setSelectedAi(null);
@@ -279,6 +295,7 @@ export default function SupportPage() {
         animate={successAnimate}
         transition={baseTransition}
       >
+        <Stepper steps={FLOW_STEPS} current={2} />
         <Card className="w-full">
           <div className="space-y-4">
             <motion.div
@@ -295,8 +312,8 @@ export default function SupportPage() {
               <Button onClick={() => fetchRandomMessage()} className="w-full sm:w-auto">
                 Поддержать ещё кого-то
               </Button>
-              <Button variant="secondary" onClick={() => router.push('/')} className="w-full sm:w-auto">
-                На главную
+              <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
+                Проверить «Мои огоньки»
               </Button>
             </div>
           </div>
@@ -312,6 +329,7 @@ export default function SupportPage() {
       animate={softMotion.animate}
       transition={baseTransition}
     >
+      <Stepper steps={FLOW_STEPS} current={1} />
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">💫 Поддержи кого-то</h1>
         <p className="text-text-secondary">Прочитай сообщение и поделись тёплыми словами. Без советов, только поддержка.</p>
@@ -330,7 +348,13 @@ export default function SupportPage() {
         </Notice>
       ) : null}
 
-      {submissionError && !isBanned ? <Notice variant="error">{submissionError}</Notice> : null}
+      {submissionError && phase !== 'custom' ? <Notice variant="error">{submissionError}</Notice> : null}
+
+      {cooldownSeconds && cooldownSeconds > 0 && phase !== 'custom' ? (
+        <Notice variant="info">
+          Пауза перед следующей попыткой — осталось {formatSeconds(cooldownSeconds)}.
+        </Notice>
+      ) : null}
 
       {error ? (
         <Card className="space-y-4">
@@ -375,7 +399,14 @@ export default function SupportPage() {
         <Card className="space-y-4">
           <h2 className="text-xl font-semibold text-text-primary">Выбери, как хочешь поддержать</h2>
           <div className="grid gap-3 sm:grid-cols-3">
-            <Button onClick={() => setPhase('custom')} variant="secondary" className="w-full">
+            <Button
+              onClick={() => {
+                setSubmissionError(null);
+                setPhase('custom');
+              }}
+              variant="secondary"
+              className="w-full"
+            >
               ✍️ Написать своими словами
             </Button>
             <Button onClick={startQuickFlow} variant="secondary" className="w-full" disabled={generating}>
@@ -397,36 +428,23 @@ export default function SupportPage() {
             <h2 className="text-xl font-semibold text-text-primary">Твой ответ</h2>
             <p className="text-text-secondary">20–200 символов тепла и поддержки.</p>
           </div>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <Textarea
-              rows={5}
-              maxLength={MAX_LENGTH}
-              placeholder="Напиши, что ты рядом, что человек не один, поделись своим светом..."
-              {...register('text', {
-                required: 'Ответ не может быть пустым',
-                minLength: { value: MIN_LENGTH, message: `Минимум ${MIN_LENGTH} символов` },
-                maxLength: { value: MAX_LENGTH, message: `Максимум ${MAX_LENGTH} символов` },
-              })}
-            />
-            <div className="flex items-center justify-between text-sm text-text-tertiary">
-              <span>{errors.text?.message}</span>
-              <span>
-                {textValue.length}/{MAX_LENGTH}
-              </span>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                type="submit"
-                disabled={submitting || textValue.length < MIN_LENGTH || isBanned}
-                className="w-full"
-              >
-                {submitting ? 'Отправляем...' : 'Отправить свет'}
-              </Button>
-              <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
-                Назад
-              </Button>
-            </div>
-          </form>
+          <ComposeForm
+            form={form}
+            onSubmit={handleCustomSubmit}
+            minLength={MIN_LENGTH}
+            maxLength={MAX_LENGTH}
+            placeholder="Напиши, что ты рядом, что человек не один, поделись своим светом..."
+            submitLabel="Отправить свет"
+            loadingLabel="Отправляем..."
+            errorMessage={submissionError}
+            busy={submitting}
+            disabled={isBanned}
+            cooldownSeconds={cooldownSeconds}
+            onChange={() => setSubmissionError(null)}
+          />
+          <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
+            Назад
+          </Button>
         </Card>
       ) : null}
 

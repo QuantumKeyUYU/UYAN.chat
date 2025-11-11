@@ -1,20 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Textarea } from '@/components/ui/Textarea';
+import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeForm';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Notice } from '@/components/ui/Notice';
+import { Stepper } from '@/components/ui/Stepper';
 import { useAppStore } from '@/store/useAppStore';
 import { useSoftMotion } from '@/lib/animation';
+import { FLOW_STEPS } from '@/lib/flowSteps';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
-
-interface FormValues {
-  text: string;
-}
 
 const MIN_LENGTH = 10;
 const MAX_LENGTH = 280;
@@ -33,23 +30,29 @@ export default function WritePage() {
   const router = useRouter();
   const deviceId = useAppStore((state) => state.deviceId);
   const { initial, animate, transition } = useSoftMotion();
-  const {
-    register,
-    handleSubmit,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<FormValues>({
-    defaultValues: { text: '' },
+  const form = useForm<ComposeFormFields>({
+    defaultValues: { text: '', honeypot: '' },
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showCrisisScreen, setShowCrisisScreen] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
 
-  const textValue = watch('text') ?? '';
+  useEffect(() => {
+    if (!cooldownSeconds || cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (!prev || prev <= 1) {
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
-  const onSubmit = handleSubmit(async (values) => {
+  const onSubmit: SubmitHandler<ComposeFormFields> = async (values) => {
     if (!deviceId) return;
     setLoading(true);
     setErrorMessage(null);
@@ -59,6 +62,7 @@ export default function WritePage() {
         headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
         body: JSON.stringify({
           text: values.text,
+          honeypot: values.honeypot,
         }),
       });
 
@@ -76,6 +80,7 @@ export default function WritePage() {
           setErrorMessage(
             `Ты сегодня уже много поделился. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
+          setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
           return;
         }
 
@@ -103,7 +108,8 @@ export default function WritePage() {
         return;
       }
 
-      reset();
+      form.reset({ text: '', honeypot: '' });
+      setCooldownSeconds(null);
       setSubmitted(true);
     } catch (error) {
       console.error(error);
@@ -111,7 +117,7 @@ export default function WritePage() {
     } finally {
       setLoading(false);
     }
-  });
+  };
 
   if (!deviceId) {
     return (
@@ -139,6 +145,7 @@ export default function WritePage() {
 
     return (
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
+        <Stepper steps={FLOW_STEPS} current={0} />
         <Card>
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-text-primary">Похоже, тебе сейчас очень тяжело</h2>
@@ -171,21 +178,25 @@ export default function WritePage() {
   if (submitted) {
     return (
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-8 text-center" initial={initial} animate={animate} transition={transition}>
+        <Stepper steps={FLOW_STEPS} current={1} />
         <Card>
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold text-text-primary">Сообщение сохранено</h2>
             <p className="text-text-secondary">
-              Спасибо, что доверился пространству. Чтобы получить ответ, подари свет кому-то ещё — иногда это занимает чуть
-              больше времени.
+              Спасибо, что доверился пространству. Следующий шаг — подарить свет кому-то ещё. После этого возвращайся в «Мои
+              огоньки» и жди ответ — мы пришлём его туда.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/support')} className="w-full sm:w-auto">
                 Поддержать сейчас
               </Button>
-              <Button variant="secondary" onClick={() => router.push('/')} className="w-full sm:w-auto">
-                Позже
+              <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
+                Перейти к огонькам
               </Button>
             </div>
+            <p className="text-sm text-text-tertiary">
+              Ответы появятся в разделе «Мои огоньки». Если захочешь сделать паузу, вернуться на главную можно в любой момент.
+            </p>
           </div>
         </Card>
       </motion.div>
@@ -194,44 +205,34 @@ export default function WritePage() {
 
   return (
     <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
+      <Stepper steps={FLOW_STEPS} current={0} />
+
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">🌑 Что сейчас на душе?</h1>
         <p className="text-text-secondary">Мы здесь, чтобы услышать. Пиши от сердца, 10–280 символов.</p>
       </div>
-
-      {errorMessage ? <Notice variant="error">{errorMessage}</Notice> : null}
-
       <Card>
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
-            <p>Твоё сообщение остаётся полностью анонимным — мы видим только текст.</p>
-            <p className="mt-2">
-              Его прочитает живой человек из сообщества, а ответ может прийти не сразу: иногда на поддержку нужно
-              немного времени.
-            </p>
-          </div>
-          <div>
-            <Textarea
-              rows={6}
-              maxLength={MAX_LENGTH}
-              placeholder="Расскажи о своём состоянии, страхах или усталости..."
-              {...register('text', {
-                required: 'Сообщение не может быть пустым',
-                minLength: { value: MIN_LENGTH, message: `Минимум ${MIN_LENGTH} символов` },
-                maxLength: { value: MAX_LENGTH, message: `Максимум ${MAX_LENGTH} символов` },
-              })}
-            />
-            <div className="mt-2 flex items-center justify-between text-sm text-text-tertiary">
-              <span>{errors.text?.message}</span>
-              <span>
-                {textValue.length}/{MAX_LENGTH}
-              </span>
-            </div>
-          </div>
-          <Button type="submit" disabled={loading || textValue.length < MIN_LENGTH} className="w-full">
-            {loading ? 'Отправляем...' : 'Продолжить'}
-          </Button>
-        </form>
+        <ComposeForm
+          form={form}
+          onSubmit={onSubmit}
+          minLength={MIN_LENGTH}
+          maxLength={MAX_LENGTH}
+          placeholder="Расскажи о своём состоянии, страхах или усталости..."
+          submitLabel="Продолжить"
+          loadingLabel="Отправляем..."
+          description={
+            <>
+              <p>Твоё сообщение остаётся полностью анонимным — мы видим только текст.</p>
+              <p className="mt-2">
+                Его прочитает живой человек из сообщества, а ответ может прийти не сразу: иногда на поддержку нужно немного времени.
+              </p>
+            </>
+          }
+          errorMessage={errorMessage}
+          busy={loading}
+          cooldownSeconds={cooldownSeconds}
+          onChange={() => setErrorMessage(null)}
+        />
       </Card>
     </motion.div>
   );

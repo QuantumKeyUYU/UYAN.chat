@@ -9,9 +9,11 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Notice } from '@/components/ui/Notice';
+import { Stepper } from '@/components/ui/Stepper';
 import { useAppStore } from '@/store/useAppStore';
 import { saveLight } from '@/lib/garden';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
+import { FLOW_STEPS } from '@/lib/flowSteps';
 
 type MessageStatus = 'waiting' | 'answered' | 'expired';
 
@@ -111,6 +113,16 @@ export default function MyLightsPage() {
     [messages],
   );
 
+  const currentStepIndex = useMemo(() => {
+    if (sortedMessages.some((message) => message.status === 'answered')) {
+      return 3;
+    }
+    if (sortedMessages.length > 0) {
+      return 2;
+    }
+    return 1;
+  }, [sortedMessages]);
+
   const handleSaveToGarden = (message: MessageWithResponses, response: ResponseDetail) => {
     if (response.hidden) return;
     saveLight({
@@ -173,10 +185,12 @@ export default function MyLightsPage() {
       className="mx-auto flex max-w-4xl flex-col gap-8"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
     >
+      <Stepper steps={FLOW_STEPS} current={currentStepIndex} />
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">Мои сообщения</h1>
-        <p className="text-text-secondary">Следи, кто откликнулся на твой зов, и сохраняй свет.</p>
+        <h1 className="text-3xl font-semibold text-text-primary">✨ Мои огоньки</h1>
+        <p className="text-text-secondary">Следи за статусом своих историй и сохраняй ответы, которые греют.</p>
       </div>
 
       {pageNotice ? <Notice variant={pageNotice.variant}>{pageNotice.message}</Notice> : null}

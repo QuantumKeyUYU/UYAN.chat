@@ -22,7 +22,7 @@ const CRISIS_RESPONSE = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { text, deviceId: deviceIdFromBody } = body as { text?: string; deviceId?: string };
+    const { text, deviceId: deviceIdFromBody, honeypot } = body as { text?: string; deviceId?: string; honeypot?: string };
 
     const deviceId = await resolveDeviceId(request, deviceIdFromBody);
 
@@ -32,6 +32,10 @@ export async function POST(request: NextRequest) {
 
     if (!deviceId) {
       return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
+    }
+
+    if (typeof honeypot === 'string' && honeypot.trim().length > 0) {
+      return NextResponse.json({ ok: true }, { status: 200 });
     }
 
     const rateLimit = await checkRateLimit({ deviceId, action: 'message' });

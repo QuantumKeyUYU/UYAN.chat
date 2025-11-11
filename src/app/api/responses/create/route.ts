@@ -16,11 +16,12 @@ import type { ResponseType } from '@/types/firestore';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messageId, text, type, deviceId: deviceIdFromBody } = body as {
+    const { messageId, text, type, deviceId: deviceIdFromBody, honeypot } = body as {
       messageId?: string;
       text?: string;
       type?: string;
       deviceId?: string;
+      honeypot?: string;
     };
 
     const deviceId = await resolveDeviceId(request, deviceIdFromBody);
@@ -35,6 +36,10 @@ export async function POST(request: NextRequest) {
 
     if (text.trim().length < 20 || text.trim().length > 200) {
       return NextResponse.json({ error: 'Ответ должен быть от 20 до 200 символов.' }, { status: 400 });
+    }
+
+    if (typeof honeypot === 'string' && honeypot.trim().length > 0) {
+      return NextResponse.json({ ok: true }, { status: 200 });
     }
 
     const rateLimit = await checkRateLimit({ deviceId, action: 'response' });
