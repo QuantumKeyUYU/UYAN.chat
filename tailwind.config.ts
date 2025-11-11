@@ -5,6 +5,9 @@ const config: Config = {
   content: ['./src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+      },
       colors: {
         bg: {
           primary: '#1A1A1D',

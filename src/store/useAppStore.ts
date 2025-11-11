@@ -56,6 +56,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const response = await fetch('/api/stats/user', {
         headers: { [DEVICE_ID_HEADER]: deviceId },
+        cache: 'no-store',
       });
       if (!response.ok) {
         throw new Error('Failed to fetch user stats');
