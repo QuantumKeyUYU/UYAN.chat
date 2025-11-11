@@ -5,15 +5,15 @@ export const Footer = () => {
     <footer className="border-t border-white/5 bg-bg-secondary/40">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
-          <p className="font-medium text-text-secondary">Свет делится, когда им делятся</p>
-          <p className="text-xs text-text-tertiary/80">© {new Date().getFullYear()} UYAN.chat — сделано с заботой</p>
+          <p className="font-medium text-text-secondary">Интернет без шума создаём вместе</p>
+          <p className="text-xs text-text-tertiary/80">© {new Date().getFullYear()} UYAN.chat — пространство тёплых мыслей</p>
         </div>
         <div className="flex gap-4">
           <Link href="/support" className="transition hover:text-text-primary">
-            Поддержать кого-то
+            Откликнуться
           </Link>
           <Link href="/write" className="transition hover:text-text-primary">
-            Написать своё
+            Поделиться мыслью
           </Link>
           <a
             href="https://github.com/"

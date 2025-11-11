@@ -34,12 +34,12 @@ type MessagePayload = {
 type Phase = 'explore' | 'select' | 'custom' | 'quick' | 'ai' | 'success';
 
 const phaseDescriptions: Record<Phase, string> = {
-  explore: 'Ищем искру, которой сейчас особенно нужно эхо.',
-  select: 'Выбираем, каким способом ответить эхом поддержки.',
-  custom: 'Пишем эхо своими словами — бережно и от сердца.',
-  quick: 'Можно выбрать одно из коротких тёплых эх.',
-  ai: 'ИИ предложил подсказки, а финальное эхо — за тобой.',
-  success: 'Эхо уже в пути и скоро согреет автора.',
+  explore: 'Ищем мысль, которой сейчас особенно нужен отклик.',
+  select: 'Выбираем, как лучше поддержать человека.',
+  custom: 'Пишем отклик своими словами — спокойно и бережно.',
+  quick: 'Можно выбрать один из коротких тёплых откликов.',
+  ai: 'ИИ подскажет идеи, финальный отклик всё равно за тобой.',
+  success: 'Отклик уже в пути и скоро окажется у автора мысли.',
 };
 
 interface AiVariant {
@@ -105,12 +105,12 @@ export default function SupportPage() {
         headers: { [DEVICE_ID_HEADER]: deviceId },
       });
       if (!response.ok) {
-        throw new Error('Не удалось получить сообщение');
+        throw new Error('Не удалось получить мысль');
       }
       const data = await response.json();
       if (!data.message) {
         setMessage(null);
-        setError('Все искры уже получили своё эхо. Загляни позже.');
+        setError('Похоже, все мысли уже получили отклик. Загляни позже.');
         reset({ text: '', honeypot: '' });
         setCooldownSeconds(null);
         return;
@@ -120,7 +120,7 @@ export default function SupportPage() {
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setError('Кажется, все искры уже окружены эхом. Попробуй заглянуть позже.');
+      setError('Кажется, сейчас в потоке нет свободных мыслей. Попробуй заглянуть позже.');
       setMessage(null);
     } finally {
       setLoadingMessage(false);
@@ -150,7 +150,7 @@ export default function SupportPage() {
   const sendResponse = async (text: string, type: ResponseType, honeypot?: string) => {
     if (!deviceId || !message) return;
     if (isBanned) {
-      setSubmissionError('Доступ к эхам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
+      setSubmissionError('Доступ к откликам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
       return;
     }
     setSubmitting(true);
@@ -169,7 +169,7 @@ export default function SupportPage() {
       const result = await response.json();
       if (response.status === 403) {
         setIsBanned(true);
-        setSubmissionError('Доступ к эхам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
+        setSubmissionError('Доступ к откликам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
         return;
       }
       if (!response.ok) {
@@ -177,7 +177,7 @@ export default function SupportPage() {
           const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
           const minutes = Math.max(1, Math.ceil(retryAfter / 60));
           setSubmissionError(
-            `Сегодня ты уже ответил на много искр. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+            `Сегодня ты уже откликнулся на много мыслей. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
           setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
           return;
@@ -190,9 +190,9 @@ export default function SupportPage() {
 
         const reasonMessages: Record<string, string> = {
           contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
-          spam: 'Эхо выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
-          too_short: 'Добавь немного больше тепла и конкретики, чтобы автор почувствовал эхо.',
-          too_long: 'Сократи эхо до 200 символов, чтобы его легко было дочитать.',
+          spam: 'Отклик выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
+          too_short: 'Добавь чуть больше тепла и конкретики, чтобы автор почувствовал твою поддержку.',
+          too_long: 'Сократи отклик до 200 символов, чтобы его легко было дочитать.',
           crisis:
             'Если текст задевает кризисную тему, лучше направить автора к специалистам и избегать подробностей.',
         };
@@ -202,7 +202,7 @@ export default function SupportPage() {
           return;
         }
 
-        setSubmissionError(result?.error ?? 'Не удалось отправить эхо. Попробуй ещё раз.');
+        setSubmissionError(result?.error ?? 'Не удалось отправить отклик. Попробуй ещё раз.');
         return;
       }
       reset({ text: '', honeypot: '' });
@@ -214,7 +214,7 @@ export default function SupportPage() {
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setSubmissionError('Не получилось отправить эхо. Попробуй ещё раз.');
+      setSubmissionError('Не получилось отправить отклик. Попробуй ещё раз.');
     } finally {
       setSubmitting(false);
     }
@@ -247,7 +247,7 @@ export default function SupportPage() {
       setQuickSuggestions((result.suggestions as string[]) ?? []);
     } catch (err) {
       console.error(err);
-      setSubmissionError('Не получилось загрузить быстрые эхо. Попробуй ещё раз позже.');
+      setSubmissionError('Не получилось загрузить быстрые отклики. Попробуй ещё раз позже.');
       setPhase('select');
     } finally {
       setGenerating(false);
@@ -317,11 +317,11 @@ export default function SupportPage() {
             >
               💫
             </motion.div>
-            <h2 className="text-2xl font-semibold text-text-primary">Эхо отправлено</h2>
-            <p className="text-text-secondary">Ты отправил тёплое эхо поддержки. Пусть автор искры почувствует, что он не один.</p>
+            <h2 className="text-2xl font-semibold text-text-primary">Отклик отправлен</h2>
+            <p className="text-text-secondary">Ты подарил тёплый отклик. Пусть автор мысли почувствует, что он не один.</p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => fetchRandomMessage()} className="w-full sm:w-auto">
-                Ответить ещё эхом
+                Откликнуться ещё раз
               </Button>
               <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
                 Проверить «Мои отклики»
@@ -350,8 +350,8 @@ export default function SupportPage() {
       </div>
 
       <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
-        <p>Здесь собраны искры людей, которым сейчас нужно эхо — каждая из них анонимна.</p>
-        <p className="mt-2">Эхо тоже остаётся анонимным. Пиши бережно и помни, что по ту сторону — живой человек.</p>
+        <p>Здесь собраны мысли людей, которым сейчас нужен тёплый отклик — каждая из них анонимна.</p>
+        <p className="mt-2">Отклик тоже остаётся анонимным. Пиши бережно и помни, что по ту сторону — живой человек.</p>
       </div>
 
       <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
@@ -403,7 +403,7 @@ export default function SupportPage() {
               className="w-full sm:w-auto"
               disabled={loadingMessage}
             >
-              ⏭ Другое сообщение
+              ⏭ Другая мысль
             </Button>
           </div>
         </Card>
@@ -421,10 +421,10 @@ export default function SupportPage() {
               variant="secondary"
               className="w-full"
             >
-              ✍️ Написать эхо своими словами
+              ✍️ Написать отклик своими словами
             </Button>
             <Button onClick={startQuickFlow} variant="secondary" className="w-full" disabled={generating}>
-              ⚡ Быстрое эхо
+              ⚡ Быстрый отклик
             </Button>
             <Button onClick={startAiFlow} variant="secondary" className="w-full" disabled={generating}>
               🤖 Подсказка ИИ
@@ -439,7 +439,7 @@ export default function SupportPage() {
       {phase === 'custom' && message ? (
         <Card className="space-y-6">
           <div>
-            <h2 className="text-xl font-semibold text-text-primary">Твоё эхо</h2>
+            <h2 className="text-xl font-semibold text-text-primary">Твой отклик</h2>
             <p className="text-text-secondary">20–200 символов тепла и поддержки.</p>
           </div>
           <ComposeForm
@@ -447,7 +447,7 @@ export default function SupportPage() {
             onSubmit={handleCustomSubmit}
             minLength={MIN_LENGTH}
             maxLength={MAX_LENGTH}
-            placeholder="Напиши, что ты рядом, что человек не один, поделись своим эхом..."
+            placeholder="Напиши, что ты рядом и слышишь. Делись поддержкой простыми словами..."
             submitLabel={vocabulary.ctaSupport}
             loadingLabel="Отправляем..."
             errorMessage={submissionError}
@@ -465,8 +465,8 @@ export default function SupportPage() {
       {phase === 'quick' && message ? (
         <Card className="space-y-5">
           <div>
-            <h2 className="text-xl font-semibold text-text-primary">Выбери быстрое эхо</h2>
-            <p className="text-text-secondary">Мы подготовили тёплые варианты. Выбери то эхо, что откликается.</p>
+            <h2 className="text-xl font-semibold text-text-primary">Выбери быстрый отклик</h2>
+            <p className="text-text-secondary">Мы подготовили тёплые варианты. Выбери тот отклик, что ближе тебе.</p>
           </div>
           {generating ? (
             <p className="text-center text-text-secondary">Готовим тёплые слова...</p>
@@ -497,7 +497,7 @@ export default function SupportPage() {
               disabled={!selectedQuick || submitting || generating || isBanned}
               className="w-full"
             >
-              {submitting ? 'Отправляем...' : 'Отправить эхо'}
+              {submitting ? 'Отправляем...' : 'Отправить отклик'}
             </Button>
             <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
               Назад
@@ -509,7 +509,7 @@ export default function SupportPage() {
       {phase === 'ai' && message ? (
         <Card className="space-y-5">
           <div>
-            <h2 className="text-xl font-semibold text-text-primary">Эхо с подсказкой ИИ</h2>
+            <h2 className="text-xl font-semibold text-text-primary">Отклик с подсказкой ИИ</h2>
             <p className="text-text-secondary">Один вариант — чистая эмпатия, второй — луч надежды. Выбери, что ближе.</p>
           </div>
           {generating ? (
@@ -548,7 +548,7 @@ export default function SupportPage() {
               disabled={selectedAi === null || submitting || generating || isBanned}
               className="w-full"
             >
-              {submitting ? 'Отправляем...' : 'Отправить эхо'}
+              {submitting ? 'Отправляем...' : 'Отправить отклик'}
             </Button>
             <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
               Назад

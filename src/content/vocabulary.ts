@@ -1,4 +1,4 @@
-export type VocabularyPreset = 'spark' | 'pulse' | 'note';
+export type VocabularyPreset = 'core' | 'spark' | 'pulse' | 'note';
 
 interface Vocabulary {
   message: string;
@@ -26,6 +26,33 @@ interface Vocabulary {
 }
 
 const presets: Record<VocabularyPreset, Vocabulary> = {
+  core: {
+    message: 'мысль',
+    reply: 'отклик',
+    queue: 'поток мыслей',
+    garden: 'архив откликов',
+    ctaWrite: 'Поделиться мыслью',
+    ctaSupport: 'Откликнуться',
+    writeTitle: 'Поделись тем, что внутри',
+    writeSubtitle:
+      'Напиши тёплую и честную мысль — от 10 до 280 символов. Это анонимно, без регистрации и всегда по-человечески.',
+    supportTitle: 'Помоги услышать другого',
+    supportSubtitle:
+      'Выбери мысль в потоке и откликнись словами поддержки. Один тёплый абзац может изменить чей-то день.',
+    homeHeroTitle: 'Интернет нового поколения: не про лайки и шум, а про нас.',
+    homeHeroSubtitle:
+      'Здесь можно честно написать, что у тебя внутри, и получить бережный отклик от незнакомых людей. Анонимно и по-человечески.',
+    flow: {
+      writeTitle: 'Поделиться мыслью',
+      writeDescription: 'Опиши своё состояние коротко и честно — сообщество услышит тебя без оценок.',
+      supportTitle: 'Откликнуться',
+      supportDescription: 'Выбери мысль другого человека и напиши тёплый отклик, который поможет удержаться.',
+      waitTitle: 'Подождать отклики',
+      waitDescription: 'Загляни в раздел «Мои отклики», когда захочешь перечитать ответы для себя.',
+      saveTitle: 'Сохранить важное',
+      saveDescription: 'Собирай слова поддержки в архиве — туда можно вернуться с любого устройства по ключу.',
+    },
+  },
   spark: {
     message: 'искра',
     reply: 'эхо',
@@ -101,6 +128,6 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
   },
 };
 
-export const getVocabulary = (preset: VocabularyPreset = 'spark'): Vocabulary => presets[preset] ?? presets.spark;
+export const getVocabulary = (preset: VocabularyPreset = 'core'): Vocabulary => presets[preset] ?? presets.core;
 
 export type { Vocabulary };
