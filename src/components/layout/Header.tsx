@@ -18,7 +18,7 @@ const baseLinks: HeaderLink[] = [
   { href: '/', label: 'Главная' },
   { href: '/write', labelKey: 'ctaWrite' as const },
   { href: '/support', labelKey: 'ctaSupport' as const },
-  { href: '/my', label: 'Мой свет' },
+  { href: '/my', label: 'Сохранённое' },
   { href: '/settings', label: 'Настройки' },
 ];
 
@@ -33,6 +33,7 @@ export const Header = () => {
   const stats = useStatsStore((state) => state.data);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
+  const isHome = pathname === '/';
 
   const links = useMemo(() => {
     return baseLinks.map((link) => {
@@ -147,27 +148,31 @@ export const Header = () => {
                 <p className="text-text-primary">Мыслей отправлено: {formatNumber(stats?.lightsGiven ?? 0)}</p>
                 <p className="mt-1 text-text-primary">Получено откликов: {formatNumber(stats?.lightsReceived ?? 0)}</p>
                 <p className="mt-3 text-xs text-text-tertiary">
-                  Делись теплом и возвращайся в «Мой свет», чтобы сохранять важные слова.
+                  Делись теплом и возвращайся в «Сохранённое», чтобы сохранять важные слова.
                 </p>
               </div>
             ) : null}
           </div>
 
-          <Link
-            href="/write"
-            className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
-          >
-            <PenSquare className="h-4 w-4" aria-hidden />
-            <span>{vocabulary.ctaWrite}</span>
-          </Link>
+          {!isHome ? (
+            <>
+              <Link
+                href="/write"
+                className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
+              >
+                <PenSquare className="h-4 w-4" aria-hidden />
+                <span>{vocabulary.ctaWrite}</span>
+              </Link>
 
-          <Link
-            href="/support"
-            className="hidden items-center gap-2 rounded-xl bg-uyan-action px-4 py-2 text-sm font-semibold text-bg-primary shadow-lg shadow-uyan-action/20 transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
-          >
-            <Sparkles className="h-4 w-4" aria-hidden />
-            <span>{vocabulary.ctaSupport}</span>
-          </Link>
+              <Link
+                href="/support"
+                className="hidden items-center gap-2 rounded-xl bg-uyan-action px-4 py-2 text-sm font-semibold text-bg-primary shadow-lg shadow-uyan-action/20 transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
+              >
+                <Sparkles className="h-4 w-4" aria-hidden />
+                <span>{vocabulary.ctaSupport}</span>
+              </Link>
+            </>
+          ) : null}
 
           <button
             type="button"

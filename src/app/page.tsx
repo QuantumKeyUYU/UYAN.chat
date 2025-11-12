@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
@@ -24,26 +25,26 @@ export default function HomePage() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const { initial, animate, transition } = useSoftMotion();
 
-  const primaryActions = useMemo(
+  const navigationCards = useMemo(
     () => [
       {
         id: 'share',
         title: vocabulary.ctaWrite,
-        subtitle: 'Сказать, что у меня внутри',
+        description: 'Напиши то, что внутри, и отправь в безопасное пространство без оценок.',
         href: '/write',
         accent: '🕯️',
       },
       {
         id: 'reply',
         title: vocabulary.ctaSupport,
-        subtitle: 'Поддержать человека',
+        description: 'Выбирай мысль другого человека и отвечай ему тёплыми словами.',
         href: '/support',
         accent: '💬',
       },
       {
-        id: 'light',
-        title: 'Мой свет',
-        subtitle: 'Сохранённые слова и моя история',
+        id: 'saved',
+        title: 'Сохранённое',
+        description: 'Возвращайся к откликам, которые ты отметил(а) как важные.',
         href: '/my',
         accent: '✨',
       },
@@ -54,19 +55,19 @@ export default function HomePage() {
   const howItWorks = useMemo(
     () => [
       {
-        title: 'Поделиться мыслью',
-        description: 'Напиши коротко и честно, что происходит внутри. Здесь слушают внимательно, без оценок.',
+        title: vocabulary.ctaWrite,
+        description: 'Коротко расскажи о своём состоянии. Здесь слушают внимательно и без оценок.',
       },
       {
         title: 'Подождать отклики',
-        description: 'Люди из сообщества прочитают твою историю и ответят тёплыми словами.',
+        description: 'Сообщество прочитает твою историю и ответит тёплыми словами поддержки.',
       },
       {
         title: 'Сохранить важное',
-        description: 'Добавь самые поддерживающие отклики в «Мой свет», чтобы возвращаться к ним потом.',
+        description: 'Отмечай ценные отклики и находи их позже в разделе «Сохранённое».',
       },
     ],
-    [],
+    [vocabulary],
   );
 
   useEffect(() => {
@@ -109,24 +110,42 @@ export default function HomePage() {
     ? baseTransition
     : { ...baseTransition, delay: 0.4, duration: 0.6 };
 
+  const statsAreMeaningful = Boolean(
+    stats && (stats.totalMessages > 0 || stats.totalResponses > 0 || stats.lightsToday > 0),
+  );
+
   return (
     <>
-      <div className="mx-auto flex max-w-5xl flex-col gap-12 pt-10">
+      <div className="mx-auto flex max-w-5xl flex-col gap-16 pt-10 sm:gap-20">
         <motion.section
           className="rounded-3xl border border-white/5 bg-gradient-to-br from-bg-secondary/80 via-bg-secondary/40 to-bg-secondary/80 p-8 shadow-glow"
           initial={initial}
           animate={animate}
           transition={heroTransition}
         >
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-4">
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-5">
               <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">интернет без лайков и шума</p>
               <h1 className="text-3xl font-semibold text-text-primary sm:text-4xl">{vocabulary.homeHeroTitle}</h1>
               <p className="max-w-2xl text-lg text-text-secondary">{vocabulary.homeHeroSubtitle}</p>
             </div>
-            <Button onClick={() => router.push('/write')} size="lg" className="w-full sm:w-auto">
-              {vocabulary.ctaWrite}
-            </Button>
+            <div className="flex flex-col gap-3 sm:w-auto">
+              <Button
+                onClick={() => router.push('/write')}
+                size="lg"
+                className="w-full shadow-[0_0_1.75rem_rgba(255,229,195,0.35)] ring-1 ring-uyan-action/40"
+              >
+                {vocabulary.ctaWrite}
+              </Button>
+              <Button
+                onClick={() => router.push('/support')}
+                size="lg"
+                variant="secondary"
+                className="w-full"
+              >
+                {vocabulary.ctaSupport}
+              </Button>
+            </div>
           </div>
         </motion.section>
 
@@ -136,13 +155,11 @@ export default function HomePage() {
           animate={animate}
           transition={actionsTransition}
         >
-          {primaryActions.map((action, index) => {
+          {navigationCards.map((action, index) => {
             const delay = reducedMotion ? 0 : index * 0.05;
             return (
-              <motion.button
+              <motion.div
                 key={action.id}
-                type="button"
-                onClick={() => router.push(action.href)}
                 className="group flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6 text-left shadow-sm transition hover:border-uyan-light/60 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light"
                 initial={initial}
                 animate={animate}
@@ -158,11 +175,17 @@ export default function HomePage() {
                   </span>
                   <div className="space-y-2">
                     <h2 className="text-2xl font-semibold text-text-primary group-hover:text-uyan-light">{action.title}</h2>
-                    <p className="text-sm text-text-secondary">{action.subtitle}</p>
+                    <p className="text-sm text-text-secondary">{action.description}</p>
                   </div>
                 </div>
-                <span className="text-sm font-medium text-uyan-light">Перейти →</span>
-              </motion.button>
+                <Link
+                  href={action.href}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-uyan-light transition hover:text-uyan-light/80"
+                >
+                  Перейти →
+                  <span className="sr-only">к разделу {action.title}</span>
+                </Link>
+              </motion.div>
             );
           })}
         </motion.section>
@@ -177,9 +200,9 @@ export default function HomePage() {
             <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Как всё устроено</p>
             <h3 className="text-xl font-semibold text-text-primary">Три простых шага тепла</h3>
           </div>
-          <ol className="space-y-4">
+          <ol className="grid gap-4 md:grid-cols-3 md:gap-6">
             {howItWorks.map((item, index) => (
-              <li key={item.title} className="flex gap-4">
+              <li key={item.title} className="flex gap-4 rounded-2xl bg-bg-secondary/60 p-4 md:flex-col md:gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-uyan-darkness/40 text-base font-semibold text-uyan-light">
                   {index + 1}
                 </span>
@@ -201,15 +224,18 @@ export default function HomePage() {
           <div className="space-y-3">
             <h3 className="text-xl font-semibold text-text-primary">Зачем это нужно</h3>
             <p className="text-text-secondary">
-              UYAN.chat — тёплое пространство без гонки за лайками. Здесь только люди и их истории, а каждый отклик — время и
-              внимание настоящего человека.
+              UYAN.chat — тёплое пространство без гонки за лайками. Здесь можно честно говорить о своём состоянии и получать
+              поддержку от живых людей.
+            </p>
+            <p className="text-text-secondary">
+              Каждая мысль проходит модерацию, а отклики пишутся вручную. Так мы поддерживаем безопасность и доверие.
             </p>
           </div>
           <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
             <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">что почувствуешь внутри</p>
             <p className="mt-4 text-lg">
-              Поддержка, которая остаётся с тобой. Сохраняй важные слова в «Мой свет», возвращайся к ним в моменты тишины и делись
-              этим теплом с другими.
+              Бережное внимание, тишина без оценок и пространство, куда можно вернуться. «Сохранённое» бережно хранит важные
+              слова, чтобы ты мог(ла) перечитать их позже и поделиться теплом дальше.
             </p>
           </div>
         </motion.section>
@@ -220,7 +246,7 @@ export default function HomePage() {
           animate={animate}
           transition={summaryTransition}
         >
-          {stats ? (
+          {stats && statsAreMeaningful ? (
             <>
               <div className="space-y-1">
                 <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Сегодня</p>
@@ -240,8 +266,8 @@ export default function HomePage() {
               </div>
             </>
           ) : (
-            <div className="sm:col-span-3 text-center text-sm text-text-secondary">
-              {statsError ?? 'Загружаем обстановку...'}
+            <div className="sm:col-span-3 text-center text-base text-text-secondary">
+              {statsError ?? 'Сегодня несколько человек поделились теплом. Один из них — может быть, ты.'}
             </div>
           )}
         </motion.section>
