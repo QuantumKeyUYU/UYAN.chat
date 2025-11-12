@@ -38,7 +38,6 @@ const staticLinks = [
   { href: '/write', dynamic: 'write' as const },
   { href: '/support', dynamic: 'support' as const },
   { href: '/my', label: 'Сохранённое' },
-  { href: '/settings', label: 'Настройки' },
 ];
 
 export const DRAWER_TRANSITION_DURATION = 180;
