@@ -124,9 +124,21 @@ export default function HomePage() {
           transition={heroTransition}
         >
           <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-5">
-              <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">интернет без лайков и шума</p>
-              <h1 className="text-3xl font-semibold text-text-primary sm:text-4xl">{vocabulary.homeHeroTitle}</h1>
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-uyan-light">
+                  {vocabulary.homeHeroTaglineTitle}
+                  {vocabulary.homeHeroTaglineSubtitle ? (
+                    <>
+                      <br />
+                      {vocabulary.homeHeroTaglineSubtitle}
+                    </>
+                  ) : null}
+                </p>
+                <h1 className="text-3xl font-semibold text-text-primary sm:text-4xl">
+                  {vocabulary.homeHeroTitle}
+                </h1>
+              </div>
               <p className="max-w-2xl text-lg text-text-secondary">{vocabulary.homeHeroSubtitle}</p>
             </div>
             <div className="flex flex-col gap-3 sm:w-auto">
@@ -271,8 +283,8 @@ export default function HomePage() {
           )}
         </motion.section>
       </div>
-      <p className="mx-auto mt-8 max-w-5xl px-4 text-xs text-text-tertiary sm:px-6 sm:text-sm">
-        Нужно перенести архив или выключить анимации? Всё это — в «Настройках».
+      <p className="mx-auto mt-10 max-w-5xl px-4 text-center text-xs text-text-tertiary sm:px-6 sm:text-sm sm:text-left">
+        {vocabulary.homeFooterHint}
       </p>
       <OnboardingModal open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
     </>

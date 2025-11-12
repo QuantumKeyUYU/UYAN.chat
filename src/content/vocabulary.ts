@@ -16,6 +16,9 @@ interface Vocabulary {
   supportSubtitle: string;
   homeHeroTitle: string;
   homeHeroSubtitle: string;
+  homeHeroTaglineTitle: string;
+  homeHeroTaglineSubtitle: string;
+  homeFooterHint: string;
   flow: {
     writeTitle: string;
     writeDescription: string;
@@ -45,9 +48,12 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     supportTitle: 'Помоги услышать другого',
     supportSubtitle:
       'Выбери мысль в потоке и откликнись словами поддержки. Один тёплый абзац может изменить чей-то день.',
-    homeHeroTitle: 'Интернет нового поколения: не про лайки и шум, а про нас.',
+    homeHeroTitle: 'Интернет без лайков и шума, который мы создаём вместе.',
     homeHeroSubtitle:
       'Здесь можно честно написать, что у тебя внутри, и получить бережный отклик от незнакомых людей. Анонимно и по-человечески.',
+    homeHeroTaglineTitle: 'Пространство нового поколения',
+    homeHeroTaglineSubtitle: '',
+    homeFooterHint: 'Перенести архив или настроить анимации можно в «Настройках».',
     flow: {
       writeTitle: 'Отправить мысль',
       writeDescription: 'Опиши своё состояние коротко и честно — сообщество услышит тебя без оценок.',
@@ -76,6 +82,9 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     homeHeroTitle: 'Где искры находят тёплые эхо',
     homeHeroSubtitle:
       'Напиши о своём состоянии анонимно и получи искренний отклик. Перед этим откликнись на искру другого человека — так мы создаём круг поддержки.',
+    homeHeroTaglineTitle: 'Пространство нового поколения',
+    homeHeroTaglineSubtitle: 'Интернет без лайков и шума, который мы создаём вместе.',
+    homeFooterHint: 'Перенести архив или настроить анимации можно в «Настройках».',
     flow: {
       writeTitle: 'Зажечь искру',
       writeDescription: 'Опиши своё состояние анонимно и коротко — эта искра запустит твой путь.',
@@ -103,6 +112,9 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     supportSubtitle: 'Прочитай пульс и отправь живой отклик.',
     homeHeroTitle: 'Пространство живых пульсов',
     homeHeroSubtitle: 'Поделись своим состоянием и помоги другому почувствовать поддержку.',
+    homeHeroTaglineTitle: 'Пространство нового поколения',
+    homeHeroTaglineSubtitle: 'Интернет без лайков и шума, который мы создаём вместе.',
+    homeFooterHint: 'Перенести архив или настроить анимации можно в «Настройках».',
     flow: {
       writeTitle: 'Отправить пульс',
       writeDescription: 'Опиши своё состояние коротко, чтобы сообщество услышало твой пульс.',
@@ -130,6 +142,9 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     supportSubtitle: 'Прочитай заметку и подари письмо поддержки.',
     homeHeroTitle: 'Заметки и ответы рядом',
     homeHeroSubtitle: 'Расскажи о себе и поддержи кого-то ещё.',
+    homeHeroTaglineTitle: 'Пространство нового поколения',
+    homeHeroTaglineSubtitle: 'Интернет без лайков и шума, который мы создаём вместе.',
+    homeFooterHint: 'Перенести архив или настроить анимации можно в «Настройках».',
     flow: {
       writeTitle: 'Оставить заметку',
       writeDescription: 'Запиши короткую заметку о своём состоянии — это начало пути.',
