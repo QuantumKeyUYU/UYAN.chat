@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { motion as m } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -92,17 +93,18 @@ function SettingsPageContent() {
   }, []);
 
   const skeletonLayout = (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
+    <m.div layout className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
       <div className="space-y-2">
         <div className="h-8 w-48 animate-pulse rounded-lg bg-white/10" />
         <div className="h-4 w-72 animate-pulse rounded-lg bg-white/5" />
       </div>
 
       {[0, 1, 2].map((index) => (
-        <div
+        <m.div
+          layout
           // eslint-disable-next-line react/no-array-index-key
           key={index}
-          className="space-y-4 rounded-3xl border border-white/10 bg-bg-secondary/40 p-6"
+          className="space-y-4 rounded-3xl border border-white/10 bg-bg-secondary/50 p-6 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]"
         >
           <div className="space-y-3">
             <div className="h-5 w-40 animate-pulse rounded bg-white/10" />
@@ -111,9 +113,9 @@ function SettingsPageContent() {
           </div>
           <div className="h-10 w-full animate-pulse rounded-xl bg-white/10" />
           <div className="h-10 w-2/3 animate-pulse rounded-xl bg-white/10" />
-        </div>
+        </m.div>
       ))}
-    </div>
+    </m.div>
   );
 
   useEffect(() => {
@@ -325,130 +327,132 @@ function SettingsPageContent() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
+    <m.div layout className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
         <p className="text-text-secondary">Настрой плавность анимаций, переноси архив и управляй данными устройства.</p>
       </div>
 
-      <Card className="space-y-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-text-primary">Перенести архив</h2>
-          <p className="text-sm text-text-secondary">
-            Ссылка переноса действует 24 часа и переносит «Сохранённое» и историю откликов на другое устройство. Никто кроме тебя не
-            увидит содержимое архива.
-          </p>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button onClick={handleCreateMigrationLink} disabled={migrationLoading} className="w-full sm:w-auto">
-            {migrationLoading ? 'Готовим ссылку…' : 'Создать ссылку для переноса'}
-          </Button>
+      <m.div layout className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]">
+        <Card className="space-y-6 rounded-3xl bg-bg-secondary/90 shadow-none hover:scale-100">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-text-primary">Перенести архив</h2>
+            <p className="text-sm text-text-secondary">
+              Ссылка переноса действует 24 часа и переносит «Сохранённое» и историю откликов на другое устройство. Никто кроме тебя не
+              увидит содержимое архива.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button onClick={handleCreateMigrationLink} disabled={migrationLoading} className="w-full sm:w-auto">
+              {migrationLoading ? 'Готовим ссылку…' : 'Создать ссылку для переноса'}
+            </Button>
+            {migrationUrl ? (
+              <Button onClick={handleCopyMigrationLink} variant="secondary" disabled={!canCopyLink} className="w-full sm:w-auto">
+                Скопировать ссылку
+              </Button>
+            ) : null}
+          </div>
           {migrationUrl ? (
-            <Button onClick={handleCopyMigrationLink} variant="secondary" disabled={!canCopyLink} className="w-full sm:w-auto">
-              Скопировать ссылку
-            </Button>
+            <div className="space-y-2 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">ссылка переноса</p>
+              <p className="break-all font-mono text-sm text-text-primary">{migrationUrl}</p>
+            </div>
           ) : null}
-        </div>
-        {migrationUrl ? (
-          <div className="space-y-2 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">ссылка переноса</p>
-            <p className="break-all font-mono text-sm text-text-primary">{migrationUrl}</p>
+          {migrationMessage ? <Notice variant="success">{migrationMessage}</Notice> : null}
+          {migrationError ? <Notice variant="error">{migrationError}</Notice> : null}
+          <div className="space-y-3">
+            <label className="flex flex-col gap-2 text-sm text-text-secondary">
+              Вставь токен из ссылки, чтобы принять архив
+              <input
+                type="text"
+                value={migrationToken}
+                onChange={(event) => setMigrationToken(event.target.value)}
+                placeholder="TOKEN-XXXX-XXXX"
+                className="rounded-xl border border-white/10 bg-bg-secondary/60 px-4 py-3 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-uyan-light"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button onClick={handleApplyMigration} disabled={applyLoading || !migrationToken} className="w-full sm:w-auto">
+                {applyLoading ? 'Переносим…' : 'Применить токен'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setMigrationToken('');
+                  setApplyError(null);
+                  setApplyMessage(null);
+                }}
+              >
+                Очистить поле
+              </Button>
+            </div>
+            {applyMessage ? <Notice variant="success">{applyMessage}</Notice> : null}
+            {applyError ? <Notice variant="error">{applyError}</Notice> : null}
           </div>
-        ) : null}
-        {migrationMessage ? <Notice variant="success">{migrationMessage}</Notice> : null}
-        {migrationError ? <Notice variant="error">{migrationError}</Notice> : null}
-        <div className="space-y-3">
-          <label className="flex flex-col gap-2 text-sm text-text-secondary">
-            Вставь токен из ссылки, чтобы принять архив
-            <input
-              type="text"
-              value={migrationToken}
-              onChange={(event) => setMigrationToken(event.target.value)}
-              placeholder="TOKEN-XXXX-XXXX"
-              className="rounded-xl border border-white/10 bg-bg-secondary/60 px-4 py-3 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-uyan-light"
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button onClick={handleApplyMigration} disabled={applyLoading || !migrationToken} className="w-full sm:w-auto">
-              {applyLoading ? 'Переносим…' : 'Применить токен'}
-            </Button>
-            <Button
+        </Card>
+      </m.div>
+
+      <m.div layout className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]">
+        <Card className="space-y-6 rounded-3xl bg-bg-secondary/90 shadow-none hover:scale-100">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-text-primary">Анимации</h2>
+            <p className="text-sm text-text-secondary">Включи этот режим, если хочешь сделать переходы более спокойными.</p>
+          </div>
+          <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-bg-secondary/60 p-4">
+            <div>
+              <p className="text-sm font-medium text-text-primary">Уменьшить анимации</p>
+              <p className="text-xs text-text-tertiary">Анимации станут статичными, без переливов и смещений.</p>
+            </div>
+            <button
               type="button"
-              variant="ghost"
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setMigrationToken('');
-                setApplyError(null);
-                setApplyMessage(null);
-              }}
+              onClick={handleReducedMotionToggle}
+              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uyan-light ${reducedMotion ? 'bg-uyan-light/80' : 'bg-white/10'}`}
+              aria-pressed={reducedMotion}
             >
-              Очистить поле
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${reducedMotion ? 'translate-x-7' : 'translate-x-1'}`}
+              />
+            </button>
+          </div>
+        </Card>
+      </m.div>
+
+      <m.div layout className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]">
+        <Card className="space-y-6 rounded-3xl bg-bg-secondary/90 shadow-none hover:scale-100">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-text-primary">Данные устройства</h2>
+            <p className="text-sm text-text-secondary">
+              Мы используем технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе. Ни имён, ни логинов — только
+              путь устройства.
+            </p>
+            <p className="text-sm text-text-secondary">Здесь можно очистить сохранённые ответы, вернуть скрытые отклики или удалить все данные.</p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
+              Очистить «Сохранённое»
+            </Button>
+            <Button variant="secondary" onClick={handleRevealHidden} className="w-full sm:w-auto">
+              Вернуть скрытые отклики
+            </Button>
+            <Button variant="ghost" onClick={handleResetDevice} className="w-full sm:w-auto">
+              Сбросить идентификатор устройства
+            </Button>
+            <Button onClick={handlePurgeData} className="w-full sm:w-auto" disabled={purgeLoading}>
+              {purgeLoading ? 'Очищаем…' : 'Удалить все мои данные'}
             </Button>
           </div>
-          {applyMessage ? <Notice variant="success">{applyMessage}</Notice> : null}
-          {applyError ? <Notice variant="error">{applyError}</Notice> : null}
-        </div>
-      </Card>
-
-      <Card className="space-y-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-text-primary">Анимации</h2>
-          <p className="text-sm text-text-secondary">Включи этот режим, если хочешь сделать переходы более спокойными.</p>
-        </div>
-        <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-bg-secondary/60 p-4">
-          <div>
-            <p className="text-sm font-medium text-text-primary">Уменьшить анимации</p>
-            <p className="text-xs text-text-tertiary">Анимации станут статичными, без переливов и смещений.</p>
+          <p className="text-xs text-text-tertiary">После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.</p>
+          <div aria-live="polite" aria-atomic="true" className="space-y-2">
+            {gardenMessage ? <Notice variant="success">{gardenMessage}</Notice> : null}
+            {purgeMessage ? <Notice variant="success">{purgeMessage}</Notice> : null}
+            {purgeError ? <Notice variant="error">{purgeError}</Notice> : null}
           </div>
-          <button
-            type="button"
-            onClick={handleReducedMotionToggle}
-            className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uyan-light ${
-              reducedMotion ? 'bg-uyan-light/80' : 'bg-white/10'
-            }`}
-            aria-pressed={reducedMotion}
-          >
-            <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                reducedMotion ? 'translate-x-7' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-      </Card>
-
-      <Card className="space-y-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-text-primary">Данные устройства</h2>
-          <p className="text-sm text-text-secondary">
-            Мы используем технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе. Ни имён, ни логинов — только
-            путь устройства.
-          </p>
-          <p className="text-sm text-text-secondary">Здесь можно очистить сохранённые ответы, вернуть скрытые отклики или удалить все данные.</p>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
-            Очистить «Сохранённое»
-          </Button>
-          <Button variant="secondary" onClick={handleRevealHidden} className="w-full sm:w-auto">
-            Вернуть скрытые отклики
-          </Button>
-          <Button variant="ghost" onClick={handleResetDevice} className="w-full sm:w-auto">
-            Сбросить идентификатор устройства
-          </Button>
-          <Button onClick={handlePurgeData} className="w-full sm:w-auto" disabled={purgeLoading}>
-            {purgeLoading ? 'Очищаем…' : 'Удалить все мои данные'}
-          </Button>
-        </div>
-        <p className="text-xs text-text-tertiary">После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.</p>
-        <div aria-live="polite" aria-atomic="true" className="space-y-2">
-          {gardenMessage ? <Notice variant="success">{gardenMessage}</Notice> : null}
-          {purgeMessage ? <Notice variant="success">{purgeMessage}</Notice> : null}
-          {purgeError ? <Notice variant="error">{purgeError}</Notice> : null}
-        </div>
-      </Card>
+        </Card>
+      </m.div>
 
       <ConfirmDialog
         open={resetDialogOpen}
@@ -471,7 +475,7 @@ function SettingsPageContent() {
         loading={purgeLoading}
         danger
       />
-    </div>
+    </m.div>
   );
 }
 
