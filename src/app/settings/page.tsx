@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -61,7 +61,7 @@ const getMigrationApplyErrorMessage = (code: string, fallback: string): string =
   }
 };
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const deviceId = useDeviceStore((state) => state.id);
   const setDeviceId = useDeviceStore((state) => state.setId);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
@@ -433,5 +433,13 @@ export default function SettingsPage() {
         danger
       />
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-text-secondary">Загружаем настройки…</div>}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }
