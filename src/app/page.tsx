@@ -251,11 +251,16 @@ export default function HomePage() {
                 <p className="text-sm text-text-secondary">историй, которыми поделились</p>
                 <p className="text-xs text-text-tertiary">откликов: {stats.totalResponses}</p>
               </div>
-              <div className="space-y-1">
+              <Link
+                href="/support"
+                className="group -m-2 flex flex-col space-y-1 rounded-2xl border border-transparent p-2 transition hover:border-uyan-light/40 hover:bg-bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light/60 active:bg-bg-secondary/60"
+              >
                 <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут отклика</p>
-                <p className="text-2xl font-semibold text-text-primary">{stats.messagesWaiting}</p>
+                <p className="text-2xl font-semibold text-text-primary transition group-hover:text-uyan-light">
+                  {stats.messagesWaiting}
+                </p>
                 <p className="text-sm text-text-secondary">мыслей сейчас ищут внимание</p>
-              </div>
+              </Link>
             </>
           ) : (
             <div className="sm:col-span-3 flex min-h-[4rem] items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-bg-secondary/50 px-4 text-sm text-text-secondary">
@@ -266,6 +271,9 @@ export default function HomePage() {
           )}
         </motion.section>
       </div>
+      <p className="mx-auto mt-8 max-w-5xl px-4 text-xs text-text-tertiary sm:px-6 sm:text-sm">
+        Нужно перенести архив или выключить анимации? Всё это — в «Настройках».
+      </p>
       <OnboardingModal open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
     </>
   );
