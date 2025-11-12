@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Menu, Sparkles, BarChart3, PenSquare } from 'lucide-react';
 import { MobileNavDrawer } from '@/components/nav/MobileNavDrawer';
-import { useDeviceStore } from '@/store/device';
 import { useStatsStore } from '@/store/stats';
 import { useSettingsStore } from '@/store/settings';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
@@ -19,8 +18,7 @@ const baseLinks: HeaderLink[] = [
   { href: '/', label: 'Главная' },
   { href: '/write', labelKey: 'ctaWrite' as const },
   { href: '/support', labelKey: 'ctaSupport' as const },
-  { href: '/my', label: 'Мои отклики' },
-  { href: '/garden', label: 'Архив откликов' },
+  { href: '/my', label: 'Мой свет' },
   { href: '/settings', label: 'Настройки' },
 ];
 
@@ -32,7 +30,6 @@ export const Header = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const statsRef = useRef<HTMLDivElement | null>(null);
-  const deviceId = useDeviceStore((state) => state.id);
   const stats = useStatsStore((state) => state.data);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
@@ -150,7 +147,7 @@ export const Header = () => {
                 <p className="text-text-primary">Мыслей отправлено: {formatNumber(stats?.lightsGiven ?? 0)}</p>
                 <p className="mt-1 text-text-primary">Получено откликов: {formatNumber(stats?.lightsReceived ?? 0)}</p>
                 <p className="mt-3 text-xs text-text-tertiary">
-                  Ключ устройства: <span className="font-mono text-text-secondary">{deviceId ?? '—'}</span>
+                  Делись теплом и возвращайся в «Мой свет», чтобы сохранять важные слова.
                 </p>
               </div>
             ) : null}

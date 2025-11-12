@@ -3,20 +3,33 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { toPng } from 'html-to-image';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Notice } from '@/components/ui/Notice';
-import { Stepper } from '@/components/stepper';
+import { ShareCard, shareCardStyles } from '@/components/ShareCard';
 import { useDeviceStore } from '@/store/device';
-import { saveLight } from '@/lib/garden';
+import { saveLight, loadGarden } from '@/lib/garden';
+import { hideResponseLocally, loadHiddenResponses } from '@/lib/hiddenResponses';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
-import { getFlowSteps } from '@/lib/flowSteps';
-import { useStepState } from '@/lib/hooks/useStepState';
-import { useVocabulary } from '@/lib/hooks/useVocabulary';
+
+const tabs = [
+  { key: 'received', label: 'Мне ответили' },
+  { key: 'given', label: 'Мои отклики' },
+] as const;
+
+type TabKey = (typeof tabs)[number]['key'];
+
+const shareStyleLabels: Record<string, string> = {
+  dawn: 'Рассвет',
+  aurora: 'Аврора',
+  twilight: 'Сумерки',
+  meadow: 'Луг',
+};
 
 type MessageStatus = 'waiting' | 'answered' | 'expired';
 
@@ -37,6 +50,17 @@ type MessageWithResponses = {
   createdAt: number;
   answeredAt?: number | null;
   responses: ResponseDetail[];
+};
+
+type SentResponse = {
+  id: string;
+  text: string;
+  createdAt: number;
+  message: {
+    id: string;
+    text: string;
+    category?: string;
+  } | null;
 };
 
 const statusLabels: Record<MessageStatus, string> = {
@@ -64,30 +88,61 @@ const normalizeMessageWithResponses = (raw: any): MessageWithResponses => ({
   responses: Array.isArray(raw.responses) ? raw.responses.map((item: any) => normalizeResponse(item)) : [],
 });
 
+const normalizeSentResponse = (raw: any): SentResponse => ({
+  id: raw.id,
+  text: raw.text,
+  createdAt: raw.createdAt,
+  message: raw.message
+    ? {
+        id: raw.message.id,
+        text: raw.message.text,
+        category: raw.message.category,
+      }
+    : null,
+});
+
+const getMillis = (value: unknown): number => {
+  if (typeof value === 'number') return value;
+  if (value && typeof (value as { toMillis?: () => unknown }).toMillis === 'function') {
+    const millis = (value as { toMillis: () => unknown }).toMillis();
+    if (typeof millis === 'number') return millis;
+  }
+  return 0;
+};
+
 export default function MyLightsPage() {
   const router = useRouter();
   const deviceId = useDeviceStore((state) => state.id);
-  const { preset, vocabulary } = useVocabulary();
-  const steps = useMemo(() => getFlowSteps(preset), [preset]);
-  const stepState = useStepState({ total: steps.length, initial: 1 });
-  const { active: stepIndex, setActive: setStep } = stepState;
+  const [activeTab, setActiveTab] = useState<TabKey>('received');
   const [messages, setMessages] = useState<MessageWithResponses[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [pageNotice, setPageNotice] = useState<{
-    variant: 'error' | 'success' | 'info';
-    message: string;
-  } | null>(null);
+  const [sentResponses, setSentResponses] = useState<SentResponse[]>([]);
+  const [loadingReceived, setLoadingReceived] = useState(false);
+  const [loadingSent, setLoadingSent] = useState(false);
+  const [pageNotice, setPageNotice] = useState<{ variant: 'error' | 'success' | 'info'; message: string } | null>(null);
   const [reportReason, setReportReason] = useState('offensive');
   const [reportText, setReportText] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
-  const [reportContext, setReportContext] = useState<{
-    message: MessageWithResponses;
-    response: ResponseDetail;
-  } | null>(null);
+  const [reportContext, setReportContext] = useState<{ message: MessageWithResponses; response: ResponseDetail } | null>(null);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set(loadHiddenResponses()));
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadGarden().map((item) => item.id)));
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareStyle, setShareStyle] = useState<string>(shareCardStyles[0]);
+  const [shareData, setShareData] = useState<{ message: string; response: string } | null>(null);
+  const [savingImage, setSavingImage] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const shareCardRef = useRef<HTMLDivElement | null>(null);
 
-  const loadMessages = async () => {
+  const refreshSaved = useCallback(() => {
+    setSavedIds(new Set(loadGarden().map((item) => item.id)));
+  }, []);
+
+  const refreshHidden = useCallback(() => {
+    setHiddenIds(new Set(loadHiddenResponses()));
+  }, []);
+
+  const loadReceivedMessages = useCallback(async () => {
     if (!deviceId) return;
-    setLoading(true);
+    setLoadingReceived(true);
     try {
       const response = await fetch('/api/messages/my', {
         headers: { [DEVICE_ID_HEADER]: deviceId },
@@ -98,42 +153,44 @@ export default function MyLightsPage() {
       const normalized = (data.messages ?? []).map((item: any) => normalizeMessageWithResponses(item));
       setMessages(normalized);
       setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
-    } catch (err) {
-      console.error(err);
-      setPageNotice({ variant: 'error', message: 'Не получилось загрузить мысли. Попробуй обновить позже.' });
+    } catch (error) {
+      console.error('[my] Failed to load messages', error);
+      setPageNotice({ variant: 'error', message: 'Не получилось загрузить твои мысли. Попробуй обновить позже.' });
     } finally {
-      setLoading(false);
+      setLoadingReceived(false);
     }
-  };
-
-  useEffect(() => {
-    if (deviceId) {
-      loadMessages();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
-  const sortedMessages = useMemo(
-    () =>
-      [...messages].sort((a, b) => {
-        return b.createdAt - a.createdAt;
-      }),
-    [messages],
-  );
-
-  const derivedStepIndex = useMemo(() => {
-    if (sortedMessages.some((message) => message.status === 'answered')) {
-      return 3;
+  const loadSent = useCallback(async () => {
+    if (!deviceId) return;
+    setLoadingSent(true);
+    try {
+      const response = await fetch('/api/responses/my', {
+        headers: { [DEVICE_ID_HEADER]: deviceId },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error('Ошибка загрузки откликов');
+      const data = await response.json();
+      const normalized = (data.responses ?? []).map((item: any) => normalizeSentResponse(item));
+      normalized.sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt));
+      setSentResponses(normalized);
+    } catch (error) {
+      console.error('[my] Failed to load sent responses', error);
+      setPageNotice((prev) =>
+        prev?.variant === 'error'
+          ? prev
+          : { variant: 'error', message: 'Не получилось загрузить отправленные отклики. Попробуй позже.' },
+      );
+    } finally {
+      setLoadingSent(false);
     }
-    if (sortedMessages.length > 0) {
-      return 2;
-    }
-    return 1;
-  }, [sortedMessages]);
+  }, [deviceId]);
 
   useEffect(() => {
-    setStep(derivedStepIndex);
-  }, [derivedStepIndex, setStep]);
+    if (!deviceId) return;
+    void loadReceivedMessages();
+    void loadSent();
+  }, [deviceId, loadReceivedMessages, loadSent]);
 
   const handleSaveToGarden = (message: MessageWithResponses, response: ResponseDetail) => {
     if (response.hidden) return;
@@ -144,7 +201,14 @@ export default function MyLightsPage() {
       category: message.category,
       savedAt: Date.now(),
     });
-    setPageNotice({ variant: 'success', message: `Отклик сохранён в ${vocabulary.garden} ✨` });
+    refreshSaved();
+    setPageNotice({ variant: 'success', message: 'Отклик сохранён в «Мой свет» ✨' });
+  };
+
+  const handleHideResponse = (responseId: string) => {
+    hideResponseLocally(responseId);
+    refreshHidden();
+    setPageNotice({ variant: 'info', message: 'Отклик скрыт. Его можно вернуть в настройках.' });
   };
 
   const openReportModal = (message: MessageWithResponses, response: ResponseDetail) => {
@@ -176,18 +240,85 @@ export default function MyLightsPage() {
       setReportText('');
       setReportReason('offensive');
       setPageNotice({ variant: 'success', message: 'Жалоба отправлена. Спасибо за заботу о пространстве.' });
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error('[my] Failed to submit report', error);
       setPageNotice({ variant: 'error', message: 'Не получилось отправить жалобу. Попробуй ещё раз позже.' });
     } finally {
       setReportLoading(false);
     }
   };
 
+  const visibleMessages = useMemo(() => {
+    const hidden = hiddenIds;
+    return messages.map((message) => ({
+      ...message,
+      responses: message.responses.filter((response) => !hidden.has(response.id)),
+    }));
+  }, [messages, hiddenIds]);
+
+  const sortedMessages = useMemo(
+    () =>
+      [...visibleMessages].sort((a, b) => {
+        return b.createdAt - a.createdAt;
+      }),
+    [visibleMessages],
+  );
+
+  const hasAnyResponses = useMemo(() => sortedMessages.some((message) => message.responses.length > 0), [sortedMessages]);
+
+  const openShare = (messageText: string, responseText: string) => {
+    setShareData({ message: messageText, response: responseText });
+    setShareStyle(shareCardStyles[0]);
+    setShareError(null);
+    setShareOpen(true);
+  };
+
+  const closeShare = () => {
+    if (savingImage) return;
+    setShareOpen(false);
+    setShareData(null);
+    setShareError(null);
+  };
+
+  const downloadAsImage = async () => {
+    if (savingImage || !shareData) return;
+    const element = shareCardRef.current;
+    if (!element) {
+      setShareError('Открытка ещё готовится. Попробуй через мгновение.');
+      return;
+    }
+    const { clientWidth, clientHeight } = element;
+    if (!clientWidth || !clientHeight) {
+      setShareError('Не удалось подготовить открытку для сохранения.');
+      return;
+    }
+    setSavingImage(true);
+    setShareError(null);
+    try {
+      const pixelRatio = Math.max(2, Math.min(4, 1080 / clientWidth));
+      const dataUrl = await toPng(element, {
+        cacheBust: true,
+        pixelRatio,
+        width: clientWidth,
+        height: clientHeight,
+        style: { transform: 'none' },
+      });
+      const link = document.createElement('a');
+      link.download = `uyan-light-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('[my] Failed to export postcard', error);
+      setShareError('Не получилось сохранить открытку. Попробуй ещё раз.');
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
   if (!deviceId) {
     return (
       <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
+        Не удалось определить устройство. Перезагрузи страницу или попробуй открыть сервис заново.
       </div>
     );
   }
@@ -199,94 +330,175 @@ export default function MyLightsPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Stepper steps={steps} activeIndex={stepIndex} />
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">✨ Мои отклики</h1>
-        <p className="text-text-secondary">Следи за статусом своих мыслей и возвращайся к откликам, которые поддерживают.</p>
+        <h1 className="text-3xl font-semibold text-text-primary">✨ Мой свет</h1>
+        <p className="text-text-secondary">Возвращайся к откликам, которые согревают, и следи за словами поддержки, которыми делишься.</p>
+      </div>
+
+      <div className="flex gap-2 rounded-2xl border border-white/10 bg-bg-secondary/60 p-2">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light ${
+                isActive ? 'bg-white/10 text-text-primary shadow-inner' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {pageNotice ? <Notice variant={pageNotice.variant}>{pageNotice.message}</Notice> : null}
 
-      {loading ? <p className="text-text-secondary">Загружаем...</p> : null}
+      {activeTab === 'received' ? (
+        <div className="space-y-4">
+          {loadingReceived ? <p className="text-text-secondary">Загружаем ответы…</p> : null}
 
-      {sortedMessages.length === 0 && !loading ? (
-        <Card className="space-y-4 text-center">
-          <div className="text-3xl">🌿</div>
-          <h2 className="text-xl font-semibold text-text-primary">Пока здесь пусто</h2>
-          <p className="text-text-secondary">
-            Похоже, ты зашёл с нового устройства. Мысли и отклики привязаны к ключу устройства. Если уже писал раньше, введи ключ
-            в настройках — и мы подтянем архив.
-          </p>
-          <div className="flex justify-center">
-            <Button variant="secondary" onClick={() => router.push('/settings')}>
-              Открыть настройки
-            </Button>
-          </div>
-        </Card>
-      ) : null}
+          {!loadingReceived && sortedMessages.length === 0 ? (
+            <Card className="space-y-4 text-center">
+              <div className="text-3xl">🌿</div>
+              <h2 className="text-xl font-semibold text-text-primary">Пока здесь пусто</h2>
+              <p className="text-text-secondary">
+                Поделись мыслью — и мы покажем её путь. Сохраняй важные отклики в «Мой свет», чтобы возвращаться к ним потом.
+              </p>
+              <div className="flex justify-center">
+                <Button variant="secondary" onClick={() => router.push('/write')}>
+                  Поделиться мыслью
+                </Button>
+              </div>
+            </Card>
+          ) : null}
 
-      <div className="space-y-4">
-        {sortedMessages.map((message) => (
-          <Card key={message.id} className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span className="rounded-full bg-uyan-darkness/30 px-3 py-1 text-xs uppercase tracking-[0.3em] text-text-secondary">
-                {statusLabels[message.status]}
-              </span>
-              <span className="text-sm text-text-tertiary">Категория: {message.category}</span>
-            </div>
-            <p className="text-text-primary">{message.text}</p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {sortedMessages.map((message) => (
+            <Card key={message.id} className="space-y-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="rounded-full bg-uyan-darkness/30 px-3 py-1 text-xs uppercase tracking-[0.3em] text-text-secondary">
+                  {statusLabels[message.status]}
+                </span>
+                <span className="text-sm text-text-tertiary">Категория: {message.category}</span>
+              </div>
+              <p className="text-text-primary">{message.text}</p>
               <span className="text-sm text-text-tertiary">Создано: {new Date(message.createdAt).toLocaleString()}</span>
-            </div>
 
-            <div className="space-y-3 rounded-2xl bg-bg-tertiary/40 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">отклики</p>
-              {message.responses.length === 0 ? (
-                <p className="text-text-secondary">Откликов пока нет, но кто-то может ответить позже ✨</p>
-              ) : (
-                <div className="space-y-4">
-                  {message.responses.map((response) => (
-                    <div key={response.id} className="space-y-3 rounded-xl bg-bg-primary/40 p-4">
-                      {response.hidden ? (
-                        <div className="space-y-2">
-                          <p className="text-text-secondary">Этот отклик скрыт модерацией.</p>
-                          {response.moderationNote ? (
-                            <p className="text-sm text-text-tertiary">Комментарий модератора: {response.moderationNote}</p>
-                          ) : null}
-                          <span className="text-sm text-text-tertiary">
-                            Получен: {new Date(response.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                      ) : (
-                        <>
+              <div className="space-y-3 rounded-2xl bg-bg-tertiary/40 p-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">отклики</p>
+                {message.responses.length === 0 ? (
+                  <p className="text-text-secondary">Откликов пока нет, но кто-то может ответить позже ✨</p>
+                ) : (
+                  <div className="space-y-4">
+                    {message.responses.map((response) => {
+                      if (response.hidden) {
+                        return (
+                          <div key={response.id} className="space-y-2 rounded-xl bg-bg-primary/40 p-4 text-text-secondary">
+                            <p>Этот отклик скрыт модерацией.</p>
+                            {response.moderationNote ? (
+                              <p className="text-sm text-text-tertiary">Комментарий модератора: {response.moderationNote}</p>
+                            ) : null}
+                            <span className="text-sm text-text-tertiary">Получен: {new Date(response.createdAt).toLocaleString()}</span>
+                          </div>
+                        );
+                      }
+
+                      const isSaved = savedIds.has(response.id);
+                      const isHiddenLocally = hiddenIds.has(response.id);
+                      return (
+                        <div key={response.id} className="space-y-3 rounded-xl bg-bg-primary/40 p-4">
                           <p className="text-text-primary">{response.text}</p>
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <span className="text-sm text-text-tertiary">
-                              Получен: {new Date(response.createdAt).toLocaleString()}
-                            </span>
+                          <div className="flex flex-col gap-2 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
+                            <span>Получен: {new Date(response.createdAt).toLocaleString()}</span>
                             <div className="flex flex-col gap-2 sm:flex-row">
-                              <Button onClick={() => handleSaveToGarden(message, response)} className="w-full sm:w-auto">
-                                Сохранить в архив
+                              <Button
+                                onClick={() => handleSaveToGarden(message, response)}
+                                disabled={isSaved}
+                                className="w-full sm:w-auto"
+                              >
+                                {isSaved ? 'Сохранено' : 'Сохранить в «Мой свет»'}
                               </Button>
                               <Button
                                 variant="secondary"
-                                onClick={() => openReportModal(message, response)}
+                                onClick={() => handleHideResponse(response.id)}
+                                disabled={isHiddenLocally}
                                 className="w-full sm:w-auto"
                               >
-                                Пожаловаться
+                                {isHiddenLocally ? 'Скрыто' : 'Скрыть из ленты'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                onClick={() => openShare(message.text, response.text)}
+                                className="w-full sm:w-auto"
+                              >
+                                Сделать открытку
                               </Button>
                             </div>
                           </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
+                          <div className="flex flex-col gap-1 text-xs text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
+                            <button
+                              type="button"
+                              onClick={() => openReportModal(message, response)}
+                              className="text-left text-text-tertiary underline-offset-2 hover:text-text-secondary hover:underline"
+                            >
+                              Сообщить о нарушении
+                            </button>
+                            {response.moderationNote ? (
+                              <span>Комментарий модератора: {response.moderationNote}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+
+          {!loadingReceived && sortedMessages.length > 0 && !hasAnyResponses ? (
+            <Notice variant="info">Как только появятся отклики, мы покажем их здесь.</Notice>
+          ) : null}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {loadingSent ? <p className="text-text-secondary">Загружаем отклики…</p> : null}
+          {!loadingSent && sentResponses.length === 0 ? (
+            <Card className="space-y-4 text-center">
+              <div className="text-3xl">💌</div>
+              <h2 className="text-xl font-semibold text-text-primary">Ты ещё не отправлял отклики</h2>
+              <p className="text-text-secondary">Поддержи кого-то — и твои слова появятся здесь.</p>
+              <div className="flex justify-center">
+                <Button variant="secondary" onClick={() => router.push('/support')}>
+                  Откликнуться сейчас
+                </Button>
+              </div>
+            </Card>
+          ) : null}
+
+          {sentResponses.map((response) => (
+            <Card key={response.id} className="space-y-4">
+              {response.message ? (
+                <div className="space-y-2 rounded-xl bg-bg-tertiary/40 p-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">мысль</p>
+                  <p className="text-text-secondary">{response.message.text}</p>
                 </div>
-              )}
-            </div>
-          </Card>
-        ))}
-      </div>
+              ) : null}
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">твой отклик</p>
+                <p className="text-text-primary">{response.text}</p>
+              </div>
+              <div className="flex flex-col gap-2 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
+                <span>Отправлен: {new Date(response.createdAt).toLocaleString()}</span>
+                <Button variant="ghost" onClick={() => openShare(response.message?.text ?? '', response.text)} className="w-full sm:w-auto">
+                  Сделать открытку
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Modal open={Boolean(reportContext)} onClose={closeReportModal} title="Пожаловаться на отклик">
         <div className="space-y-4">
@@ -319,9 +531,50 @@ export default function MyLightsPage() {
             />
           </label>
           <Button onClick={submitReport} disabled={reportLoading} className="w-full">
-            {reportLoading ? 'Отправляем...' : 'Отправить жалобу'}
+            {reportLoading ? 'Отправляем…' : 'Отправить жалобу'}
           </Button>
         </div>
+      </Modal>
+
+      <Modal open={shareOpen} onClose={closeShare} title="Сделать открытку">
+        {shareData ? (
+          <div className="space-y-4">
+            <div className="mx-auto w-full max-w-[min(420px,90vw)]">
+              <div className="relative rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4" style={{ aspectRatio: '4 / 5' }}>
+                <ShareCard
+                  ref={shareCardRef}
+                  originalMessage={shareData.message}
+                  responseText={shareData.response}
+                  styleId={shareStyle}
+                  className="absolute inset-0"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {shareCardStyles.map((style) => {
+                const active = style === shareStyle;
+                return (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => setShareStyle(style)}
+                    className={`rounded-full px-4 py-2 text-sm transition ${
+                      active ? 'bg-uyan-light text-bg-primary' : 'bg-bg-secondary/60 text-text-secondary hover:bg-bg-secondary'
+                    }`}
+                  >
+                    {shareStyleLabels[style] ?? style}
+                  </button>
+                );
+              })}
+            </div>
+            {shareError ? <Notice variant="error">{shareError}</Notice> : null}
+            <Button onClick={downloadAsImage} disabled={savingImage} className="w-full sm:w-auto">
+              {savingImage ? 'Сохраняю…' : 'Скачать открытку'}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-center text-text-secondary">Выбери отклик, чтобы сделать открытку.</p>
+        )}
       </Modal>
     </motion.div>
   );

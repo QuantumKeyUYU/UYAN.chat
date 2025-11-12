@@ -4,14 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { OnboardingModal } from '@/components/OnboardingModal';
-import { Stepper } from '@/components/stepper';
 import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
-import { getFlowSteps } from '@/lib/flowSteps';
 import { isOnboardingDone } from '@/lib/onboarding';
 import { useSoftMotion } from '@/lib/animation';
-import { useStepState } from '@/lib/hooks/useStepState';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 interface GlobalStats {
@@ -23,28 +19,56 @@ interface GlobalStats {
 
 export default function HomePage() {
   const router = useRouter();
-  const { preset, vocabulary } = useVocabulary();
-  const steps = useMemo(() => getFlowSteps(preset), [preset]);
-  const stepper = useStepState({ total: steps.length, initial: 0 });
-  const actions = useMemo(
-    () => [
-      {
-        title: `✨ ${vocabulary.ctaWrite}`,
-        description: 'Расскажи, что у тебя на душе. Сообщения остаются анонимными, а путь между устройствами сохраняется по ключу.',
-        href: '/write',
-      },
-      {
-        title: `💬 ${vocabulary.ctaSupport}`,
-        description: 'Выбери мысль из потока и поделись откликом. Каждое слово помогает человеку чувствовать, что он не один.',
-        href: '/support',
-      },
-    ],
-    [vocabulary],
-  );
+  const { vocabulary } = useVocabulary();
   const [stats, setStats] = useState<GlobalStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const { initial, animate, transition } = useSoftMotion();
+
+  const primaryActions = useMemo(
+    () => [
+      {
+        id: 'share',
+        title: vocabulary.ctaWrite,
+        subtitle: 'Сказать, что у меня внутри',
+        href: '/write',
+        accent: '🕯️',
+      },
+      {
+        id: 'reply',
+        title: vocabulary.ctaSupport,
+        subtitle: 'Поддержать человека',
+        href: '/support',
+        accent: '💬',
+      },
+      {
+        id: 'light',
+        title: 'Мой свет',
+        subtitle: 'Сохранённые слова и моя история',
+        href: '/my',
+        accent: '✨',
+      },
+    ],
+    [vocabulary],
+  );
+
+  const howItWorks = useMemo(
+    () => [
+      {
+        title: 'Поделиться мыслью',
+        description: 'Напиши коротко и честно, что происходит внутри. Это анонимно и бережно.',
+      },
+      {
+        title: 'Подождать отклики',
+        description: 'Люди из сообщества прочитают твою историю и ответят тёплыми словами.',
+      },
+      {
+        title: 'Сохранить важное',
+        description: 'Добавь самые поддерживающие отклики в «Мой свет», чтобы возвращаться к ним потом.',
+      },
+    ],
+    [],
+  );
 
   useEffect(() => {
     const loadStats = async () => {
@@ -70,6 +94,7 @@ export default function HomePage() {
   }, []);
 
   const heroTransition = transition.duration === 0 ? transition : { ...transition, duration: 0.8 };
+  const actionsTransition = transition.duration === 0 ? transition : { ...transition, delay: 0.15, duration: 0.5 };
   const infoTransition = transition.duration === 0 ? transition : { ...transition, delay: 0.3, duration: 0.6 };
   const summaryTransition = transition.duration === 0 ? transition : { ...transition, delay: 0.4, duration: 0.6 };
 
@@ -94,41 +119,66 @@ export default function HomePage() {
           </div>
         </motion.section>
 
-        <section className="grid gap-6 md:grid-cols-2">
-          {actions.map((action, index) => {
-            const actionTransition =
-              transition.duration === 0
-                ? transition
-                : { ...transition, delay: 0.2 * index, duration: 0.5 };
+        <motion.section
+          className="grid gap-4 md:grid-cols-3"
+          initial={initial}
+          animate={animate}
+          transition={actionsTransition}
+        >
+          {primaryActions.map((action, index) => {
+            const delay = transition.duration === 0 ? 0 : index * 0.05;
             return (
-              <motion.div key={action.title} initial={initial} animate={animate} transition={actionTransition}>
-                <Card className="h-full">
-                  <div className="flex h-full flex-col justify-between gap-6">
-                    <div className="space-y-3">
-                      <h2 className="text-2xl font-semibold text-text-primary">{action.title}</h2>
-                      <p className="text-text-secondary">{action.description}</p>
-                    </div>
-                    <Button variant="secondary" onClick={() => router.push(action.href)} className="w-full">
-                      Перейти
-                    </Button>
+              <motion.button
+                key={action.id}
+                type="button"
+                onClick={() => router.push(action.href)}
+                className="group flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6 text-left shadow-sm transition hover:border-uyan-light/60 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light"
+                initial={initial}
+                animate={animate}
+                transition={
+                  transition.duration === 0
+                    ? transition
+                    : { ...transition, delay: (actionsTransition.delay ?? 0) + delay, duration: 0.45 }
+                }
+              >
+                <div className="space-y-4">
+                  <span className="text-3xl" aria-hidden>
+                    {action.accent}
+                  </span>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-semibold text-text-primary group-hover:text-uyan-light">{action.title}</h2>
+                    <p className="text-sm text-text-secondary">{action.subtitle}</p>
                   </div>
-                </Card>
-              </motion.div>
+                </div>
+                <span className="text-sm font-medium text-uyan-light">Перейти →</span>
+              </motion.button>
             );
           })}
-        </section>
+        </motion.section>
 
         <motion.section
-          className="space-y-4 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6"
+          className="space-y-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6"
           initial={initial}
           animate={animate}
           transition={infoTransition}
         >
           <div className="space-y-2">
             <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Как всё устроено</p>
-            <h3 className="text-xl font-semibold text-text-primary">Путь мысли и отклика</h3>
+            <h3 className="text-xl font-semibold text-text-primary">Три простых шага тепла</h3>
           </div>
-          <Stepper steps={steps} activeIndex={stepper.active} />
+          <ol className="space-y-4">
+            {howItWorks.map((item, index) => (
+              <li key={item.title} className="flex gap-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-uyan-darkness/40 text-base font-semibold text-uyan-light">
+                  {index + 1}
+                </span>
+                <div className="space-y-1">
+                  <p className="text-lg font-medium text-text-primary">{item.title}</p>
+                  <p className="text-sm text-text-secondary">{item.description}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
         </motion.section>
 
         <motion.section
@@ -138,18 +188,17 @@ export default function HomePage() {
           transition={infoTransition}
         >
           <div className="space-y-3">
-            <h3 className="text-xl font-semibold text-text-primary">Что почувствуешь внутри</h3>
-            <ul className="space-y-2 text-text-secondary">
-              <li>1. Поделись мыслью — коротко, честно и без указания себя.</li>
-              <li>2. Загляни в поток — выбери чью-то историю и откликнись поддержкой.</li>
-              <li>3. Собери архив — сохраняй важные слова и переноси их между устройствами ключом.</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
-            <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">зачем это нужно</p>
-            <p className="mt-4 text-lg">
+            <h3 className="text-xl font-semibold text-text-primary">Зачем это нужно</h3>
+            <p className="text-text-secondary">
               UYAN.chat — тёплое пространство без гонки за лайками. Здесь только люди и их истории, а каждый отклик — время и
               внимание настоящего человека.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
+            <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">что почувствуешь внутри</p>
+            <p className="mt-4 text-lg">
+              Поддержка, которая остаётся с тобой. Сохраняй важные слова в «Мой свет», возвращайся к ним в моменты тишины и делись
+              этим теплом с другими.
             </p>
           </div>
         </motion.section>

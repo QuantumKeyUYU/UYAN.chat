@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -8,145 +9,19 @@ import { Notice } from '@/components/ui/Notice';
 import { clearDeviceId } from '@/lib/device';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { clearGarden } from '@/lib/garden';
+import { clearHiddenResponses } from '@/lib/hiddenResponses';
 import { saveReducedMotion } from '@/lib/motion';
+import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
 import { useDeviceStore } from '@/store/device';
 import { useStatsStore } from '@/store/stats';
 import { useSettingsStore } from '@/store/settings';
-import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
 
-interface JourneyStatus {
-  journeyId: string;
-  effectiveDeviceId: string;
-  isAttached: boolean;
-  isPrimary: boolean;
-  attachedDevices: number;
-  attachedDeviceIds: string[];
-  attachedDeviceHashes: string[];
-  lastKeyPreview: string | null;
-  localHasHistory: boolean;
-  primaryDeviceId: string;
-}
-
-interface DeviceKeyState {
-  deviceKey: string;
-  setDeviceKey: (value: string) => void;
-  copyToClipboard: () => Promise<void>;
-  applyKey: () => Promise<boolean>;
-  isApplying: boolean;
-  status: { variant: 'success' | 'error' | 'info'; message: string } | null;
-  error: string | null;
-  maskedDeviceId: string;
-}
-
-function useDeviceKey({
-  deviceId,
-  setDeviceId,
-  refresh,
-  refreshJourneyStatus,
-}: {
-  deviceId: string | null;
-  setDeviceId: (next: string) => void;
-  refresh: () => Promise<void>;
-  refreshJourneyStatus: (overrideDeviceId?: string) => Promise<void>;
-}): DeviceKeyState {
-  const [deviceKey, setDeviceKeyState] = useState('');
-  const [status, setStatus] = useState<{ variant: 'success' | 'error' | 'info'; message: string } | null>(null);
-  const [isApplying, setIsApplying] = useState(false);
-
-  const maskedDeviceId = useMemo(() => {
-    if (!deviceId) return '—';
-    if (deviceId.length <= 8) return deviceId;
-    return `${deviceId.slice(0, 4)}…${deviceId.slice(-4)}`;
-  }, [deviceId]);
-
-  const setDeviceKey = useCallback((value: string) => {
-    setStatus(null);
-    setDeviceKeyState(value);
-  }, []);
-
-  const copyToClipboard = useCallback(async () => {
-    if (!deviceId) {
-      setStatus({ variant: 'info', message: 'Ключ появится, как только мы определим устройство.' });
-      return;
-    }
-
-    const copyWithFallback = async (text: string) => {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      }
-      if (typeof document === 'undefined') {
-        return false;
-      }
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      textarea.setSelectionRange(0, textarea.value.length);
-      const succeeded = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      return succeeded;
-    };
-
-    try {
-      const ok = await copyWithFallback(deviceId);
-      if (!ok) {
-        throw new Error('Copy not supported');
-      }
-      setStatus({ variant: 'success', message: 'Ключ устройства скопирован.' });
-    } catch (error) {
-      console.warn('[settings] Failed to copy device key', error);
-      setStatus({ variant: 'error', message: 'Не получилось скопировать ключ. Попробуй ещё раз.' });
-    }
-  }, [deviceId]);
-
-  const applyKey = useCallback(async () => {
-    const nextKey = deviceKey.trim();
-    if (!nextKey) {
-      setStatus({ variant: 'error', message: 'Введи ключ устройства.' });
-      return false;
-    }
-    if (nextKey.length < 8) {
-      setStatus({ variant: 'error', message: 'Ключ выглядит слишком коротким. Проверь запись.' });
-      return false;
-    }
-
-    setIsApplying(true);
-    setStatus(null);
-    try {
-      setDeviceId(nextKey);
-      await Promise.allSettled([
-        refresh(),
-        refreshJourneyStatus(nextKey),
-        fetch('/api/messages/my', { headers: { [DEVICE_ID_HEADER]: nextKey }, cache: 'no-store' }),
-      ]);
-      setDeviceKeyState('');
-      setStatus({ variant: 'success', message: 'Ключ применён. Мы обновили данные для этого устройства.' });
-      return true;
-    } catch (error) {
-      console.warn('[settings] Failed to apply device key', error);
-      setStatus({ variant: 'error', message: 'Не получилось применить ключ. Попробуй ещё раз позже.' });
-      return false;
-    } finally {
-      setIsApplying(false);
-    }
-  }, [deviceKey, refresh, refreshJourneyStatus, setDeviceId]);
-
-  return {
-    deviceKey,
-    setDeviceKey,
-    copyToClipboard,
-    applyKey,
-    isApplying,
-    status,
-    error: status?.variant === 'error' ? status.message : null,
-    maskedDeviceId,
-  };
-}
+const buildMigrationUrl = (token: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  const url = new URL(window.location.href);
+  url.searchParams.set('token', token);
+  return url.toString();
+};
 
 export default function SettingsPage() {
   const deviceId = useDeviceStore((state) => state.id);
@@ -155,87 +30,32 @@ export default function SettingsPage() {
   const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
   const setStats = useStatsStore((state) => state.setData);
   const { refresh } = useDeviceJourney();
-  const [purgeLoading, setPurgeLoading] = useState(false);
+  const searchParams = useSearchParams();
+
+  const queryToken = searchParams?.get('token') ?? '';
+  const [migrationToken, setMigrationToken] = useState(queryToken);
+  const [migrationUrl, setMigrationUrl] = useState<string | null>(() => (queryToken ? buildMigrationUrl(queryToken) : null));
+  const [migrationLoading, setMigrationLoading] = useState(false);
+  const [migrationMessage, setMigrationMessage] = useState<string | null>(null);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<string | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
+
+  const [gardenMessage, setGardenMessage] = useState<string | null>(null);
   const [purgeMessage, setPurgeMessage] = useState<string | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
-  const [gardenMessage, setGardenMessage] = useState<string | null>(null);
+  const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
+  const [purgeLoading, setPurgeLoading] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
-  const [journeyStatus, setJourneyStatus] = useState<JourneyStatus | null>(null);
-  const [journeyLoading, setJourneyLoading] = useState(false);
-  const [journeyError, setJourneyError] = useState<string | null>(null);
-  const [backupKey, setBackupKey] = useState<string | null>(null);
-  const [backupLoading, setBackupLoading] = useState(false);
-  const [backupMessage, setBackupMessage] = useState<string | null>(null);
-  const [backupError, setBackupError] = useState<string | null>(null);
-  const [attachKey, setAttachKey] = useState('');
-  const [attachLoading, setAttachLoading] = useState(false);
-  const [attachMessage, setAttachMessage] = useState<string | null>(null);
-  const [attachError, setAttachError] = useState<string | null>(null);
-  const [confirmAttachOpen, setConfirmAttachOpen] = useState(false);
-
-  const refreshJourneyStatus = useCallback(
-    async (overrideDeviceId?: string) => {
-      const activeDeviceId = overrideDeviceId ?? deviceId;
-      if (!activeDeviceId) {
-        setJourneyStatus(null);
-        return;
-      }
-
-      setJourneyLoading(true);
-      setJourneyError(null);
-      try {
-        const response = await fetch('/api/journey/status', {
-          headers: { [DEVICE_ID_HEADER]: activeDeviceId },
-          cache: 'no-store',
-        });
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null);
-          throw new Error(payload?.error ?? 'Failed to load');
-        }
-        const data = (await response.json()) as { status: JourneyStatus };
-        setJourneyStatus(data.status);
-        if (data.status.effectiveDeviceId && data.status.effectiveDeviceId !== activeDeviceId) {
-          setDeviceId(data.status.effectiveDeviceId);
-          void refresh();
-        }
-      } catch (error) {
-        console.warn('[settings] Failed to load journey status', error);
-        setJourneyError('Не удалось получить информацию об истории устройства. Попробуй обновить страницу.');
-      } finally {
-        setJourneyLoading(false);
-      }
-    },
-    [deviceId, refresh, setDeviceId],
-  );
 
   useEffect(() => {
-    void refreshJourneyStatus();
-  }, [refreshJourneyStatus]);
-
-  const {
-    deviceKey,
-    setDeviceKey,
-    copyToClipboard,
-    applyKey,
-    isApplying,
-    status: deviceKeyStatus,
-    error: deviceKeyError,
-    maskedDeviceId,
-  } = useDeviceKey({
-    deviceId,
-    setDeviceId,
-    refresh,
-    refreshJourneyStatus,
-  });
-
-  const isApplyDisabled = isApplying || deviceKey.trim().length < 8;
-
-  const handleDeviceKeySubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await applyKey();
-  };
+    if (!queryToken) return;
+    setMigrationToken((current) => (current ? current : queryToken));
+    setMigrationUrl((current) => current ?? buildMigrationUrl(queryToken));
+  }, [queryToken]);
 
   const handleReducedMotionToggle = () => {
     const next = !reducedMotion;
@@ -243,146 +63,113 @@ export default function SettingsPage() {
     saveReducedMotion(next);
   };
 
+  const handleCreateMigrationLink = async () => {
+    if (!deviceId) {
+      setMigrationError('Не удалось определить устройство. Обнови страницу и попробуй снова.');
+      return;
+    }
+
+    setMigrationLoading(true);
+    setMigrationError(null);
+    setMigrationMessage(null);
+    try {
+      const response = await fetch('/api/migration/create', {
+        method: 'POST',
+        headers: { [DEVICE_ID_HEADER]: deviceId },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Не получилось подготовить ссылку.');
+      }
+      const token = payload?.token as string;
+      if (!token) {
+        throw new Error('Не удалось получить токен переноса.');
+      }
+      setMigrationToken(token);
+      setMigrationUrl(buildMigrationUrl(token));
+      setMigrationMessage('Ссылка готова. Открой её на другом устройстве в течение 24 часов.');
+    } catch (error) {
+      console.error('[settings] Failed to create migration token', error);
+      setMigrationError('Не получилось создать ссылку. Попробуй ещё раз.');
+    } finally {
+      setMigrationLoading(false);
+    }
+  };
+
+  const handleCopyMigrationLink = async () => {
+    if (!migrationUrl) return;
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setMigrationError('Скопируй ссылку вручную: автоматическое копирование недоступно.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(migrationUrl);
+      setMigrationMessage('Ссылка скопирована. Открой её на другом устройстве.');
+      setMigrationError(null);
+    } catch (error) {
+      console.warn('[settings] Failed to copy migration link', error);
+      setMigrationError('Не получилось скопировать ссылку. Сохрани её вручную.');
+    }
+  };
+
+  const handleApplyMigration = async () => {
+    const token = migrationToken.trim();
+    if (!token) {
+      setApplyError('Вставь токен из ссылки, чтобы перенести архив.');
+      return;
+    }
+
+    setApplyLoading(true);
+    setApplyError(null);
+    setApplyMessage(null);
+    try {
+      const response = await fetch('/api/migration/apply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(deviceId ? { [DEVICE_ID_HEADER]: deviceId } : {}),
+        },
+        body: JSON.stringify({ token }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Не получилось перенести архив.');
+      }
+      const migratedDeviceId = payload?.migratedDeviceId as string | undefined;
+      if (migratedDeviceId) {
+        setDeviceId(migratedDeviceId);
+        void refresh();
+        setApplyMessage('Готово! Мы перенесли архив и обновили это устройство.');
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('token');
+          window.history.replaceState({}, '', url.toString());
+        }
+      } else {
+        setApplyMessage('Готово! Можно обновить страницу, чтобы увидеть изменения.');
+      }
+      setMigrationMessage(null);
+      setMigrationError(null);
+    } catch (error) {
+      console.error('[settings] Failed to apply migration token', error);
+      setApplyError(error instanceof Error ? error.message : 'Не получилось перенести архив. Попробуй ещё раз.');
+    } finally {
+      setApplyLoading(false);
+    }
+  };
+
   const handleClearGarden = () => {
     clearGarden();
-    setGardenMessage('Архив откликов очищен. Можно собирать поддержку заново.');
+    setGardenMessage('Мы очистили «Мой свет». Можно снова собирать важные отклики.');
     setPurgeMessage(null);
     setPurgeError(null);
   };
 
-  const handleCreateBackup = async () => {
-    if (!deviceId) return;
-
-    setBackupLoading(true);
-    setBackupMessage(null);
-    setBackupError(null);
-    try {
-      const response = await fetch('/api/journey/backup', {
-        method: 'POST',
-        headers: { [DEVICE_ID_HEADER]: deviceId },
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? 'Failed to create backup');
-      }
-      const data = (await response.json()) as {
-        identityKey: string;
-        status: JourneyStatus;
-      };
-      setBackupKey(data.identityKey);
-      setBackupMessage('Ключ создан. Сохрани его — мы не покажем его снова.');
-      setJourneyStatus(data.status);
-      if (data.status.effectiveDeviceId && data.status.effectiveDeviceId !== deviceId) {
-        setDeviceId(data.status.effectiveDeviceId);
-        void refresh();
-      }
-    } catch (error) {
-      console.error('[settings] Failed to create backup key', error);
-      setBackupError('Не удалось сгенерировать ключ. Попробуй ещё раз позже.');
-    } finally {
-      setBackupLoading(false);
-    }
-  };
-
-  const handleCopyBackupKey = async () => {
-    if (!backupKey || !navigator.clipboard) return;
-    try {
-      await navigator.clipboard.writeText(backupKey);
-      setBackupMessage('Ключ скопирован. Сохрани его в надёжном месте.');
-    } catch (error) {
-      console.warn('[settings] Failed to copy key', error);
-      setBackupError('Не получилось скопировать ключ. Сохрани его вручную.');
-    }
-  };
-
-  const handleDownloadBackupKey = () => {
-    if (!backupKey) return;
-    try {
-      const blob = new Blob([
-        `Ключ пути для UYAN.chat:\n${backupKey}\nХрани его в надёжном месте и не делись с незнакомыми людьми.`,
-      ]);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'uyan-path-key.txt';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      setBackupMessage('Ключ сохранён в файл. Береги его.');
-    } catch (error) {
-      console.warn('[settings] Failed to download key', error);
-      setBackupError('Не получилось сохранить файл с ключом.');
-    }
-  };
-
-  const performAttach = useCallback(async () => {
-    if (!attachKey.trim()) {
-      setAttachError('Введи ключ архива.');
-      return;
-    }
-    if (!deviceId) {
-      setAttachError('Не удалось определить устройство.');
-      return;
-    }
-
-    setAttachLoading(true);
-    setAttachMessage(null);
-    setAttachError(null);
-    try {
-      const response = await fetch('/api/journey/attach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
-        body: JSON.stringify({ identityKey: attachKey.trim() }),
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error ?? 'Failed to attach');
-      }
-      const nextStatus = (payload?.status ?? null) as JourneyStatus | null;
-      if (nextStatus) {
-        setJourneyStatus(nextStatus);
-        if (nextStatus.effectiveDeviceId && nextStatus.effectiveDeviceId !== deviceId) {
-          setDeviceId(nextStatus.effectiveDeviceId);
-          void refresh();
-        }
-      }
-      setAttachMessage('Ключ принят. Теперь это устройство увидит сохранённые мысли и отклики.');
-      setAttachKey('');
-      setBackupKey(null);
-      void refreshJourneyStatus(nextStatus?.effectiveDeviceId ?? deviceId);
-    } catch (error) {
-      console.warn('[settings] Failed to attach journey', error);
-      setAttachError(
-        error instanceof Error
-          ? error.message
-          : 'Не получилось восстановить путь. Проверь ключ и попробуй снова.',
-      );
-    } finally {
-      setAttachLoading(false);
-      setConfirmAttachOpen(false);
-    }
-  }, [attachKey, deviceId, refresh, refreshJourneyStatus, setDeviceId]);
-
-  const handleAttachSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAttachMessage(null);
-    setAttachError(null);
-    if (journeyStatus?.localHasHistory && !journeyStatus.isPrimary) {
-      setConfirmAttachOpen(true);
-      return;
-    }
-    void performAttach();
-  };
-
-  const confirmAttach = () => {
-    if (attachLoading) return;
-    void performAttach();
-  };
-
-  const cancelAttach = () => {
-    if (attachLoading) return;
-    setConfirmAttachOpen(false);
+  const handleRevealHidden = () => {
+    clearHiddenResponses();
+    setGardenMessage('Скрытые отклики вернулись в список.');
+    setPurgeMessage(null);
+    setPurgeError(null);
   };
 
   const handleResetDevice = () => {
@@ -432,7 +219,7 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
         body: JSON.stringify({}),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         setPurgeError(result?.error ?? 'Не получилось очистить данные. Попробуй ещё раз позже.');
@@ -440,11 +227,12 @@ export default function SettingsPage() {
       }
 
       clearGarden();
+      clearHiddenResponses();
       clearDeviceId();
       setDeviceId(null);
       setStats(null);
 
-      setPurgeMessage('Данные очищены. Можно начать с чистого листа — при следующем визите создадим новый путь.');
+      setPurgeMessage('Данные очищены. При следующем визите мы создадим новую историю устройства.');
     } catch (error) {
       console.error('[settings] Failed to purge device data', error);
       setPurgeError('Не получилось очистить данные. Попробуй ещё раз позже.');
@@ -454,51 +242,77 @@ export default function SettingsPage() {
     }
   };
 
+  const canCopyLink = useMemo(
+    () => Boolean(migrationUrl && typeof navigator !== 'undefined' && navigator.clipboard?.writeText),
+    [migrationUrl],
+  );
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8">
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
-        <p className="text-text-secondary">Управляй анимациями, ключом устройства и архивом откликов.</p>
+        <p className="text-text-secondary">Настрой плавность анимаций, переноси архив и управляй данными устройства.</p>
       </div>
 
       <Card className="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-text-primary">Ключ устройства</h2>
+          <h2 className="text-xl font-semibold text-text-primary">Перенести архив</h2>
           <p className="text-sm text-text-secondary">
-            Все мысли и отклики, которые ты видишь, привязаны к этому ключу. Скопируй его, чтобы перенести опыт на другое устройство,
-            или введи сохранённый ключ, чтобы подтянуть архив.
+            Ссылка переноса действует 24 часа и переносит «Мой свет» и историю откликов на другое устройство. Никто кроме тебя не
+            увидит содержимое архива.
           </p>
         </div>
-        <div className="flex flex-col gap-3 rounded-2xl border border-white/5 bg-bg-secondary/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">текущий ключ</p>
-            <p className="mt-2 font-mono text-sm text-text-primary">{maskedDeviceId}</p>
-          </div>
-          <Button variant="secondary" onClick={copyToClipboard} disabled={!deviceId} className="w-full sm:w-auto">
-            Скопировать ключ
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button onClick={handleCreateMigrationLink} disabled={migrationLoading} className="w-full sm:w-auto">
+            {migrationLoading ? 'Готовим ссылку…' : 'Создать ссылку для переноса'}
           </Button>
+          {migrationUrl ? (
+            <Button onClick={handleCopyMigrationLink} variant="secondary" disabled={!canCopyLink} className="w-full sm:w-auto">
+              Скопировать ссылку
+            </Button>
+          ) : null}
         </div>
-        <form onSubmit={handleDeviceKeySubmit} className="space-y-3">
+        {migrationUrl ? (
+          <div className="space-y-2 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4">
+            <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">ссылка переноса</p>
+            <p className="break-all font-mono text-sm text-text-primary">{migrationUrl}</p>
+          </div>
+        ) : null}
+        {migrationMessage ? <Notice variant="success">{migrationMessage}</Notice> : null}
+        {migrationError ? <Notice variant="error">{migrationError}</Notice> : null}
+        <div className="space-y-3">
           <label className="flex flex-col gap-2 text-sm text-text-secondary">
-            Ввести сохранённый ключ
+            Вставь токен из ссылки, чтобы принять архив
             <input
               type="text"
-              value={deviceKey}
-              onChange={(event) => setDeviceKey(event.target.value)}
-              className={`rounded-xl border bg-bg-secondary/60 px-4 py-3 text-text-primary placeholder:text-text-terтиary focus:outline-none focus:ring-2 focus:ring-uyan-light/80 ${
-                deviceKeyError ? 'border-rose-400/60 focus:ring-rose-300/60' : 'border-white/10'
-              }`}
-              placeholder="device_..."
+              value={migrationToken}
+              onChange={(event) => setMigrationToken(event.target.value)}
+              placeholder="TOKEN-XXXX-XXXX"
+              className="rounded-xl border border-white/10 bg-bg-secondary/60 px-4 py-3 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-uyan-light"
               autoComplete="off"
-              aria-invalid={deviceKeyError ? 'true' : 'false'}
+              spellCheck={false}
             />
-            <p className="text-xs text-text-tertiary">Ключ хранится локально на устройстве. Делись им только с теми, кому доверяешь.</p>
           </label>
-          {deviceKeyStatus ? <Notice variant={deviceKeyStatus.variant}>{deviceKeyStatus.message}</Notice> : null}
-          <Button type="submit" disabled={isApplyDisabled} className="w-full sm:w-auto">
-            {isApplying ? 'Применяем…' : 'Применить ключ'}
-          </Button>
-        </form>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button onClick={handleApplyMigration} disabled={applyLoading || !migrationToken} className="w-full sm:w-auto">
+              {applyLoading ? 'Переносим…' : 'Применить токен'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setMigrationToken('');
+                setApplyError(null);
+                setApplyMessage(null);
+              }}
+            >
+              Очистить поле
+            </Button>
+          </div>
+          {applyMessage ? <Notice variant="success">{applyMessage}</Notice> : null}
+          {applyError ? <Notice variant="error">{applyError}</Notice> : null}
+        </div>
       </Card>
 
       <Card className="space-y-6">
@@ -515,12 +329,12 @@ export default function SettingsPage() {
             type="button"
             onClick={handleReducedMotionToggle}
             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uyan-light ${
-              reducedMotion ? 'bg-uyan-light/60' : 'bg-white/10'
+              reducedMotion ? 'bg-uyan-light/80' : 'bg-white/10'
             }`}
             aria-pressed={reducedMotion}
           >
             <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-bg-primary shadow transition-transform ${
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
                 reducedMotion ? 'translate-x-7' : 'translate-x-1'
               }`}
             />
@@ -530,164 +344,28 @@ export default function SettingsPage() {
 
       <Card className="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-text-primary">Перенос опыта</h2>
-          <p className="text-sm text-text-secondary">
-            Все мысли, отклики и статистика связаны с твоим устройством. Здесь можно сохранить резервный ключ и восстановить его
-            на другом телефоне или в браузере — без логинов и имён.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/5 bg-bg-secondary/60 p-4 text-sm text-text-secondary">
-          {journeyLoading ? (
-            <p>Собираем сведения о ключе…</p>
-          ) : journeyError ? (
-            <p className="text-amber-300">{journeyError}</p>
-          ) : journeyStatus ? (
-            <div className="space-y-2">
-              <p className="text-text-primary">
-                Сейчас ключ считается <span className="font-semibold">{journeyStatus.isPrimary ? 'основным' : 'гостевым'}</span>.
-              </p>
-              <p>
-                Ключ подключён к <span className="font-semibold text-text-primary">{journeyStatus.attachedDevices}</span>{' '}
-                устройству(ам). Сохрани его — и продолжай историю на любом устройстве.
-              </p>
-              {journeyStatus.lastKeyPreview ? (
-                <p className="text-xs text-text-tertiary">
-                  Последний созданный ключ начинается так: <span className="font-mono">{journeyStatus.lastKeyPreview}</span>
-                </p>
-              ) : null}
-              {journeyStatus.localHasHistory && !journeyStatus.isPrimary ? (
-                <p className="text-xs text-amber-200">
-                  У этого устройства уже есть своя история. При восстановлении мы бережно присоединим её к сохранённому пути.
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p>Этот путь только рождается — отправь мысль или сохрани ключ, чтобы начать.</p>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-text-primary">Сохранить мой путь</h3>
-            <p className="text-sm text-text-secondary">
-              Сгенерируй тёплый секретный ключ, запиши его в заметку или сфотографируй. Мы не покажем его повторно.
-            </p>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button onClick={handleCreateBackup} disabled={backupLoading || !deviceId} className="w-full sm:w-auto">
-                {backupLoading ? 'Создаём…' : 'Создать ключ'}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={handleCopyBackupKey}
-                disabled={!backupKey}
-                className="w-full sm:w-auto"
-              >
-                Скопировать
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={handleDownloadBackupKey}
-                disabled={!backupKey}
-                className="w-full sm:w-auto"
-              >
-                Скачать
-              </Button>
-            </div>
-            {backupKey ? (
-              <div className="rounded-xl bg-bg-tertiary/70 p-4 text-center">
-                <p className="text-xs uppercase tracking-[0.3em] text-text-secondary">твой ключ</p>
-                <p className="mt-2 font-mono text-lg text-text-primary">{backupKey}</p>
-                <p className="mt-2 text-xs text-text-tertiary">Сохрани этот код. Он открывает твой путь на других устройствах.</p>
-              </div>
-            ) : null}
-            <div className="space-y-2 text-sm">
-              {backupMessage ? <Notice variant="success">{backupMessage}</Notice> : null}
-              {backupError ? <Notice variant="error">{backupError}</Notice> : null}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-text-primary">Восстановить на этом устройстве</h3>
-            <p className="text-sm text-text-secondary">
-              Введи сохранённый ключ — и мы подтянем мысли, архив и статистику. Никому не передавай его, иначе другой человек
-              получит доступ к твоей истории.
-            </p>
-            <form onSubmit={handleAttachSubmit} className="space-y-3">
-              <input
-                type="text"
-                value={attachKey}
-                onChange={(e) =>
-                  setAttachKey(
-                    e.target.value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase()
-                  )
-                }
-                placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
-                className="w-full rounded-xl border border-white/10 bg-bg-primary/60 p-3 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline focus:outline-2 focus:outline-uyan-light"
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
-                inputMode="text"
-                autoCapitalize="characters"
-                pattern="[A-Z0-9-]{8,}"
-                maxLength={29}
-              />
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button type="submit" disabled={attachLoading || attachKey.trim().length < 8} className="w-full sm:w-auto">
-                  {attachLoading ? 'Соединяем…' : 'Подключить ключ'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    setAttachKey('');
-                    setAttachError(null);
-                    setAttachMessage(null);
-                  }}
-                >
-                  Очистить поле
-                </Button>
-              </div>
-            </form>
-            <div className="space-y-2 text-sm">
-              {attachMessage ? <Notice variant="success">{attachMessage}</Notice> : null}
-              {attachError ? <Notice variant="error">{attachError}</Notice> : null}
-            </div>
-          </div>
-        </div>
-
-        <p className="text-xs text-text-tertiary">
-          Не делись ключом с незнакомыми людьми. Он не содержит личных данных, но открывает доступ к твоим мыслям и откликам.
-        </p>
-      </Card>
-
-      <Card className="space-y-6">
-        <div className="space-y-2">
           <h2 className="text-xl font-semibold text-text-primary">Данные устройства</h2>
           <p className="text-sm text-text-secondary">
-            Мы используем только технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе — ни логинов,
-            ни имён.
+            Мы используем технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе. Ни имён, ни логинов — только
+            путь устройства.
           </p>
-          <p className="text-sm text-text-secondary">
-            Здесь можно очистить сохранённые ответы, сбросить этот идентификатор и удалить все данные, если захочется начать
-            заново.
-          </p>
+          <p className="text-sm text-text-secondary">Здесь можно очистить сохранённые ответы, вернуть скрытые отклики или удалить все данные.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
-            Очистить архив откликов
+            Очистить «Мой свет»
+          </Button>
+          <Button variant="secondary" onClick={handleRevealHidden} className="w-full sm:w-auto">
+            Вернуть скрытые отклики
           </Button>
           <Button variant="ghost" onClick={handleResetDevice} className="w-full sm:w-auto">
             Сбросить идентификатор устройства
           </Button>
           <Button onClick={handlePurgeData} className="w-full sm:w-auto" disabled={purgeLoading}>
-            {purgeLoading ? 'Очищаем...' : 'Удалить все мои данные'}
+            {purgeLoading ? 'Очищаем…' : 'Удалить все мои данные'}
           </Button>
         </div>
-        <p className="text-xs text-text-tertiary">
-          После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.
-        </p>
+        <p className="text-xs text-text-tertiary">После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.</p>
         <div aria-live="polite" aria-atomic="true" className="space-y-2">
           {gardenMessage ? <Notice variant="success">{gardenMessage}</Notice> : null}
           {purgeMessage ? <Notice variant="success">{purgeMessage}</Notice> : null}
@@ -696,19 +374,9 @@ export default function SettingsPage() {
       </Card>
 
       <ConfirmDialog
-        open={confirmAttachOpen}
-        title="Присоединить это устройство к сохранённому ключу?"
-        description="Мы аккуратно перенесём текущие мысли и статистику в сохранённый архив. Это действие нельзя отменить."
-        confirmLabel="Присоединить"
-        onConfirm={confirmAttach}
-        onCancel={cancelAttach}
-        loading={attachLoading}
-      />
-
-      <ConfirmDialog
         open={resetDialogOpen}
         title="Сбросить идентификатор устройства?"
-        description="Твоя текущая статистика и архив откликов обнулится. Это действие нельзя отменить."
+        description="Мы создадим новый технический идентификатор и обнулим локальные данные. Это действие нельзя отменить."
         confirmLabel="Сбросить"
         onConfirm={confirmResetDevice}
         onCancel={cancelResetDevice}
@@ -719,7 +387,7 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={purgeDialogOpen}
         title="Удалить все мои данные?"
-        description="Будут удалены все сообщения, ответы и статистика, связанные с этим устройством. Это действие нельзя отменить."
+        description="Будут удалены все мысли, ответы и статистика, связанные с этим устройством. Это действие нельзя отменить."
         confirmLabel="Удалить"
         onConfirm={confirmPurgeData}
         onCancel={cancelPurgeData}

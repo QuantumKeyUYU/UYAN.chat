@@ -26,7 +26,7 @@ export const getFlowSteps = (preset: VocabularyPreset = 'core'): StepDefinition[
       id: 'save',
       title: vocabulary.flow.saveTitle,
       description: vocabulary.flow.saveDescription,
-      href: '/garden',
+      href: '/my',
     },
   ];
 };
