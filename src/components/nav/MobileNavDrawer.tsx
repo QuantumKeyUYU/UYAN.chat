@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PropsWithChildren, useMemo } from 'react';
+import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useSettingsStore } from '@/store/settings';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
@@ -16,8 +16,7 @@ const staticLinks = [
   { href: '/', label: 'Главная' },
   { href: '/write', dynamic: 'write' as const },
   { href: '/support', dynamic: 'support' as const },
-  { href: '/my', label: 'Мои отклики' },
-  { href: '/garden', label: 'Архив откликов' },
+  { href: '/my', label: 'Мой свет' },
   { href: '/settings', label: 'Настройки' },
 ];
 
@@ -28,6 +27,7 @@ const MotionPresence = ({ children }: PropsWithChildren) => (
 export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
+  const [allowDismiss, setAllowDismiss] = useState(false);
   const links = useMemo(
     () =>
       staticLinks.map((link) => {
@@ -48,6 +48,24 @@ export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
     ? { hidden: { y: 0 }, visible: { y: 0 } }
     : { hidden: { y: '100%' }, visible: { y: 0 } };
 
+  useEffect(() => {
+    if (!open) {
+      setAllowDismiss(false);
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => setAllowDismiss(true));
+    return () => {
+      cancelAnimationFrame(frame);
+      setAllowDismiss(false);
+    };
+  }, [open]);
+
+  const handleOverlayClick = () => {
+    if (!allowDismiss) return;
+    onClose();
+  };
+
   return (
     <MotionPresence>
       {open ? (
@@ -56,7 +74,7 @@ export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
             type="button"
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
             aria-label="Закрыть меню"
-            onClick={onClose}
+            onClick={handleOverlayClick}
             initial="hidden"
             animate="visible"
             exit="hidden"
@@ -71,6 +89,7 @@ export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
             exit="hidden"
             variants={drawerVariants}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+            onPointerDown={(event) => event.stopPropagation()}
           >
             <div className="mx-auto flex w-full max-w-md flex-col gap-4">
               <div className="flex items-center justify-between">
