@@ -1,6 +1,11 @@
+'use client';
+
 import Link from 'next/link';
+import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 export const Footer = () => {
+  const { vocabulary } = useVocabulary();
+
   return (
     <footer className="border-t border-white/5 bg-bg-secondary/40">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -13,7 +18,7 @@ export const Footer = () => {
             Откликнуться
           </Link>
           <Link href="/write" className="transition hover:text-text-primary">
-            Поделиться мыслью
+            {vocabulary.ctaWriteShort}
           </Link>
           <a
             href="https://github.com/"

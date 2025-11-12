@@ -6,6 +6,8 @@ interface Vocabulary {
   queue: string;
   garden: string;
   ctaWrite: string;
+  ctaWriteShort: string;
+  ctaWriteHero: string;
   ctaSupport: string;
   writeTitle: string;
   writeSubtitle: string;
@@ -31,7 +33,9 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     reply: 'отклик',
     queue: 'поток мыслей',
     garden: 'Сохранённое',
-    ctaWrite: 'Поделиться мыслью',
+    ctaWrite: 'Отправить мысль',
+    ctaWriteShort: 'Отправить мысль',
+    ctaWriteHero: 'Отправить мысль',
     ctaSupport: 'Откликнуться',
     writeTitle: 'Поделись тем, что внутри',
     writeSubtitle:
@@ -43,7 +47,7 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     homeHeroSubtitle:
       'Здесь можно честно написать, что у тебя внутри, и получить бережный отклик от незнакомых людей. Анонимно и по-человечески.',
     flow: {
-      writeTitle: 'Поделиться мыслью',
+      writeTitle: 'Отправить мысль',
       writeDescription: 'Опиши своё состояние коротко и честно — сообщество услышит тебя без оценок.',
       supportTitle: 'Откликнуться',
       supportDescription: 'Выбери мысль другого человека и напиши тёплый отклик, который поможет удержаться.',
@@ -59,6 +63,8 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     queue: 'лента искр',
     garden: 'Сохранённое',
     ctaWrite: 'Зажечь искру',
+    ctaWriteShort: 'Зажечь искру',
+    ctaWriteHero: 'Зажечь искру',
     ctaSupport: 'Ответить эхом',
     writeTitle: 'Что за искра внутри?',
     writeSubtitle: 'Расскажи коротко о своём состоянии — от 10 до 280 символов. Здесь безопасно и бережно.',
@@ -84,6 +90,8 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     queue: 'поток пульсов',
     garden: 'Сохранённое',
     ctaWrite: 'Отправить пульс',
+    ctaWriteShort: 'Отправить пульс',
+    ctaWriteHero: 'Отправить пульс',
     ctaSupport: 'Ответить откликом',
     writeTitle: 'Какой пульс момента?',
     writeSubtitle: 'Опиши своё состояние коротко — от 10 до 280 символов.',
@@ -108,6 +116,8 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     queue: 'папка заметок',
     garden: 'Сохранённое',
     ctaWrite: 'Оставить заметку',
+    ctaWriteShort: 'Оставить заметку',
+    ctaWriteHero: 'Оставить заметку',
     ctaSupport: 'Ответить письмом',
     writeTitle: 'Что хочется записать?',
     writeSubtitle: 'Собери мысли в короткую заметку — от 10 до 280 символов.',

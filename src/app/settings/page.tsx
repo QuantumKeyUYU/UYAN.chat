@@ -85,6 +85,36 @@ function SettingsPageContent() {
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const skeletonLayout = (
+    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
+      <div className="space-y-2">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-white/10" />
+        <div className="h-4 w-72 animate-pulse rounded-lg bg-white/5" />
+      </div>
+
+      {[0, 1, 2].map((index) => (
+        <div
+          // eslint-disable-next-line react/no-array-index-key
+          key={index}
+          className="space-y-4 rounded-3xl border border-white/10 bg-bg-secondary/40 p-6"
+        >
+          <div className="space-y-3">
+            <div className="h-5 w-40 animate-pulse rounded bg-white/10" />
+            <div className="h-4 w-full animate-pulse rounded bg-white/5" />
+            <div className="h-4 w-3/4 animate-pulse rounded bg-white/5" />
+          </div>
+          <div className="h-10 w-full animate-pulse rounded-xl bg-white/10" />
+          <div className="h-10 w-2/3 animate-pulse rounded-xl bg-white/10" />
+        </div>
+      ))}
+    </div>
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -289,6 +319,10 @@ function SettingsPageContent() {
     () => Boolean(migrationUrl && typeof navigator !== 'undefined' && navigator.clipboard?.writeText),
     [migrationUrl],
   );
+
+  if (!hydrated) {
+    return skeletonLayout;
+  }
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
