@@ -29,7 +29,7 @@ export default function HomePage() {
     () => [
       {
         id: 'share',
-        title: vocabulary.ctaWrite,
+        title: vocabulary.ctaWriteShort,
         description: 'Напиши то, что внутри, и отправь в безопасное пространство без оценок.',
         href: '/write',
         accent: '🕯️',
@@ -55,7 +55,7 @@ export default function HomePage() {
   const howItWorks = useMemo(
     () => [
       {
-        title: vocabulary.ctaWrite,
+        title: vocabulary.flow.writeTitle,
         description: 'Коротко расскажи о своём состоянии. Здесь слушают внимательно и без оценок.',
       },
       {
@@ -135,7 +135,7 @@ export default function HomePage() {
                 size="lg"
                 className="w-full shadow-[0_0_1.75rem_rgba(255,229,195,0.35)] ring-1 ring-uyan-action/40"
               >
-                {vocabulary.ctaWrite}
+                {vocabulary.ctaWriteHero}
               </Button>
               <Button
                 onClick={() => router.push('/support')}
@@ -266,8 +266,10 @@ export default function HomePage() {
               </div>
             </>
           ) : (
-            <div className="sm:col-span-3 text-center text-base text-text-secondary">
-              {statsError ?? 'Сегодня несколько человек поделились теплом. Один из них — может быть, ты.'}
+            <div className="sm:col-span-3 flex min-h-[4rem] items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-bg-secondary/50 px-4 text-sm text-text-secondary">
+              <span className="truncate" title={statsError ?? 'Сегодня несколько человек поделились теплом. Один из них — может быть, ты.'}>
+                {statsError ?? 'Сегодня несколько человек поделились теплом. Один из них — может быть, ты.'}
+              </span>
             </div>
           )}
         </motion.section>

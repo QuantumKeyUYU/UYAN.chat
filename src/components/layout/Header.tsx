@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Menu, Sparkles, BarChart3, PenSquare } from 'lucide-react';
 import { MobileNavDrawer } from '@/components/nav/MobileNavDrawer';
@@ -12,11 +12,11 @@ import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 type HeaderLink =
   | { href: string; label: string }
-  | { href: string; labelKey: 'ctaWrite' | 'ctaSupport' };
+  | { href: string; labelKey: 'ctaWriteShort' | 'ctaSupport' };
 
 const baseLinks: HeaderLink[] = [
   { href: '/', label: 'Главная' },
-  { href: '/write', labelKey: 'ctaWrite' as const },
+  { href: '/write', labelKey: 'ctaWriteShort' as const },
   { href: '/support', labelKey: 'ctaSupport' as const },
   { href: '/my', label: 'Сохранённое' },
   { href: '/settings', label: 'Настройки' },
@@ -27,8 +27,10 @@ const formatNumber = (value: number) => new Intl.NumberFormat('ru-RU').format(va
 export const Header = () => {
   const headerRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [prefetchedSettings, setPrefetchedSettings] = useState(false);
   const statsRef = useRef<HTMLDivElement | null>(null);
   const stats = useStatsStore((state) => state.data);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
@@ -161,7 +163,7 @@ export const Header = () => {
                 className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
               >
                 <PenSquare className="h-4 w-4" aria-hidden />
-                <span>{vocabulary.ctaWrite}</span>
+                <span>{vocabulary.ctaWriteShort}</span>
               </Link>
 
               <Link
@@ -178,6 +180,18 @@ export const Header = () => {
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:hidden"
             aria-label="Открыть меню"
+            aria-expanded={drawerOpen}
+            aria-controls="mobile-nav-drawer"
+            onPointerDown={() => {
+              if (prefetchedSettings) return;
+              try {
+                router.prefetch('/settings');
+                setPrefetchedSettings(true);
+              } catch (error) {
+                console.warn('[header] Failed to prefetch settings', error);
+                setPrefetchedSettings(false);
+              }
+            }}
             onClick={() => setDrawerOpen(true)}
           >
             <Menu className="h-5 w-5" aria-hidden />
@@ -185,7 +199,7 @@ export const Header = () => {
         </div>
       </div>
 
-      <MobileNavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <MobileNavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} id="mobile-nav-drawer" />
     </header>
   );
 };

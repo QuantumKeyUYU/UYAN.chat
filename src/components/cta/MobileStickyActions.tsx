@@ -13,7 +13,7 @@ export const MobileStickyActions = () => {
           href="/write"
           className="flex-1 rounded-xl bg-uyan-action px-4 py-3 text-center text-sm font-semibold text-bg-primary shadow-lg shadow-uyan-action/20 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action"
         >
-          {vocabulary.ctaWrite}
+          {vocabulary.ctaWriteShort}
         </Link>
         <Link
           href="/support"

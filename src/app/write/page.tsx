@@ -216,7 +216,7 @@ export default function WritePage() {
           minLength={MIN_LENGTH}
           maxLength={MAX_LENGTH}
           placeholder="Расскажи, что чувствуешь прямо сейчас..."
-          submitLabel={vocabulary.ctaWrite}
+          submitLabel={vocabulary.ctaWriteShort}
           loadingLabel="Отправляем..."
           description={
             <>

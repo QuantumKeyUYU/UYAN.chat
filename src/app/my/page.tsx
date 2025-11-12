@@ -16,6 +16,7 @@ import { useDeviceStore } from '@/store/device';
 import { saveLight, loadGarden } from '@/lib/garden';
 import { hideResponseLocally, loadHiddenResponses } from '@/lib/hiddenResponses';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
+import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 const tabs = [
   { key: 'received', label: 'Мне ответили' },
@@ -113,6 +114,7 @@ const getMillis = (value: unknown): number => {
 export default function MyLightsPage() {
   const router = useRouter();
   const deviceId = useDeviceStore((state) => state.id);
+  const { vocabulary } = useVocabulary();
   const [activeTab, setActiveTab] = useState<TabKey>('received');
   const [messages, setMessages] = useState<MessageWithResponses[]>([]);
   const [sentResponses, setSentResponses] = useState<SentResponse[]>([]);
@@ -368,7 +370,7 @@ export default function MyLightsPage() {
               </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/write')}>
-                  Поделиться мыслью
+                  {vocabulary.ctaWriteShort}
                 </Button>
               </div>
             </Card>
