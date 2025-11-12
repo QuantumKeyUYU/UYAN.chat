@@ -137,14 +137,6 @@ export default function HomePage() {
               >
                 {vocabulary.ctaWriteHero}
               </Button>
-              <Button
-                onClick={() => router.push('/support')}
-                size="lg"
-                variant="secondary"
-                className="w-full"
-              >
-                {vocabulary.ctaSupport}
-              </Button>
             </div>
           </div>
         </motion.section>
@@ -160,7 +152,7 @@ export default function HomePage() {
             return (
               <motion.div
                 key={action.id}
-                className="group flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6 text-left shadow-sm transition hover:border-uyan-light/60 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light"
+                className="group flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-4 text-left shadow-sm transition hover:border-uyan-light/60 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light sm:p-6"
                 initial={initial}
                 animate={animate}
                 transition={
