@@ -1,27 +1,42 @@
 'use client';
-
-import { PropsWithChildren } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
-import { useReducedMotion } from 'framer-motion';
-import { useSettingsStore } from '@/store/settings';
+import { useEffect, useState } from 'react';
 
-export const PageTransition = ({ children }: PropsWithChildren<{}>): JSX.Element => {
+interface Props {
+  children: React.ReactNode;
+}
+
+export default function PageTransition({ children }: Props) {
   const pathname = usePathname();
-  const prefersReducedMotion = useReducedMotion();
-  const reducedMotionSetting = useSettingsStore((state) => state.reducedMotion);
-  const disableMotion = prefersReducedMotion || reducedMotionSetting;
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const initial = disableMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 };
-  const animate = { opacity: 1, y: 0 };
-  const exit = disableMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 };
-  const transition = disableMotion ? { duration: 0 } : { duration: 0.18 };
+  // Определяем мобильное устройство
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsMobile(window.innerWidth < 768);
+      setMounted(true);
+    }
+  }, []);
+
+  // На мобилках — без анимации (вообще)
+  if (!mounted || isMobile) {
+    return <>{children}</>;
+  }
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div key={pathname} initial={initial} animate={animate} exit={exit} transition={transition}>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={pathname}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.25, ease: 'easeInOut' }}
+        style={{ minHeight: '100%' }}
+      >
         {children}
       </motion.div>
     </AnimatePresence>
   );
-};
+}
