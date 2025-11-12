@@ -23,6 +23,44 @@ const buildMigrationUrl = (token: string): string | null => {
   return url.toString();
 };
 
+type MigrationCreateResponse =
+  | {
+      ok: true;
+      token: string;
+      expiresAt: string;
+    }
+  | {
+      ok: false;
+      error: { code: string; message: string };
+    };
+
+type MigrationApplyResponse =
+  | {
+      ok: true;
+      migratedDeviceId: string;
+    }
+  | {
+      ok: false;
+      error: { code: string; message: string };
+    };
+
+const getMigrationApplyErrorMessage = (code: string, fallback: string): string => {
+  switch (code) {
+    case 'migration/expired':
+      return 'Ссылка уже не активна. Создай новую на устройстве, где сохранён архив.';
+    case 'migration/not-found':
+      return 'Кажется, эта ссылка не подходит. Проверь, полностью ли она скопирована.';
+    case 'migration/already-used':
+      return 'Эта ссылка уже использована. Сгенерируй новую на устройстве с архивом.';
+    case 'migration/invalid-token':
+      return 'Не получается распознать ссылку. Попробуй скопировать её ещё раз.';
+    case 'migration/token-missing':
+      return 'Вставь токен из ссылки, чтобы перенести архив.';
+    default:
+      return fallback;
+  }
+};
+
 export default function SettingsPage() {
   const deviceId = useDeviceStore((state) => state.id);
   const setDeviceId = useDeviceStore((state) => state.setId);
@@ -77,20 +115,19 @@ export default function SettingsPage() {
         method: 'POST',
         headers: { [DEVICE_ID_HEADER]: deviceId },
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error ?? 'Не получилось подготовить ссылку.');
+      const payload = (await response.json().catch(() => null)) as MigrationCreateResponse | null;
+      if (!payload || !payload.ok) {
+        const fallback = 'Не получилось подготовить ссылку. Попробуй ещё раз.';
+        const message = payload && !payload.ok ? payload.error.message : fallback;
+        throw new Error(message);
       }
-      const token = payload?.token as string;
-      if (!token) {
-        throw new Error('Не удалось получить токен переноса.');
-      }
+      const { token } = payload;
       setMigrationToken(token);
       setMigrationUrl(buildMigrationUrl(token));
       setMigrationMessage('Ссылка готова. Открой её на другом устройстве в течение 24 часов.');
     } catch (error) {
       console.error('[settings] Failed to create migration token', error);
-      setMigrationError('Не получилось создать ссылку. Попробуй ещё раз.');
+      setMigrationError(error instanceof Error ? error.message : 'Не получилось создать ссылку. Попробуй ещё раз.');
     } finally {
       setMigrationLoading(false);
     }
@@ -131,22 +168,23 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({ token }),
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error ?? 'Не получилось перенести архив.');
+      const payload = (await response.json().catch(() => null)) as MigrationApplyResponse | null;
+      if (!payload || !payload.ok) {
+        const fallback = 'Не получилось перенести архив. Попробуй ещё раз.';
+        const message =
+          payload && !payload.ok
+            ? getMigrationApplyErrorMessage(payload.error.code, payload.error.message)
+            : fallback;
+        throw new Error(message);
       }
-      const migratedDeviceId = payload?.migratedDeviceId as string | undefined;
-      if (migratedDeviceId) {
-        setDeviceId(migratedDeviceId);
-        void refresh();
-        setApplyMessage('Готово! Мы перенесли архив и обновили это устройство.');
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('token');
-          window.history.replaceState({}, '', url.toString());
-        }
-      } else {
-        setApplyMessage('Готово! Можно обновить страницу, чтобы увидеть изменения.');
+      const { migratedDeviceId } = payload;
+      setDeviceId(migratedDeviceId);
+      void refresh();
+      setApplyMessage('Готово! Твои сохранённые ответы теперь на этом устройстве.');
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('token');
+        window.history.replaceState({}, '', url.toString());
       }
       setMigrationMessage(null);
       setMigrationError(null);

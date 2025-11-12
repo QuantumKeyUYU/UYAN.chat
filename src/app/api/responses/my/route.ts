@@ -9,6 +9,14 @@ import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { attachDeviceCookie, resolveDeviceIdDebugInfo } from '@/lib/device/server';
 
+type SerializedFirestoreDoc = Record<string, unknown> & { id: string };
+
+type UserResponseSummary = SerializedFirestoreDoc & {
+  createdAt: number;
+  messageId?: string;
+  message: SerializedFirestoreDoc | null;
+};
+
 const getMillis = (value: unknown): number => {
   if (typeof value === 'number') return value;
   if (value && typeof (value as { toMillis?: () => unknown }).toMillis === 'function') {
@@ -43,7 +51,11 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
-    const responses = responseDocs.map((doc) => serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) }));
+    const responses: SerializedFirestoreDoc[] = responseDocs.map((doc) => {
+      const raw = serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) });
+      const normalized: SerializedFirestoreDoc = { ...raw, id: doc.id };
+      return normalized;
+    });
 
     if (responses.length === 0) {
       return attachDeviceCookie(NextResponse.json({ responses: [] }), deviceId);
@@ -57,22 +69,33 @@ export async function GET(request: NextRequest) {
       ),
     );
 
-    const messages = new Map<string, Record<string, unknown>>();
+    const messages = new Map<string, SerializedFirestoreDoc>();
     await Promise.all(
       messageIds.map(async (messageId) => {
         const snap = await db.collection('messages').doc(messageId).get();
         if (snap.exists) {
-          messages.set(messageId, serializeDoc({ id: snap.id, ...(snap.data() as Record<string, unknown>) }));
+          const serialized = serializeDoc({
+            id: snap.id,
+            ...(snap.data() as Record<string, unknown>),
+          });
+          const normalized: SerializedFirestoreDoc = { ...serialized, id: snap.id };
+          messages.set(messageId, normalized);
         }
       }),
     );
 
-    const enriched = responses
-      .map((response) => ({
-        ...response,
-        message: response.messageId ? messages.get(response.messageId as string) ?? null : null,
-      }))
-      .sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt));
+    const enriched: UserResponseSummary[] = responses
+      .map((response) => {
+        const messageId = typeof response.messageId === 'string' ? response.messageId : undefined;
+        const createdAt = getMillis(response.createdAt);
+        return {
+          ...response,
+          createdAt,
+          messageId,
+          message: messageId ? messages.get(messageId) ?? null : null,
+        } satisfies UserResponseSummary;
+      })
+      .sort((a, b) => b.createdAt - a.createdAt);
 
     return attachDeviceCookie(NextResponse.json({ responses: enriched }), deviceId);
   } catch (error) {

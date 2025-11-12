@@ -171,8 +171,8 @@ export default function MyLightsPage() {
       });
       if (!response.ok) throw new Error('Ошибка загрузки откликов');
       const data = await response.json();
-      const normalized = (data.responses ?? []).map((item: any) => normalizeSentResponse(item));
-      normalized.sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt));
+      const normalized = (data.responses ?? []).map((item: unknown) => normalizeSentResponse(item));
+      normalized.sort((a: SentResponse, b: SentResponse) => b.createdAt - a.createdAt);
       setSentResponses(normalized);
     } catch (error) {
       console.error('[my] Failed to load sent responses', error);
@@ -256,9 +256,9 @@ export default function MyLightsPage() {
     }));
   }, [messages, hiddenIds]);
 
-  const sortedMessages = useMemo(
+  const sortedMessages = useMemo<MessageWithResponses[]>(
     () =>
-      [...visibleMessages].sort((a, b) => {
+      [...visibleMessages].sort((a: MessageWithResponses, b: MessageWithResponses) => {
         return b.createdAt - a.createdAt;
       }),
     [visibleMessages],
@@ -362,9 +362,9 @@ export default function MyLightsPage() {
           {!loadingReceived && sortedMessages.length === 0 ? (
             <Card className="space-y-4 text-center">
               <div className="text-3xl">🌿</div>
-              <h2 className="text-xl font-semibold text-text-primary">Пока здесь пусто</h2>
+              <h2 className="text-xl font-semibold text-text-primary">Пока здесь пусто.</h2>
               <p className="text-text-secondary">
-                Поделись мыслью — и мы покажем её путь. Сохраняй важные отклики в «Мой свет», чтобы возвращаться к ним потом.
+                Когда кто-то ответит на твою мысль, тёплые слова появятся здесь.
               </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/write')}>
@@ -467,11 +467,13 @@ export default function MyLightsPage() {
           {!loadingSent && sentResponses.length === 0 ? (
             <Card className="space-y-4 text-center">
               <div className="text-3xl">💌</div>
-              <h2 className="text-xl font-semibold text-text-primary">Ты ещё не отправлял отклики</h2>
-              <p className="text-text-secondary">Поддержи кого-то — и твои слова появятся здесь.</p>
+              <h2 className="text-xl font-semibold text-text-primary">Ты ещё ни разу не откликался.</h2>
+              <p className="text-text-secondary">
+                Когда поможешь кому-то словом, твои отклики появятся здесь.
+              </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/support')}>
-                  Откликнуться сейчас
+                  Откликнуться
                 </Button>
               </div>
             </Card>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
@@ -93,10 +93,22 @@ export default function HomePage() {
     setOnboardingOpen(true);
   }, []);
 
-  const heroTransition = transition.duration === 0 ? transition : { ...transition, duration: 0.8 };
-  const actionsTransition = transition.duration === 0 ? transition : { ...transition, delay: 0.15, duration: 0.5 };
-  const infoTransition = transition.duration === 0 ? transition : { ...transition, delay: 0.3, duration: 0.6 };
-  const summaryTransition = transition.duration === 0 ? transition : { ...transition, delay: 0.4, duration: 0.6 };
+  const reducedMotion = transition.duration === 0;
+  const baseTransition: Transition = reducedMotion
+    ? { duration: 0 }
+    : {
+        duration: transition.duration,
+        ease: transition.ease,
+      };
+
+  const heroTransition: Transition = reducedMotion ? baseTransition : { ...baseTransition, duration: 0.8 };
+  const actionsTransition: Transition = reducedMotion
+    ? baseTransition
+    : { ...baseTransition, delay: 0.15, duration: 0.5 };
+  const infoTransition: Transition = reducedMotion ? baseTransition : { ...baseTransition, delay: 0.3, duration: 0.6 };
+  const summaryTransition: Transition = reducedMotion
+    ? baseTransition
+    : { ...baseTransition, delay: 0.4, duration: 0.6 };
 
   return (
     <>
@@ -126,7 +138,7 @@ export default function HomePage() {
           transition={actionsTransition}
         >
           {primaryActions.map((action, index) => {
-            const delay = transition.duration === 0 ? 0 : index * 0.05;
+            const delay = reducedMotion ? 0 : index * 0.05;
             return (
               <motion.button
                 key={action.id}
@@ -136,9 +148,9 @@ export default function HomePage() {
                 initial={initial}
                 animate={animate}
                 transition={
-                  transition.duration === 0
-                    ? transition
-                    : { ...transition, delay: (actionsTransition.delay ?? 0) + delay, duration: 0.45 }
+                  reducedMotion
+                    ? baseTransition
+                    : { ...baseTransition, delay: (actionsTransition.delay ?? 0.15) + delay, duration: 0.45 }
                 }
               >
                 <div className="space-y-4">
