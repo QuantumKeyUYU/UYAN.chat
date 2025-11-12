@@ -5,6 +5,7 @@ interface Vocabulary {
   reply: string;
   queue: string;
   garden: string;
+  settings: string;
   ctaWrite: string;
   ctaWriteShort: string;
   ctaWriteHero: string;
@@ -33,6 +34,7 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     reply: 'отклик',
     queue: 'поток мыслей',
     garden: 'Сохранённое',
+    settings: 'Настройки',
     ctaWrite: 'Отправить мысль',
     ctaWriteShort: 'Отправить мысль',
     ctaWriteHero: 'Отправить мысль',
@@ -62,6 +64,7 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     reply: 'эхо',
     queue: 'лента искр',
     garden: 'Сохранённое',
+    settings: 'Настройки',
     ctaWrite: 'Зажечь искру',
     ctaWriteShort: 'Зажечь искру',
     ctaWriteHero: 'Зажечь искру',
@@ -89,6 +92,7 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     reply: 'отклик',
     queue: 'поток пульсов',
     garden: 'Сохранённое',
+    settings: 'Настройки',
     ctaWrite: 'Отправить пульс',
     ctaWriteShort: 'Отправить пульс',
     ctaWriteHero: 'Отправить пульс',
@@ -115,6 +119,7 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     reply: 'ответ',
     queue: 'папка заметок',
     garden: 'Сохранённое',
+    settings: 'Настройки',
     ctaWrite: 'Оставить заметку',
     ctaWriteShort: 'Оставить заметку',
     ctaWriteHero: 'Оставить заметку',
