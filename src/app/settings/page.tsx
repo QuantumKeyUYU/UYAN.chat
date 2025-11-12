@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { motion as m } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -22,6 +22,15 @@ const buildMigrationUrl = (token: string): string | null => {
   url.searchParams.set('token', token);
   return url.toString();
 };
+
+const sectionScrollMarginStyle = { scrollMarginTop: 'calc(var(--header-h, 64px) + 16px)' } as const;
+
+const ButtonSpinner = () => (
+  <span
+    aria-hidden
+    className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+  />
+);
 
 type MigrationCreateResponse =
   | {
@@ -88,20 +97,22 @@ function SettingsPageContent() {
   const [resetLoading, setResetLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  const prefersReducedMotion = useReducedMotion();
+  const disableScrollAnimation = prefersReducedMotion || reducedMotion;
+
   useEffect(() => {
     setHydrated(true);
   }, []);
 
   const skeletonLayout = (
-    <m.div layout className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
+    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
       <div className="space-y-2">
         <div className="h-8 w-48 animate-pulse rounded-lg bg-white/10" />
         <div className="h-4 w-72 animate-pulse rounded-lg bg-white/5" />
       </div>
 
       {[0, 1, 2].map((index) => (
-        <m.div
-          layout
+        <div
           // eslint-disable-next-line react/no-array-index-key
           key={index}
           className="space-y-4 rounded-3xl border border-white/10 bg-bg-secondary/50 p-6 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]"
@@ -113,9 +124,9 @@ function SettingsPageContent() {
           </div>
           <div className="h-10 w-full animate-pulse rounded-xl bg-white/10" />
           <div className="h-10 w-2/3 animate-pulse rounded-xl bg-white/10" />
-        </m.div>
+        </div>
       ))}
-    </m.div>
+    </div>
   );
 
   useEffect(() => {
@@ -130,6 +141,35 @@ function SettingsPageContent() {
     setMigrationToken((current) => (current ? current : queryToken));
     setMigrationUrl((current) => current ?? buildMigrationUrl(queryToken));
   }, [queryToken]);
+
+  const scrollToHash = useCallback(
+    (hashValue?: string) => {
+      if (typeof window === 'undefined') return;
+      const hash = (hashValue ?? window.location.hash)?.replace('#', '');
+      if (!hash) return;
+      const target = document.getElementById(hash);
+      if (!target) return;
+      requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: disableScrollAnimation ? 'auto' : 'smooth', block: 'start' });
+      });
+    },
+    [disableScrollAnimation],
+  );
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (typeof window === 'undefined') return;
+
+    scrollToHash();
+
+    const handleHashChange = (event: HashChangeEvent) => {
+      const nextHash = event.newURL ? new URL(event.newURL).hash : window.location.hash;
+      scrollToHash(nextHash);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [hydrated, scrollToHash]);
 
   const handleReducedMotionToggle = () => {
     const next = !reducedMotion;
@@ -327,27 +367,46 @@ function SettingsPageContent() {
   }
 
   return (
-    <m.div layout className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
+    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
         <p className="text-text-secondary">Настрой плавность анимаций, переноси архив и управляй данными устройства.</p>
       </div>
 
-      <m.div layout className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]">
+      <section
+        id="transfer"
+        aria-labelledby="settings-transfer"
+        className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]"
+        style={sectionScrollMarginStyle}
+      >
         <Card className="space-y-6 rounded-3xl bg-bg-secondary/90 shadow-none hover:scale-100">
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-text-primary">Перенести архив</h2>
+            <h2 id="settings-transfer" className="text-xl font-semibold text-text-primary">
+              Перенести архив
+            </h2>
             <p className="text-sm text-text-secondary">
-              Ссылка переноса действует 24 часа и переносит «Сохранённое» и историю откликов на другое устройство. Никто кроме тебя не
-              увидит содержимое архива.
+              Ссылка переноса действует 24 часа и переносит «Сохранённое» и историю откликов на другое устройство. Никто кроме
+              тебя не увидит содержимое архива.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button onClick={handleCreateMigrationLink} disabled={migrationLoading} className="w-full sm:w-auto">
-              {migrationLoading ? 'Готовим ссылку…' : 'Создать ссылку для переноса'}
+            <Button onClick={handleCreateMigrationLink} disabled={migrationLoading} className="w-full gap-2 sm:w-auto">
+              {migrationLoading ? (
+                <>
+                  <ButtonSpinner />
+                  Готовим ссылку…
+                </>
+              ) : (
+                'Создать ссылку для переноса'
+              )}
             </Button>
             {migrationUrl ? (
-              <Button onClick={handleCopyMigrationLink} variant="secondary" disabled={!canCopyLink} className="w-full sm:w-auto">
+              <Button
+                onClick={handleCopyMigrationLink}
+                variant="secondary"
+                disabled={!canCopyLink}
+                className="w-full gap-2 sm:w-auto"
+              >
                 Скопировать ссылку
               </Button>
             ) : null}
@@ -374,8 +433,19 @@ function SettingsPageContent() {
               />
             </label>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button onClick={handleApplyMigration} disabled={applyLoading || !migrationToken} className="w-full sm:w-auto">
-                {applyLoading ? 'Переносим…' : 'Применить токен'}
+              <Button
+                onClick={handleApplyMigration}
+                disabled={applyLoading || !migrationToken}
+                className="w-full gap-2 sm:w-auto"
+              >
+                {applyLoading ? (
+                  <>
+                    <ButtonSpinner />
+                    Переносим…
+                  </>
+                ) : (
+                  'Применить токен'
+                )}
               </Button>
               <Button
                 type="button"
@@ -394,12 +464,19 @@ function SettingsPageContent() {
             {applyError ? <Notice variant="error">{applyError}</Notice> : null}
           </div>
         </Card>
-      </m.div>
+      </section>
 
-      <m.div layout className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]">
+      <section
+        id="motion"
+        aria-labelledby="settings-motion"
+        className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]"
+        style={sectionScrollMarginStyle}
+      >
         <Card className="space-y-6 rounded-3xl bg-bg-secondary/90 shadow-none hover:scale-100">
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-text-primary">Анимации</h2>
+            <h2 id="settings-motion" className="text-xl font-semibold text-text-primary">
+              Анимации
+            </h2>
             <p className="text-sm text-text-secondary">Включи этот режим, если хочешь сделать переходы более спокойными.</p>
           </div>
           <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-bg-secondary/60 p-4">
@@ -410,26 +487,41 @@ function SettingsPageContent() {
             <button
               type="button"
               onClick={handleReducedMotionToggle}
-              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uyan-light ${reducedMotion ? 'bg-uyan-light/80' : 'bg-white/10'}`}
+              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uyan-light ${
+                reducedMotion ? 'bg-uyan-light/80' : 'bg-white/10'
+              }`}
               aria-pressed={reducedMotion}
+              aria-label="Переключить режим уменьшения анимаций"
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${reducedMotion ? 'translate-x-7' : 'translate-x-1'}`}
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                  reducedMotion ? 'translate-x-7' : 'translate-x-1'
+                }`}
+                aria-hidden
               />
             </button>
           </div>
         </Card>
-      </m.div>
+      </section>
 
-      <m.div layout className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]">
+      <section
+        id="privacy"
+        aria-labelledby="settings-privacy"
+        className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]"
+        style={sectionScrollMarginStyle}
+      >
         <Card className="space-y-6 rounded-3xl bg-bg-secondary/90 shadow-none hover:scale-100">
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-text-primary">Данные устройства</h2>
+            <h2 id="settings-privacy" className="text-xl font-semibold text-text-primary">
+              Данные устройства
+            </h2>
             <p className="text-sm text-text-secondary">
-              Мы используем технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе. Ни имён, ни логинов — только
-              путь устройства.
+              Мы используем технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе. Ни имён, ни логинов —
+              только путь устройства.
             </p>
-            <p className="text-sm text-text-secondary">Здесь можно очистить сохранённые ответы, вернуть скрытые отклики или удалить все данные.</p>
+            <p className="text-sm text-text-secondary">
+              Здесь можно очистить сохранённые ответы, вернуть скрытые отклики или удалить все данные.
+            </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
@@ -441,18 +533,27 @@ function SettingsPageContent() {
             <Button variant="ghost" onClick={handleResetDevice} className="w-full sm:w-auto">
               Сбросить идентификатор устройства
             </Button>
-            <Button onClick={handlePurgeData} className="w-full sm:w-auto" disabled={purgeLoading}>
-              {purgeLoading ? 'Очищаем…' : 'Удалить все мои данные'}
+            <Button onClick={handlePurgeData} className="w-full gap-2 sm:w-auto" disabled={purgeLoading}>
+              {purgeLoading ? (
+                <>
+                  <ButtonSpinner />
+                  Очищаем…
+                </>
+              ) : (
+                'Удалить все мои данные'
+              )}
             </Button>
           </div>
-          <p className="text-xs text-text-tertiary">После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.</p>
+          <p className="text-xs text-text-tertiary">
+            После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.
+          </p>
           <div aria-live="polite" aria-atomic="true" className="space-y-2">
             {gardenMessage ? <Notice variant="success">{gardenMessage}</Notice> : null}
             {purgeMessage ? <Notice variant="success">{purgeMessage}</Notice> : null}
             {purgeError ? <Notice variant="error">{purgeError}</Notice> : null}
           </div>
         </Card>
-      </m.div>
+      </section>
 
       <ConfirmDialog
         open={resetDialogOpen}
@@ -475,7 +576,7 @@ function SettingsPageContent() {
         loading={purgeLoading}
         danger
       />
-    </m.div>
+    </div>
   );
 }
 

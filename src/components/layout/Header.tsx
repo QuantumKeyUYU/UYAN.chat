@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -37,7 +37,6 @@ export const Header = () => {
   const router = useRouter();
   const [drawerState, setDrawerState] = useState<MobileNavDrawerState>('closed');
   const [statsOpen, setStatsOpen] = useState(false);
-  const [prefetchedSettings, setPrefetchedSettings] = useState(false);
   const statsRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const drawerTimeoutRef = useRef<number | null>(null);
@@ -47,6 +46,8 @@ export const Header = () => {
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
   const isHome = pathname === '/';
+  const isSettings = pathname === '/settings';
+  const [canGoBack, setCanGoBack] = useState(false);
 
   const links = useMemo(() => {
     return baseLinks.map((link) => {
@@ -132,6 +133,9 @@ export const Header = () => {
   useEffect(() => {
     transitionDrawer('closed', { event: 'route', restoreFocus: false, force: true });
     setStatsOpen(false);
+    if (typeof window !== 'undefined') {
+      setCanGoBack(window.history.length > 1);
+    }
   }, [pathname, transitionDrawer]);
 
   useEffect(() => {
@@ -204,6 +208,15 @@ export const Header = () => {
     };
   }, [statsOpen]);
 
+  const handleBackClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!canGoBack) return;
+      event.preventDefault();
+      router.back();
+    },
+    [canGoBack, router],
+  );
+
   return (
     <header
       ref={(node) => {
@@ -212,24 +225,37 @@ export const Header = () => {
       className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-bg-primary/80 backdrop-blur-xl"
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-text-primary">
-          <motion.span
-            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-uyan-darkness/30 text-uyan-light"
-            initial={{ rotate: 0 }}
-            {...motionProps}
-          >
-            <Sparkles className="h-4 w-4" aria-hidden />
-          </motion.span>
-          <span className="leading-none">UYAN.chat</span>
-        </Link>
+        <div className="flex flex-1 items-center gap-2">
+          {isSettings ? (
+            <Link
+              href="/"
+              onClick={handleBackClick}
+              className="inline-flex h-10 items-center gap-1 rounded-full border border-white/10 px-3 text-sm font-medium text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:hidden"
+            >
+              <span aria-hidden>←</span>
+              <span>Назад</span>
+            </Link>
+          ) : null}
+          <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-text-primary">
+            <motion.span
+              className="flex h-9 w-9 items-center justify-center rounded-2xl bg-uyan-darkness/30 text-uyan-light"
+              initial={{ rotate: 0 }}
+              {...motionProps}
+            >
+              <Sparkles className="h-4 w-4" aria-hidden />
+            </motion.span>
+            <span className="leading-none">UYAN.chat</span>
+          </Link>
+        </div>
 
-        <nav className="hidden items-center gap-3 text-sm text-text-secondary sm:flex">
+        <nav className="hidden flex-1 items-center justify-center gap-3 text-sm text-text-secondary sm:flex">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch
                 className={`relative rounded-xl px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action ${
                   isActive ? 'text-text-primary' : 'hover:text-text-primary'
                 }`}
@@ -244,7 +270,7 @@ export const Header = () => {
           })}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-center justify-end gap-2">
           <div className="relative" ref={statsRef}>
             <button
               type="button"
@@ -297,17 +323,6 @@ export const Header = () => {
             aria-expanded={drawerState === 'open' || drawerState === 'opening'}
             aria-controls="mobile-nav-drawer"
             ref={menuButtonRef}
-            onPointerDown={(event) => {
-              event.preventDefault();
-              if (prefetchedSettings) return;
-              try {
-                router.prefetch('/settings');
-                setPrefetchedSettings(true);
-              } catch (error) {
-                console.warn('[header] Failed to prefetch settings', error);
-                setPrefetchedSettings(false);
-              }
-            }}
             onClick={() => transitionDrawer('opening', { event: 'trigger' })}
           >
             <Menu className="h-5 w-5" aria-hidden />
