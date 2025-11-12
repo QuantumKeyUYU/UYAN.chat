@@ -436,9 +436,40 @@ function SettingsPageContent() {
   );
 }
 
+function SettingsFallback() {
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-8" aria-live="polite" aria-busy="true">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
+        <p className="text-text-secondary">Загружаем страницу…</p>
+      </div>
+
+      <Card className="space-y-4">
+        <div className="h-5 w-1/2 rounded-full bg-white/10" />
+        <div className="h-4 w-3/4 rounded-full bg-white/5" />
+        <div className="h-4 w-2/3 rounded-full bg-white/5" />
+        <p className="text-sm text-text-tertiary">Готовим информацию для переноса архива…</p>
+      </Card>
+
+      <Card className="space-y-4">
+        <div className="h-5 w-40 rounded-full bg-white/10" />
+        <div className="h-4 w-3/5 rounded-full bg-white/5" />
+        <p className="text-sm text-text-tertiary">Настраиваем параметры анимаций…</p>
+      </Card>
+
+      <Card className="space-y-4">
+        <div className="h-5 w-48 rounded-full bg-white/10" />
+        <div className="h-4 w-full rounded-full bg-white/5" />
+        <div className="h-4 w-3/4 rounded-full bg-white/5" />
+        <p className="text-sm text-text-tertiary">Проверяем данные устройства…</p>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="py-12 text-center text-text-secondary">Загружаем настройки…</div>}>
+    <Suspense fallback={<SettingsFallback />}>
       <SettingsPageContent />
     </Suspense>
   );

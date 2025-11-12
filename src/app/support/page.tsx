@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
@@ -11,15 +11,12 @@ import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeF
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
-import { Stepper } from '@/components/stepper';
 import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
 import { useDeviceStore } from '@/store/device';
 import type { MessageCategory, ResponseType } from '@/types/firestore';
 import { useSoftMotion } from '@/lib/animation';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
-import { getFlowSteps } from '@/lib/flowSteps';
 import { formatSeconds } from '@/lib/time';
-import { useStepState } from '@/lib/hooks/useStepState';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 type MessagePayload = {
@@ -62,10 +59,7 @@ const pluralizeMinutes = (minutes: number) => {
 
 export default function SupportPage() {
   const deviceId = useDeviceStore((state) => state.id);
-  const { preset, vocabulary } = useVocabulary();
-  const steps = useMemo(() => getFlowSteps(preset), [preset]);
-  const stepState = useStepState({ total: steps.length, initial: 1 });
-  const { active: stepIndex, setActive: setStep } = stepState;
+  const { vocabulary } = useVocabulary();
   const router = useRouter();
   const softMotion = useSoftMotion();
   const [loadingMessage, setLoadingMessage] = useState(false);
@@ -85,10 +79,6 @@ export default function SupportPage() {
   const {
     reset,
   } = form;
-
-  useEffect(() => {
-    setStep(phase === 'success' ? 2 : 1);
-  }, [phase, setStep]);
 
   const fetchRandomMessage = async () => {
     if (!deviceId) return;
@@ -306,7 +296,6 @@ export default function SupportPage() {
         animate={successAnimate}
         transition={baseTransition}
       >
-        <Stepper steps={steps} activeIndex={stepIndex} />
         <Card className="w-full">
           <div className="space-y-4">
             <motion.div
@@ -343,98 +332,97 @@ export default function SupportPage() {
         animate={softMotion.animate}
         transition={baseTransition}
       >
-        <Stepper steps={steps} activeIndex={stepIndex} />
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.supportTitle}</h1>
-        <p className="text-text-secondary">{vocabulary.supportSubtitle}</p>
-      </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.supportTitle}</h1>
+          <p className="text-text-secondary">{vocabulary.supportSubtitle}</p>
+        </div>
 
-      <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
-        <p>Здесь собраны мысли людей, которым сейчас нужен тёплый отклик — каждая из них анонимна.</p>
-        <p className="mt-2">Отклик тоже остаётся анонимным. Пиши бережно и помни, что по ту сторону — живой человек.</p>
-      </div>
+        <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
+          <p>Здесь собраны мысли людей, которым сейчас нужен тёплый отклик — каждая из них анонимна.</p>
+          <p className="mt-2">Отклик тоже остаётся анонимным. Пиши бережно и помни, что по ту сторону — живой человек.</p>
+        </div>
 
-      <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
+        <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
 
-      {isBanned ? (
-        <Notice variant="info">
-          Доступ к ответам сейчас приостановлен. Мы подскажем, когда снова можно будет поддерживать других.
-        </Notice>
-      ) : null}
+        {isBanned ? (
+          <Notice variant="info">
+            Доступ к ответам сейчас приостановлен. Мы подскажем, когда снова можно будет поддерживать других.
+          </Notice>
+        ) : null}
 
-      {submissionError && phase !== 'custom' ? <Notice variant="error">{submissionError}</Notice> : null}
+        {submissionError && phase !== 'custom' ? <Notice variant="error">{submissionError}</Notice> : null}
 
-      {cooldownSeconds && cooldownSeconds > 0 && phase !== 'custom' ? (
-        <Notice variant="info">
-          Пауза перед следующей попыткой — осталось {formatSeconds(cooldownSeconds)}.
-        </Notice>
-      ) : null}
+        {cooldownSeconds && cooldownSeconds > 0 && phase !== 'custom' ? (
+          <Notice variant="info">
+            Пауза перед следующей попыткой — осталось {formatSeconds(cooldownSeconds)}.
+          </Notice>
+        ) : null}
 
-      {error ? (
-        <Card className="space-y-4">
-          <Notice variant="info">{error}</Notice>
-          <Button
-            variant="secondary"
-            onClick={fetchRandomMessage}
-            className="w-full"
-            disabled={loadingMessage}
-          >
-            Обновить
-          </Button>
-        </Card>
-      ) : null}
-
-      {message ? (
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between text-sm text-text-tertiary">
-            <span className="rounded-full bg-uyan-darkness/20 px-3 py-1 text-text-secondary">
-              Категория: {message.category}
-            </span>
-            <span>Истекает через 24 часа</span>
-          </div>
-          <p className="text-lg text-text-primary">{message.text}</p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button onClick={() => setPhase('select')} className="w-full sm:w-auto" disabled={isBanned}>
-              💬 {vocabulary.ctaSupport}
-            </Button>
+        {error ? (
+          <Card className="space-y-4">
+            <Notice variant="info">{error}</Notice>
             <Button
               variant="secondary"
               onClick={fetchRandomMessage}
-              className="w-full sm:w-auto"
+              className="w-full"
               disabled={loadingMessage}
             >
-              ⏭ Другая мысль
+              {loadingMessage ? 'Ищем мысль…' : 'Попробовать ещё раз'}
             </Button>
-          </div>
-        </Card>
-      ) : null}
+          </Card>
+        ) : null}
 
-      {phase === 'select' && message ? (
-        <Card className="space-y-4">
-          <h2 className="text-xl font-semibold text-text-primary">Выбери, как хочешь поддержать</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Button
-              onClick={() => {
-                setSubmissionError(null);
-                setPhase('custom');
-              }}
-              variant="secondary"
-              className="w-full"
-            >
-              ✍️ Написать отклик своими словами
+        {message ? (
+          <Card className="space-y-4">
+            <div className="flex items-center justify-between text-sm text-text-tertiary">
+              <span className="rounded-full bg-uyan-darkness/20 px-3 py-1 text-text-secondary">
+                Категория: {message.category}
+              </span>
+              <span>Истекает через 24 часа</span>
+            </div>
+            <p className="text-lg text-text-primary">{message.text}</p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button onClick={() => setPhase('select')} className="w-full sm:w-auto" disabled={isBanned}>
+                💬 {vocabulary.ctaSupport}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={fetchRandomMessage}
+                className="w-full sm:w-auto"
+                disabled={loadingMessage}
+              >
+                ⏭ Другая мысль
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {phase === 'select' && message ? (
+          <Card className="space-y-4">
+            <h2 className="text-xl font-semibold text-text-primary">Выбери, как хочешь поддержать</h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Button
+                onClick={() => {
+                  setSubmissionError(null);
+                  setPhase('custom');
+                }}
+                variant="secondary"
+                className="w-full"
+              >
+                ✍️ Написать отклик своими словами
+              </Button>
+              <Button onClick={startQuickFlow} variant="secondary" className="w-full" disabled={generating}>
+                ⚡ Быстрый отклик
+              </Button>
+              <Button onClick={startAiFlow} variant="secondary" className="w-full" disabled={generating}>
+                🤖 Подсказка ИИ
+              </Button>
+            </div>
+            <Button variant="ghost" onClick={() => setPhase('explore')} className="w-full">
+              Назад
             </Button>
-            <Button onClick={startQuickFlow} variant="secondary" className="w-full" disabled={generating}>
-              ⚡ Быстрый отклик
-            </Button>
-            <Button onClick={startAiFlow} variant="secondary" className="w-full" disabled={generating}>
-              🤖 Подсказка ИИ
-            </Button>
-          </div>
-          <Button variant="ghost" onClick={() => setPhase('explore')} className="w-full">
-            Назад
-          </Button>
-        </Card>
-      ) : null}
+          </Card>
+        ) : null}
 
       {phase === 'custom' && message ? (
         <Card className="space-y-6">
