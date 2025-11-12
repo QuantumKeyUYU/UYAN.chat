@@ -14,6 +14,9 @@ export const Footer = () => {
           <Link href="/support" className="transition hover:text-text-primary">
             Откликнуться
           </Link>
+          <Link href="/settings" className="transition hover:text-text-primary">
+            Настройки
+          </Link>
           <a
             href="https://github.com/"
             target="_blank"
