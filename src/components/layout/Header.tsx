@@ -4,15 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Menu, Sparkles, BarChart3, PenSquare } from 'lucide-react';
-import {
-  MobileNavDrawer,
-  DRAWER_TRANSITION_DURATION,
-  type MobileNavDrawerEvent,
-  type MobileNavDrawerState,
-  type MobileNavDrawerStateMeta,
-  type MobileNavDrawerStateSetter,
-} from '@/components/nav/MobileNavDrawer';
+import { Sparkles, BarChart3, PenSquare } from 'lucide-react';
 import { useStatsStore } from '@/store/stats';
 import { useSettingsStore } from '@/store/settings';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
@@ -35,13 +27,8 @@ export const Header = () => {
   const headerRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
   const router = useRouter();
-  const [drawerState, setDrawerState] = useState<MobileNavDrawerState>('closed');
   const [statsOpen, setStatsOpen] = useState(false);
   const statsRef = useRef<HTMLDivElement | null>(null);
-  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
-  const drawerTimeoutRef = useRef<number | null>(null);
-  const lastDrawerEventRef = useRef<MobileNavDrawerEvent | null>(null);
-  const restoreFocusRef = useRef(true);
   const stats = useStatsStore((state) => state.data);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
@@ -58,67 +45,6 @@ export const Header = () => {
     });
   }, [vocabulary]);
 
-  const canTransitionDrawer = useCallback(
-    (current: MobileNavDrawerState, next: MobileNavDrawerState) => {
-      if (current === next) return false;
-      switch (current) {
-        case 'closed':
-          return next === 'opening';
-        case 'opening':
-          return next === 'open' || next === 'closing';
-        case 'open':
-          return next === 'closing';
-        case 'closing':
-          return next === 'closed';
-        default:
-          return false;
-      }
-    },
-    [],
-  );
-
-  type DrawerTransitionMeta = MobileNavDrawerStateMeta & { force?: boolean };
-
-  const transitionDrawer = useCallback(
-    (next: MobileNavDrawerState, meta: DrawerTransitionMeta = {}) => {
-      setDrawerState((current) => {
-        if (current === next) return current;
-        const canTransition = meta.force || canTransitionDrawer(current, next);
-        if (!canTransition) return current;
-
-        if (process.env.NODE_ENV !== 'production') {
-          // eslint-disable-next-line no-console
-          console.debug('[mobile-nav]', {
-            from: current,
-            to: next,
-            event: meta.event ?? null,
-            lastEvent: lastDrawerEventRef.current,
-          });
-        }
-
-        if (meta.restoreFocus !== undefined) {
-          restoreFocusRef.current = meta.restoreFocus;
-        } else if (next === 'opening' || next === 'closing') {
-          restoreFocusRef.current = true;
-        }
-
-        if (meta.event) {
-          lastDrawerEventRef.current = meta.event;
-        }
-
-        return next;
-      });
-    },
-    [canTransitionDrawer],
-  );
-
-  const handleDrawerStateChange = useCallback<MobileNavDrawerStateSetter>(
-    (next, meta) => {
-      transitionDrawer(next, meta);
-    },
-    [transitionDrawer],
-  );
-
   useEffect(() => {
     const updateHeaderHeight = () => {
       const height = headerRef.current?.offsetHeight ?? 64;
@@ -131,54 +57,11 @@ export const Header = () => {
   }, []);
 
   useEffect(() => {
-    transitionDrawer('closed', { event: 'route', restoreFocus: false, force: true });
     setStatsOpen(false);
     if (typeof window !== 'undefined') {
       setCanGoBack(window.history.length > 1);
     }
-  }, [pathname, transitionDrawer]);
-
-  useEffect(() => {
-    if (drawerState !== 'closed') {
-      return undefined;
-    }
-
-    const timeout = window.setTimeout(() => {
-      if (restoreFocusRef.current) {
-        menuButtonRef.current?.focus();
-      }
-      restoreFocusRef.current = true;
-    }, 150);
-
-    return () => window.clearTimeout(timeout);
-  }, [drawerState]);
-
-  useEffect(() => {
-    if (drawerState !== 'opening' && drawerState !== 'closing') {
-      if (drawerTimeoutRef.current) {
-        window.clearTimeout(drawerTimeoutRef.current);
-        drawerTimeoutRef.current = null;
-      }
-      return undefined;
-    }
-
-    if (drawerTimeoutRef.current) {
-      window.clearTimeout(drawerTimeoutRef.current);
-    }
-
-    const targetState = drawerState === 'opening' ? 'open' : 'closed';
-    drawerTimeoutRef.current = window.setTimeout(() => {
-      transitionDrawer(targetState, { event: 'auto' });
-      drawerTimeoutRef.current = null;
-    }, DRAWER_TRANSITION_DURATION);
-
-    return () => {
-      if (drawerTimeoutRef.current) {
-        window.clearTimeout(drawerTimeoutRef.current);
-        drawerTimeoutRef.current = null;
-      }
-    };
-  }, [drawerState, transitionDrawer]);
+  }, [pathname]);
 
   const statsLabel = `${formatNumber(stats?.lightsGiven ?? 0)} / ${formatNumber(stats?.lightsReceived ?? 0)}`;
   const motionProps = reducedMotion
@@ -316,26 +199,8 @@ export const Header = () => {
             </>
           ) : null}
 
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:hidden"
-            aria-label="Открыть меню"
-            aria-expanded={drawerState === 'open' || drawerState === 'opening'}
-            aria-controls="mobile-nav-drawer"
-            ref={menuButtonRef}
-            onClick={() => transitionDrawer('opening', { event: 'trigger' })}
-          >
-            <Menu className="h-5 w-5" aria-hidden />
-          </button>
         </div>
       </div>
-
-      <MobileNavDrawer
-        state={drawerState}
-        setState={handleDrawerStateChange}
-        triggerRef={menuButtonRef}
-        id="mobile-nav-drawer"
-      />
     </header>
   );
 };

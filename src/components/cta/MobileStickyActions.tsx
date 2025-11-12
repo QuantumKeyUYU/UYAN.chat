@@ -23,7 +23,7 @@ export const MobileStickyActions = () => {
         </Link>
         <Link
           href="/settings"
-          className="flex-1 rounded-xl border border-transparent px-4 py-3 text-center text-sm font-semibold text-text-secondary transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action"
+          className="flex-1 rounded-xl px-4 py-3 text-center text-sm font-medium text-text-secondary transition hover:bg-white/5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action"
         >
           Настройки
         </Link>
