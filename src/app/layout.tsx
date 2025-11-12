@@ -4,7 +4,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import Providers from '@/components/layout/Providers';
 import DevicePathWidget from '@/components/debug/DevicePathWidget';
-import { PageTransition } from '@/components/layout/PageTransition';
+import PageTransition from '@/components/layout/PageTransition';
 
 export const metadata: Metadata = {
   title: 'UYAN.chat — пространство тёплых мыслей',

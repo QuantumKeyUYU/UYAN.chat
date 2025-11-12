@@ -21,6 +21,12 @@ export const MobileStickyActions = () => {
         >
           {vocabulary.ctaSupport}
         </Link>
+        <Link
+          href="/settings"
+          className="flex-1 rounded-xl border border-transparent px-4 py-3 text-center text-sm font-semibold text-text-secondary transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action"
+        >
+          Настройки
+        </Link>
       </div>
     </div>
   );
