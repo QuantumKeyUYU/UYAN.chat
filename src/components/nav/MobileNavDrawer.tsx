@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useSettingsStore } from '@/store/settings';
@@ -16,7 +16,7 @@ const staticLinks = [
   { href: '/', label: 'Главная' },
   { href: '/write', dynamic: 'write' as const },
   { href: '/support', dynamic: 'support' as const },
-  { href: '/my', label: 'Мой свет' },
+  { href: '/my', label: 'Сохранённое' },
   { href: '/settings', label: 'Настройки' },
 ];
 
@@ -25,7 +25,9 @@ const MotionPresence = ({ children }: PropsWithChildren) => (
 );
 
 export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
-  const reducedMotion = useSettingsStore((state) => state.reducedMotion);
+  const reducedMotionSetting = useSettingsStore((state) => state.reducedMotion);
+  const prefersReducedMotion = useReducedMotion();
+  const disableMotion = reducedMotionSetting || prefersReducedMotion;
   const { vocabulary } = useVocabulary();
   const [allowDismiss, setAllowDismiss] = useState(false);
   const links = useMemo(
@@ -40,13 +42,8 @@ export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
     [vocabulary],
   );
 
-  const overlayVariants = reducedMotion
-    ? { hidden: { opacity: 1 }, visible: { opacity: 1 } }
-    : { hidden: { opacity: 0 }, visible: { opacity: 1 } };
-
-  const drawerVariants = reducedMotion
-    ? { hidden: { y: 0 }, visible: { y: 0 } }
-    : { hidden: { y: '100%' }, visible: { y: 0 } };
+  const overlayTransition = disableMotion ? undefined : { duration: 0.12, ease: 'easeOut' as const };
+  const drawerTransition = disableMotion ? undefined : { duration: 0.12, ease: 'easeOut' as const, delay: 0.04 };
 
   useEffect(() => {
     if (!open) {
@@ -75,20 +72,19 @@ export const MobileNavDrawer = ({ open, onClose }: MobileNavDrawerProps) => {
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
             aria-label="Закрыть меню"
             onClick={handleOverlayClick}
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={overlayVariants}
+            initial={disableMotion ? undefined : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={disableMotion ? undefined : { opacity: 0 }}
+            transition={overlayTransition}
           />
           <motion.nav
             role="dialog"
             aria-modal="true"
             className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-t border-white/10 bg-bg-primary/95 p-4 shadow-2xl"
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={drawerVariants}
-            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+            initial={disableMotion ? undefined : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={disableMotion ? undefined : { opacity: 0, y: 4 }}
+            transition={drawerTransition}
             onPointerDown={(event) => event.stopPropagation()}
           >
             <div className="mx-auto flex w-full max-w-md flex-col gap-4">

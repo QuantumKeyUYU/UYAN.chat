@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -68,11 +67,9 @@ function SettingsPageContent() {
   const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
   const setStats = useStatsStore((state) => state.setData);
   const { refresh } = useDeviceJourney();
-  const searchParams = useSearchParams();
-
-  const queryToken = searchParams?.get('token') ?? '';
-  const [migrationToken, setMigrationToken] = useState(queryToken);
-  const [migrationUrl, setMigrationUrl] = useState<string | null>(() => (queryToken ? buildMigrationUrl(queryToken) : null));
+  const [queryToken, setQueryToken] = useState('');
+  const [migrationToken, setMigrationToken] = useState('');
+  const [migrationUrl, setMigrationUrl] = useState<string | null>(null);
   const [migrationLoading, setMigrationLoading] = useState(false);
   const [migrationMessage, setMigrationMessage] = useState<string | null>(null);
   const [migrationError, setMigrationError] = useState<string | null>(null);
@@ -88,6 +85,13 @@ function SettingsPageContent() {
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const currentUrl = new URL(window.location.href);
+    const tokenFromUrl = currentUrl.searchParams.get('token') ?? '';
+    setQueryToken(tokenFromUrl);
+  }, []);
 
   useEffect(() => {
     if (!queryToken) return;
@@ -186,6 +190,7 @@ function SettingsPageContent() {
         url.searchParams.delete('token');
         window.history.replaceState({}, '', url.toString());
       }
+      setQueryToken('');
       setMigrationMessage(null);
       setMigrationError(null);
     } catch (error) {
@@ -198,7 +203,7 @@ function SettingsPageContent() {
 
   const handleClearGarden = () => {
     clearGarden();
-    setGardenMessage('Мы очистили «Мой свет». Можно снова собирать важные отклики.');
+    setGardenMessage('Мы очистили «Сохранённое». Можно снова собирать важные отклики.');
     setPurgeMessage(null);
     setPurgeError(null);
   };
@@ -286,7 +291,7 @@ function SettingsPageContent() {
   );
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8">
+    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
         <p className="text-text-secondary">Настрой плавность анимаций, переноси архив и управляй данными устройства.</p>
@@ -296,7 +301,7 @@ function SettingsPageContent() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-text-primary">Перенести архив</h2>
           <p className="text-sm text-text-secondary">
-            Ссылка переноса действует 24 часа и переносит «Мой свет» и историю откликов на другое устройство. Никто кроме тебя не
+            Ссылка переноса действует 24 часа и переносит «Сохранённое» и историю откликов на другое устройство. Никто кроме тебя не
             увидит содержимое архива.
           </p>
         </div>
@@ -391,7 +396,7 @@ function SettingsPageContent() {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
-            Очистить «Мой свет»
+            Очистить «Сохранённое»
           </Button>
           <Button variant="secondary" onClick={handleRevealHidden} className="w-full sm:w-auto">
             Вернуть скрытые отклики
@@ -436,41 +441,6 @@ function SettingsPageContent() {
   );
 }
 
-function SettingsFallback() {
-  return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8" aria-live="polite" aria-busy="true">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
-        <p className="text-text-secondary">Загружаем страницу…</p>
-      </div>
-
-      <Card className="space-y-4">
-        <div className="h-5 w-1/2 rounded-full bg-white/10" />
-        <div className="h-4 w-3/4 rounded-full bg-white/5" />
-        <div className="h-4 w-2/3 rounded-full bg-white/5" />
-        <p className="text-sm text-text-tertiary">Готовим информацию для переноса архива…</p>
-      </Card>
-
-      <Card className="space-y-4">
-        <div className="h-5 w-40 rounded-full bg-white/10" />
-        <div className="h-4 w-3/5 rounded-full bg-white/5" />
-        <p className="text-sm text-text-tertiary">Настраиваем параметры анимаций…</p>
-      </Card>
-
-      <Card className="space-y-4">
-        <div className="h-5 w-48 rounded-full bg-white/10" />
-        <div className="h-4 w-full rounded-full bg-white/5" />
-        <div className="h-4 w-3/4 rounded-full bg-white/5" />
-        <p className="text-sm text-text-tertiary">Проверяем данные устройства…</p>
-      </Card>
-    </div>
-  );
-}
-
 export default function SettingsPage() {
-  return (
-    <Suspense fallback={<SettingsFallback />}>
-      <SettingsPageContent />
-    </Suspense>
-  );
+  return <SettingsPageContent />;
 }

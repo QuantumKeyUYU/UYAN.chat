@@ -202,7 +202,7 @@ export default function MyLightsPage() {
       savedAt: Date.now(),
     });
     refreshSaved();
-    setPageNotice({ variant: 'success', message: 'Отклик сохранён в «Мой свет» ✨' });
+    setPageNotice({ variant: 'success', message: 'Отклик сохранён в «Сохранённом» ✨' });
   };
 
   const handleHideResponse = (responseId: string) => {
@@ -331,7 +331,7 @@ export default function MyLightsPage() {
       transition={{ duration: 0.3 }}
     >
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">✨ Мой свет</h1>
+        <h1 className="text-3xl font-semibold text-text-primary">✨ Сохранённое</h1>
         <p className="text-text-secondary">Возвращайся к откликам, которые согревают, и следи за словами поддержки, которыми делишься.</p>
       </div>
 
@@ -417,7 +417,7 @@ export default function MyLightsPage() {
                                 disabled={isSaved}
                                 className="w-full sm:w-auto"
                               >
-                                {isSaved ? 'Сохранено' : 'Сохранить в «Мой свет»'}
+                                {isSaved ? 'Сохранено' : 'Сохранить в «Сохранённое»'}
                               </Button>
                               <Button
                                 variant="secondary"
