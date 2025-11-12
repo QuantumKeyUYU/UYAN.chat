@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { motion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { OnboardingModal } from '@/components/OnboardingModal';
-import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
 import { isOnboardingDone } from '@/lib/onboarding';
 import { useSoftMotion } from '@/lib/animation';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
@@ -56,7 +55,7 @@ export default function HomePage() {
     () => [
       {
         title: 'Поделиться мыслью',
-        description: 'Напиши коротко и честно, что происходит внутри. Это анонимно и бережно.',
+        description: 'Напиши коротко и честно, что происходит внутри. Здесь слушают внимательно, без оценок.',
       },
       {
         title: 'Подождать отклики',
@@ -248,7 +247,6 @@ export default function HomePage() {
         </motion.section>
       </div>
       <OnboardingModal open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
-      <MobileStickyActions />
     </>
   );
 }

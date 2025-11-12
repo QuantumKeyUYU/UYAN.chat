@@ -1,19 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeForm';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Stepper } from '@/components/stepper';
 import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
 import { useDeviceStore } from '@/store/device';
 import { useSoftMotion } from '@/lib/animation';
-import { getFlowSteps } from '@/lib/flowSteps';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
-import { useStepState } from '@/lib/hooks/useStepState';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 const MIN_LENGTH = 10;
@@ -32,10 +29,7 @@ const pluralizeMinutes = (minutes: number) => {
 export default function WritePage() {
   const router = useRouter();
   const deviceId = useDeviceStore((state) => state.id);
-  const { preset, vocabulary } = useVocabulary();
-  const steps = useMemo(() => getFlowSteps(preset), [preset]);
-  const stepState = useStepState({ total: steps.length, initial: 0 });
-  const { active: stepIndex, setActive: setStep } = stepState;
+  const { vocabulary } = useVocabulary();
   const { initial, animate, transition } = useSoftMotion();
   const form = useForm<ComposeFormFields>({
     defaultValues: { text: '', honeypot: '' },
@@ -45,16 +39,6 @@ export default function WritePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showCrisisScreen, setShowCrisisScreen] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (showCrisisScreen) {
-      setStep(0);
-    } else if (submitted) {
-      setStep(1);
-    } else {
-      setStep(0);
-    }
-  }, [setStep, showCrisisScreen, submitted]);
 
   useEffect(() => {
     if (!cooldownSeconds || cooldownSeconds <= 0) return;
@@ -162,7 +146,6 @@ export default function WritePage() {
 
     return (
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
-        <Stepper steps={steps} activeIndex={stepIndex} />
         <Card>
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-text-primary">Похоже, тебе сейчас очень тяжело</h2>
@@ -195,7 +178,6 @@ export default function WritePage() {
   if (submitted) {
     return (
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-8 text-center" initial={initial} animate={animate} transition={transition}>
-        <Stepper steps={steps} activeIndex={stepIndex} />
         <Card>
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold text-text-primary">Мысль сохранена</h2>
@@ -223,8 +205,6 @@ export default function WritePage() {
   return (
     <>
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-8" initial={initial} animate={animate} transition={transition}>
-        <Stepper steps={steps} activeIndex={stepIndex} />
-
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.writeTitle}</h1>
           <p className="text-text-secondary">{vocabulary.writeSubtitle}</p>
