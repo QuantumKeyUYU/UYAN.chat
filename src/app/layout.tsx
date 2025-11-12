@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import Providers from '@/components/layout/Providers';
 import DevicePathWidget from '@/components/debug/DevicePathWidget';
+import { PageTransition } from '@/components/layout/PageTransition';
 
 export const metadata: Metadata = {
   title: 'UYAN.chat — пространство тёплых мыслей',
@@ -26,7 +27,7 @@ export default function RootLayout({
               className="flex-1 px-4 sm:px-6 lg:px-8"
               style={{ paddingTop: 'var(--header-h)', paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
             >
-              {children}
+              <PageTransition>{children}</PageTransition>
             </main>
             <Footer />
           </div>
