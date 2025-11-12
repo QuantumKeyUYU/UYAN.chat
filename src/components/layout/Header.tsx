@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -32,6 +32,8 @@ export const Header = () => {
   const [statsOpen, setStatsOpen] = useState(false);
   const [prefetchedSettings, setPrefetchedSettings] = useState(false);
   const statsRef = useRef<HTMLDivElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const restoreFocusRef = useRef(true);
   const stats = useStatsStore((state) => state.data);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
@@ -61,6 +63,27 @@ export const Header = () => {
     setDrawerOpen(false);
     setStatsOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (drawerOpen) {
+      restoreFocusRef.current = true;
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (restoreFocusRef.current) {
+        menuButtonRef.current?.focus();
+      }
+      restoreFocusRef.current = true;
+    }, 150);
+
+    return () => window.clearTimeout(timeout);
+  }, [drawerOpen]);
+
+  const handleDrawerClose = useCallback((options?: { restoreFocus?: boolean }) => {
+    restoreFocusRef.current = options?.restoreFocus ?? true;
+    setDrawerOpen(false);
+  }, []);
 
   const statsLabel = `${formatNumber(stats?.lightsGiven ?? 0)} / ${formatNumber(stats?.lightsReceived ?? 0)}`;
   const motionProps = reducedMotion
@@ -182,6 +205,7 @@ export const Header = () => {
             aria-label="Открыть меню"
             aria-expanded={drawerOpen}
             aria-controls="mobile-nav-drawer"
+            ref={menuButtonRef}
             onPointerDown={() => {
               if (prefetchedSettings) return;
               try {
@@ -199,7 +223,7 @@ export const Header = () => {
         </div>
       </div>
 
-      <MobileNavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} id="mobile-nav-drawer" />
+      <MobileNavDrawer open={drawerOpen} onClose={handleDrawerClose} id="mobile-nav-drawer" />
     </header>
   );
 };

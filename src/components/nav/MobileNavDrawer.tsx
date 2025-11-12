@@ -2,14 +2,22 @@
 
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEventHandler,
+  type PointerEventHandler,
+} from 'react';
+import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { useSettingsStore } from '@/store/settings';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 interface MobileNavDrawerProps {
   open: boolean;
-  onClose: () => void;
+  onClose: (options?: { restoreFocus?: boolean }) => void;
   id?: string;
 }
 
@@ -28,8 +36,12 @@ export const MobileNavDrawer = ({ open, onClose, id }: MobileNavDrawerProps) => 
   const prefersReducedMotion = useReducedMotion();
   const disableMotion = reducedMotionSetting || prefersReducedMotion;
   const { vocabulary } = useVocabulary();
+  const router = useRouter();
   const [allowDismiss, setAllowDismiss] = useState(false);
   const [visible, setVisible] = useState(open);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const navigationTimeoutRef = useRef<number | null>(null);
+  const previousBodyOverflow = useRef<string | null>(null);
   const drawerId = id ?? 'mobile-nav-drawer';
   const titleId = `${drawerId}-title`;
   const links = useMemo(
@@ -77,9 +89,73 @@ export const MobileNavDrawer = ({ open, onClose, id }: MobileNavDrawerProps) => 
     return () => window.clearTimeout(timeout);
   }, [open, disableMotion]);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const body = document.body;
+
+    if (open) {
+      previousBodyOverflow.current = body.style.overflow;
+      body.style.overflow = 'hidden';
+      return () => {
+        body.style.overflow = previousBodyOverflow.current ?? '';
+        previousBodyOverflow.current = null;
+      };
+    }
+
+    if (previousBodyOverflow.current !== null) {
+      body.style.overflow = previousBodyOverflow.current;
+      previousBodyOverflow.current = null;
+    }
+
+    return undefined;
+  }, [open]);
+
+  useEffect(
+    () => () => {
+      if (navigationTimeoutRef.current) {
+        window.clearTimeout(navigationTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  const closeDrawer = (options?: { restoreFocus?: boolean }) => {
+    onClose(options);
+  };
+
+  const handleOverlayPointerDown: PointerEventHandler<HTMLButtonElement> = (event) => {
+    if (!allowDismiss || isNavigating) {
+      event.preventDefault();
+    }
+  };
+
   const handleOverlayClick = () => {
-    if (!allowDismiss) return;
-    onClose();
+    if (!allowDismiss || isNavigating) return;
+    closeDrawer();
+  };
+
+  const handleSettingsNavigation: MouseEventHandler<HTMLAnchorElement> = (event) => {
+    event.preventDefault();
+    if (isNavigating) return;
+    setIsNavigating(true);
+    closeDrawer({ restoreFocus: false });
+    const delay = disableMotion ? 0 : DRAWER_HIDE_DELAY;
+    navigationTimeoutRef.current = window.setTimeout(() => {
+      router.push('/settings');
+      navigationTimeoutRef.current = null;
+      window.setTimeout(() => setIsNavigating(false), 400);
+    }, delay);
+  };
+
+  const handleLinkClick = (href: string): MouseEventHandler<HTMLAnchorElement> => {
+    if (href === '/settings') {
+      return handleSettingsNavigation;
+    }
+
+    return (event) => {
+      if (event.defaultPrevented) return;
+      closeDrawer();
+    };
   };
 
   return (
@@ -89,6 +165,7 @@ export const MobileNavDrawer = ({ open, onClose, id }: MobileNavDrawerProps) => 
         className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
         aria-label="Закрыть меню"
         onClick={handleOverlayClick}
+        onPointerDown={handleOverlayPointerDown}
         initial={false}
         animate={{ opacity: open ? 1 : 0 }}
         transition={overlayTransition}
@@ -100,6 +177,7 @@ export const MobileNavDrawer = ({ open, onClose, id }: MobileNavDrawerProps) => 
         aria-modal="true"
         aria-hidden={!open}
         aria-labelledby={titleId}
+        aria-busy={isNavigating}
         className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-t border-white/10 bg-bg-primary/95 p-4 shadow-2xl"
         initial={false}
         animate={{ opacity: open ? 1 : 0, y: open ? 0 : 20 }}
@@ -118,7 +196,7 @@ export const MobileNavDrawer = ({ open, onClose, id }: MobileNavDrawerProps) => 
             </p>
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => closeDrawer()}
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-text-secondary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action focus-visible:ring-offset-2"
             >
               <X className="h-4 w-4" aria-hidden />
@@ -130,7 +208,9 @@ export const MobileNavDrawer = ({ open, onClose, id }: MobileNavDrawerProps) => 
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  onClick={onClose}
+                  onClick={handleLinkClick(link.href)}
+                  aria-disabled={isNavigating && link.href === '/settings'}
+                  data-loading={isNavigating && link.href === '/settings' ? 'true' : undefined}
                   className="block rounded-2xl px-4 py-3 text-text-primary transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action"
                 >
                   {link.label}
