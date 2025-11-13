@@ -131,7 +131,7 @@ export default function GardenPage() {
       animate={{ opacity: 1, y: 0 }}
     >
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">Архив откликов</h1>
+        <h1 className="text-3xl font-semibold text-text-primary">Архив ответов</h1>
         <p className="text-text-secondary">Здесь живут слова поддержки, к которым хочется возвращаться.</p>
       </div>
 
@@ -142,7 +142,7 @@ export default function GardenPage() {
           <div className="space-y-4">
             <p className="text-4xl">📬</p>
             <p className="text-lg text-text-secondary">
-              Пока здесь пусто. Сохраняй отклики, которые хочется перечитывать. Если понадобится перенести их, создай ссылку в
+              Пока здесь пусто. Сохраняй ответы, которые хочется перечитывать. Если понадобится перенести их, создай ссылку в
               настройках и открой её на новом устройстве.
             </p>
           </div>
@@ -156,7 +156,7 @@ export default function GardenPage() {
                 <p className="mt-2 rounded-xl bg-bg-tertiary/50 p-4 text-sm text-text-secondary">{light.originalMessage}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">бережный отклик</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">бережный ответ</p>
                 <p className="mt-2 rounded-xl bg-uyan-light/10 p-4 text-text-primary">{light.responseText}</p>
               </div>
               <div className="flex flex-col gap-3 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
@@ -175,7 +175,7 @@ export default function GardenPage() {
         </div>
       )}
 
-      <Modal open={shareOpen} onClose={savingImage ? () => {} : closeShare} title="Поделиться откликом">
+      <Modal open={shareOpen} onClose={savingImage ? () => {} : closeShare} title="Поделиться ответом">
         {shareLight ? (
           <div className="space-y-4">
             <div className="mx-auto w-full max-w-[min(420px,90vw)]">
@@ -223,7 +223,7 @@ export default function GardenPage() {
             </Button>
           </div>
         ) : (
-          <p className="text-center text-text-secondary">Выбери отклик, чтобы поделиться им.</p>
+          <p className="text-center text-text-secondary">Выбери ответ, чтобы поделиться им.</p>
         )}
       </Modal>
     </motion.div>

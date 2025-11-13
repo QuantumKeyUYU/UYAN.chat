@@ -100,6 +100,6 @@ export async function GET(request: NextRequest) {
     return attachDeviceCookie(NextResponse.json({ responses: enriched }), deviceId);
   } catch (error) {
     console.error('[api/responses/my] Failed to fetch user responses', error);
-    return NextResponse.json({ error: 'Не удалось получить отправленные отклики.' }, { status: 500 });
+    return NextResponse.json({ error: 'Не удалось получить отправленные ответы.' }, { status: 500 });
   }
 }

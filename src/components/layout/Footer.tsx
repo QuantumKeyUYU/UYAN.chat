@@ -16,7 +16,7 @@ export const Footer = () => {
           </div>
           <nav className="flex flex-col gap-1.5 text-xs text-text-secondary sm:flex-row sm:items-center sm:gap-6 sm:text-sm">
             <Link href="/support" className="transition hover:text-text-primary">
-              Откликнуться
+              Поддержать
             </Link>
             <Link href="/settings" className="inline-flex items-center gap-1 transition hover:text-text-primary">
               <span aria-hidden>⚙</span>

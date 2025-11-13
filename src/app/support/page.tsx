@@ -32,8 +32,8 @@ type Phase = 'explore' | 'compose' | 'success';
 
 const phaseDescriptions: Record<Phase, string> = {
   explore: 'Ищем того, кому сейчас особенно важно быть услышанным.',
-  compose: 'Пиши отклик своими словами — спокойно и бережно.',
-  success: 'Отклик уже в пути и скоро окажется у автора мысли.',
+  compose: 'Пиши ответ своими словами — спокойно и бережно.',
+  success: 'Ответ уже в пути и скоро окажется у автора мысли.',
 };
 
 const MIN_LENGTH = 20;
@@ -123,7 +123,7 @@ export default function SupportPage() {
   const sendResponse = async (text: string, honeypot?: string) => {
     if (!deviceId || !message) return;
     if (isBanned) {
-      setSubmissionError('Доступ к откликам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
+      setSubmissionError('Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
       return;
     }
     setSubmitting(true);
@@ -142,7 +142,7 @@ export default function SupportPage() {
       const result = await response.json();
       if (response.status === 403) {
         setIsBanned(true);
-        setSubmissionError('Доступ к откликам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
+        setSubmissionError('Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
         return;
       }
       if (!response.ok) {
@@ -150,7 +150,7 @@ export default function SupportPage() {
           const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
           const minutes = Math.max(1, Math.ceil(retryAfter / 60));
           setSubmissionError(
-            `Сегодня ты уже откликнулся на много мыслей. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+            `Сегодня ты уже поддержал много мыслей. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
           setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
           return;
@@ -163,9 +163,9 @@ export default function SupportPage() {
 
         const reasonMessages: Record<string, string> = {
           contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
-          spam: 'Отклик выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
+          spam: 'Ответ выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
           too_short: 'Добавь чуть больше тепла и конкретики, чтобы автор почувствовал твою поддержку.',
-          too_long: 'Сократи отклик до 200 символов, чтобы его легко было дочитать.',
+          too_long: 'Сократи ответ до 200 символов, чтобы его легко было дочитать.',
           crisis:
             'Если текст задевает кризисную тему, лучше направить автора к специалистам и избегать подробностей.',
         };
@@ -175,7 +175,7 @@ export default function SupportPage() {
           return;
         }
 
-        setSubmissionError(result?.error ?? 'Не удалось отправить отклик. Попробуй ещё раз.');
+        setSubmissionError(result?.error ?? 'Не удалось отправить ответ. Попробуй ещё раз.');
         return;
       }
       reset({ text: '', honeypot: '' });
@@ -183,7 +183,7 @@ export default function SupportPage() {
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setSubmissionError('Не получилось отправить отклик. Попробуй ещё раз.');
+      setSubmissionError('Не получилось отправить ответ. Попробуй ещё раз.');
     } finally {
       setSubmitting(false);
     }
@@ -225,14 +225,14 @@ export default function SupportPage() {
             >
               💫
             </motion.div>
-            <h2 className="text-2xl font-semibold text-text-primary">Отклик отправлен</h2>
-            <p className="text-text-secondary">Ты подарил тёплый отклик. Пусть автор мысли почувствует, что он не один.</p>
+            <h2 className="text-2xl font-semibold text-text-primary">Ответ отправлен</h2>
+            <p className="text-text-secondary">Ты подарил тёплый ответ. Пусть автор мысли почувствует, что он не один.</p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => fetchRandomMessage()} className="w-full sm:w-auto">
-                Откликнуться ещё раз
+                Поддержать ещё раз
               </Button>
               <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
-                Проверить «Мои отклики»
+                Проверить «Мои ответы»
               </Button>
             </div>
           </div>
@@ -317,7 +317,7 @@ export default function SupportPage() {
                 className="w-full sm:w-auto"
                 disabled={isBanned}
               >
-                💬 Написать тёплый отклик
+                💬 Написать тёплый ответ
               </Button>
               <Button
                 variant="secondary"
@@ -334,7 +334,7 @@ export default function SupportPage() {
         {phase === 'compose' && message ? (
           <Card className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold text-text-primary">Твой отклик</h2>
+              <h2 className="text-xl font-semibold text-text-primary">Твой ответ</h2>
               <p className="text-text-secondary">20–200 символов тепла и поддержки.</p>
             </div>
             <ComposeForm
@@ -343,7 +343,7 @@ export default function SupportPage() {
               minLength={MIN_LENGTH}
               maxLength={MAX_LENGTH}
               placeholder="Напиши, что ты рядом и слышишь. Делись поддержкой простыми словами…"
-              submitLabel="Отправить тёплый отклик"
+              submitLabel="Отправить тёплый ответ"
               loadingLabel="Отправляем…"
               errorMessage={submissionError}
               busy={submitting}

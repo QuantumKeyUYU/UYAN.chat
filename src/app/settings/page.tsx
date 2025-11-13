@@ -273,14 +273,14 @@ function SettingsPageContent() {
 
   const handleClearGarden = () => {
     clearGarden();
-    setGardenMessage('Мы очистили «Отклики». Можно снова собирать важные отклики.');
+    setGardenMessage('Мы очистили «Ответы». Можно снова собирать важные ответы.');
     setPurgeMessage(null);
     setPurgeError(null);
   };
 
   const handleRevealHidden = () => {
     clearHiddenResponses();
-    setGardenMessage('Скрытые отклики вернулись в список.');
+    setGardenMessage('Скрытые ответы вернулись в список.');
     setPurgeMessage(null);
     setPurgeError(null);
   };
@@ -368,8 +368,8 @@ function SettingsPageContent() {
               Перенести архив
             </h2>
             <p className="text-sm text-text-secondary">
-              Ссылка переноса действует 24 часа и переносит «Отклики» и историю откликов на другое устройство. Никто, кроме
-              тебя, не увидит содержимое архива.
+              Ссылка переноса действует 24 часа и переносит «Ответы» и историю ответов на другое устройство. Никто, кроме тебя,
+              не увидит содержимое архива.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -508,15 +508,15 @@ function SettingsPageContent() {
               — только путь устройства.
             </p>
             <p className="text-sm text-text-secondary">
-              Здесь можно очистить сохранённые ответы, вернуть скрытые отклики или удалить все свои данные.
+              Здесь можно очистить сохранённые ответы, вернуть скрытые ответы или удалить все свои данные.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
-              Очистить «Отклики»
+              Очистить «Ответы»
             </Button>
             <Button variant="secondary" onClick={handleRevealHidden} className="w-full sm:w-auto">
-              Вернуть скрытые отклики
+              Вернуть скрытые ответы
             </Button>
             <Button onClick={handlePurgeData} className="w-full gap-2 sm:w-auto" disabled={purgeLoading}>
               {purgeLoading ? (
@@ -530,7 +530,7 @@ function SettingsPageContent() {
             </Button>
           </div>
           <p className="text-xs text-text-tertiary">
-            После удаления данных страница перезагрузится: мы создадим новый путь устройства, а «Отклики», «Мои отклики» и
+            После удаления данных страница перезагрузится: мы создадим новый путь устройства, а «Ответы», «Мои ответы» и
             статистика начнутся заново.
           </p>
           <div aria-live="polite" aria-atomic="true" className="space-y-2">

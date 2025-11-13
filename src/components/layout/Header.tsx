@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, BarChart3, PenSquare } from 'lucide-react';
 import { useStatsStore } from '@/store/stats';
 import { useSettingsStore } from '@/store/settings';
-import { useRepliesStore } from '@/store/replies';
+import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 type HeaderLink =
@@ -17,8 +17,8 @@ type HeaderLink =
 const baseLinks: HeaderLink[] = [
   { href: '/', label: 'Главная' },
   { href: '/write', labelKey: 'ctaWriteShort' as const },
-  { href: '/support', labelKey: 'ctaSupport' as const },
-  { href: '/my', label: 'Отклики' },
+  { href: '/support', label: 'Поддержать' },
+  { href: '/my', label: 'Ответы' },
   { href: '/settings', label: 'Настройки' },
 ];
 
@@ -33,7 +33,7 @@ export const Header = () => {
   const stats = useStatsStore((state) => state.data);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
-  const unreadCount = useRepliesStore((state) => state.unreadCount);
+  const { unreadCount } = useRepliesBadge();
   const isHome = pathname === '/';
   const isSettings = pathname === '/settings';
   const [canGoBack, setCanGoBack] = useState(false);
@@ -180,9 +180,9 @@ export const Header = () => {
                 className="absolute right-0 top-[calc(100%+0.5rem)] w-64 rounded-2xl border border-white/10 bg-bg-primary/95 p-4 text-sm shadow-lg"
               >
                 <p className="text-text-primary">Мыслей отправлено: {formatNumber(stats?.lightsGiven ?? 0)}</p>
-                <p className="mt-1 text-text-primary">Получено откликов: {formatNumber(stats?.lightsReceived ?? 0)}</p>
+                <p className="mt-1 text-text-primary">Получено ответов: {formatNumber(stats?.lightsReceived ?? 0)}</p>
                 <p className="mt-3 text-xs text-text-tertiary">
-                  Делись теплом и возвращайся в «Отклики», чтобы сохранять важные слова.
+                  Делись теплом и возвращайся в «Ответы», чтобы сохранять важные слова.
                 </p>
               </div>
             ) : null}

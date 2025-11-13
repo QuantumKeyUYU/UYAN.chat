@@ -17,8 +17,8 @@ import { saveLight, loadGarden } from '@/lib/garden';
 import { hideResponseLocally, loadHiddenResponses } from '@/lib/hiddenResponses';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
-import { useRepliesStatus } from '@/lib/hooks/useRepliesStatus';
-import { useRepliesStore } from '@/store/replies';
+import { useRepliesBadge } from '@/hooks/useRepliesBadge';
+import { setLastRepliesSeenNow } from '@/lib/repliesBadge';
 import {
   SHARE_CARD_PIXEL_RATIO,
   SHARE_CARD_WIDTH,
@@ -27,7 +27,7 @@ import {
 
 const tabs = [
   { key: 'received', label: 'Мне ответили' },
-  { key: 'given', label: 'Мои отклики' },
+  { key: 'given', label: 'Мои ответы' },
 ] as const;
 
 type TabKey = (typeof tabs)[number]['key'];
@@ -72,8 +72,8 @@ type SentResponse = {
 };
 
 const statusLabels: Record<MessageStatus, string> = {
-  waiting: 'Ждёт отклик',
-  answered: 'Отклик получен',
+  waiting: 'Ждёт ответ',
+  answered: 'Ответ получен',
   expired: 'Мысль закрыта',
 };
 
@@ -142,9 +142,8 @@ export default function MyLightsPage() {
   const shareCardRef = useRef<HTMLDivElement | null>(null);
   const previewWrapperRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
-  const { markAsSeen, refresh: refreshRepliesStatus } = useRepliesStatus();
+  const { markAsSeen, updateFromReplyDates, unreadCount } = useRepliesBadge();
   const [hasMarkedSeen, setHasMarkedSeen] = useState(false);
-  const unreadCount = useRepliesStore((state) => state.unreadCount);
 
   const refreshSaved = useCallback(() => {
     setSavedIds(new Set(loadGarden().map((item) => item.id)));
@@ -165,9 +164,15 @@ export default function MyLightsPage() {
       });
       if (!response.ok) throw new Error('Ошибка загрузки');
       const data = await response.json();
-      const normalized = (data.messages ?? []).map((item: any) => normalizeMessageWithResponses(item));
+      const normalized = (data.messages ?? []).map((item: unknown) => normalizeMessageWithResponses(item));
       setMessages(normalized);
-      void refreshRepliesStatus();
+      const replyDates: number[] = [];
+      normalized.forEach((message: MessageWithResponses) => {
+        message.responses.forEach((response: ResponseDetail) => {
+          replyDates.push(getMillis(response.createdAt));
+        });
+      });
+      updateFromReplyDates(replyDates);
       setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
     } catch (error) {
       console.error('[my] Failed to load messages', error);
@@ -175,7 +180,7 @@ export default function MyLightsPage() {
     } finally {
       setLoadingReceived(false);
     }
-  }, [deviceId, refreshRepliesStatus]);
+  }, [deviceId, updateFromReplyDates]);
 
   const loadSent = useCallback(async () => {
     if (!deviceId) return;
@@ -185,7 +190,7 @@ export default function MyLightsPage() {
         headers: { [DEVICE_ID_HEADER]: deviceId },
         cache: 'no-store',
       });
-      if (!response.ok) throw new Error('Ошибка загрузки откликов');
+      if (!response.ok) throw new Error('Ошибка загрузки ответов');
       const data = await response.json();
       const normalized = (data.responses ?? []).map((item: unknown) => normalizeSentResponse(item));
       normalized.sort((a: SentResponse, b: SentResponse) => b.createdAt - a.createdAt);
@@ -195,7 +200,7 @@ export default function MyLightsPage() {
       setPageNotice((prev) =>
         prev?.variant === 'error'
           ? prev
-          : { variant: 'error', message: 'Не получилось загрузить отправленные отклики. Попробуй позже.' },
+          : { variant: 'error', message: 'Не получилось загрузить отправленные ответы. Попробуй позже.' },
       );
     } finally {
       setLoadingSent(false);
@@ -219,7 +224,8 @@ export default function MyLightsPage() {
       return;
     }
     setHasMarkedSeen(true);
-    void markAsSeen();
+    setLastRepliesSeenNow();
+    markAsSeen();
   }, [activeTab, hasMarkedSeen, loadingReceived, markAsSeen]);
 
   useEffect(() => {
@@ -238,13 +244,13 @@ export default function MyLightsPage() {
       savedAt: Date.now(),
     });
     refreshSaved();
-    setPageNotice({ variant: 'success', message: 'Отклик сохранён в «Откликах» ✨' });
+    setPageNotice({ variant: 'success', message: 'Ответ сохранён в «Ответах» ✨' });
   };
 
   const handleHideResponse = (responseId: string) => {
     hideResponseLocally(responseId);
     refreshHidden();
-    setPageNotice({ variant: 'info', message: 'Отклик скрыт. Его можно вернуть в настройках.' });
+    setPageNotice({ variant: 'info', message: 'Ответ скрыт. Его можно вернуть в настройках.' });
   };
 
   const openReportModal = (message: MessageWithResponses, response: ResponseDetail) => {
@@ -393,10 +399,11 @@ export default function MyLightsPage() {
       transition={{ duration: 0.3 }}
     >
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">✨ Отклики</h1>
+        <h1 className="text-3xl font-semibold text-text-primary">✨ Ответы</h1>
         <p className="text-text-secondary">
-          Возвращайся к откликам, которые греют, и следи за словами поддержки, которыми делишься. Здесь собраны ответы для тебя
-          и твои ответы другим людям.
+          Возвращайся к ответам, которые греют.
+          <br />
+          Здесь и то, что написали тебе, и твои ответы другим людям.
         </p>
       </div>
 
@@ -458,16 +465,16 @@ export default function MyLightsPage() {
               <span className="text-sm text-text-tertiary">Создано: {new Date(message.createdAt).toLocaleString()}</span>
 
               <div className="space-y-3 rounded-2xl bg-bg-tertiary/40 p-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">отклики</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">ответы</p>
                 {message.responses.length === 0 ? (
-                  <p className="text-text-secondary">Откликов пока нет, но кто-то может ответить позже ✨</p>
+                  <p className="text-text-secondary">Ответов пока нет, но кто-то может ответить позже ✨</p>
                 ) : (
                   <div className="space-y-4">
                     {message.responses.map((response) => {
                       if (response.hidden) {
                         return (
                           <div key={response.id} className="space-y-2 rounded-xl bg-bg-primary/40 p-4 text-text-secondary">
-                            <p>Этот отклик скрыт модерацией.</p>
+                            <p>Этот ответ скрыт модерацией.</p>
                             {response.moderationNote ? (
                               <p className="text-sm text-text-tertiary">Комментарий модератора: {response.moderationNote}</p>
                             ) : null}
@@ -489,7 +496,7 @@ export default function MyLightsPage() {
                                 disabled={isSaved}
                                 className="w-full sm:w-auto"
                               >
-                                {isSaved ? 'Сохранено' : 'Сохранить в «Отклики»'}
+                                {isSaved ? 'Сохранено' : 'Сохранить в «Ответы»'}
                               </Button>
                               <Button
                                 variant="secondary"
@@ -530,22 +537,22 @@ export default function MyLightsPage() {
           ))}
 
           {!loadingReceived && sortedMessages.length > 0 && !hasAnyResponses ? (
-            <Notice variant="info">Как только появятся отклики, мы покажем их здесь.</Notice>
+            <Notice variant="info">Как только появятся ответы, мы покажем их здесь.</Notice>
           ) : null}
         </div>
       ) : (
         <div className="space-y-4">
-          {loadingSent ? <p className="text-text-secondary">Загружаем отклики…</p> : null}
+          {loadingSent ? <p className="text-text-secondary">Загружаем ответы…</p> : null}
           {!loadingSent && sentResponses.length === 0 ? (
             <Card className="space-y-4 text-center">
               <div className="text-3xl">💌</div>
-              <h2 className="text-xl font-semibold text-text-primary">Ты ещё ни разу не откликался.</h2>
+              <h2 className="text-xl font-semibold text-text-primary">Ты ещё ни разу не отвечал.</h2>
               <p className="text-text-secondary">
-                Когда поможешь кому-то словом, твои отклики появятся здесь.
+                Когда поможешь кому-то словом, твои ответы появятся здесь.
               </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/support')}>
-                  Откликнуться
+                  Поддержать
                 </Button>
               </div>
             </Card>
@@ -556,11 +563,11 @@ export default function MyLightsPage() {
               {response.message ? (
                 <div className="space-y-2 rounded-xl bg-bg-tertiary/40 p-4">
                   <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">мысль</p>
-                  <p className="text-text-secondary">{response.message.text}</p>
+                          <p className="text-text-secondary">{response.message.text}</p>
                 </div>
               ) : null}
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">твой отклик</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-uyan-light">твой ответ</p>
                 <p className="text-text-primary">{response.text}</p>
               </div>
               <div className="flex flex-col gap-2 text-sm text-text-tertiary sm:flex-row sm:items-center sm:justify-between">
@@ -574,12 +581,12 @@ export default function MyLightsPage() {
         </div>
       )}
 
-      <Modal open={Boolean(reportContext)} onClose={closeReportModal} title="Пожаловаться на отклик">
+      <Modal open={Boolean(reportContext)} onClose={closeReportModal} title="Пожаловаться на ответ">
         <div className="space-y-4">
           <div className="space-y-2 rounded-xl bg-bg-tertiary/40 p-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">фрагмент отклика</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">фрагмент ответа</p>
             <p className="text-text-primary">
-              {reportContext?.response.hidden ? 'Отклик скрыт модерацией.' : reportContext?.response.text}
+              {reportContext?.response.hidden ? 'Ответ скрыт модерацией.' : reportContext?.response.text}
             </p>
           </div>
           <label className="flex flex-col gap-2 text-sm text-text-secondary">
@@ -652,7 +659,7 @@ export default function MyLightsPage() {
             </Button>
           </div>
         ) : (
-          <p className="text-center text-text-secondary">Выбери отклик, чтобы сделать открытку.</p>
+          <p className="text-center text-text-secondary">Выбери ответ, чтобы сделать открытку.</p>
         )}
       </Modal>
     </motion.div>
