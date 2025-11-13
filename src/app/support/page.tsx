@@ -11,7 +11,6 @@ import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeF
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
-import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
 import { useDeviceStore } from '@/store/device';
 import type { MessageCategory } from '@/types/firestore';
 import { useSoftMotion } from '@/lib/animation';
@@ -242,7 +241,6 @@ export default function SupportPage() {
     );
   }
 
-  const showSticky = phase === 'explore';
 
   return (
     <>
@@ -362,7 +360,6 @@ export default function SupportPage() {
           </Card>
         ) : null}
       </motion.div>
-      {showSticky ? <MobileStickyActions /> : null}
     </>
   );
 }

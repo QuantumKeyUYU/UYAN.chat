@@ -32,7 +32,7 @@ export default function HomePage() {
         title: vocabulary.ctaWriteShort,
         description: 'Напиши, что чувствуешь прямо сейчас. Здесь слушают внимательно и без оценок.',
         href: '/write',
-        accent: '🕯️',
+        accent: '💭',
       },
       {
         id: 'reply',
