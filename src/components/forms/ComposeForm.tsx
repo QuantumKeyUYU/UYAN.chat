@@ -28,6 +28,9 @@ interface ComposeFormProps {
   disabled?: boolean;
   cooldownSeconds?: number | null;
   onChange?: () => void;
+  helperHint?: ReactNode;
+  longTextWarningThreshold?: number;
+  longTextWarningMessage?: string;
 }
 
 export function ComposeForm({
@@ -44,6 +47,9 @@ export function ComposeForm({
   disabled = false,
   cooldownSeconds = null,
   onChange,
+  helperHint,
+  longTextWarningThreshold,
+  longTextWarningMessage,
 }: ComposeFormProps) {
   const {
     register,
@@ -84,10 +90,13 @@ export function ComposeForm({
     });
   }, [handleSubmit, onSubmit]);
 
+  const trimmedLength = textValue.trim().length;
   const textError = errors.text?.message;
-  const isTooShort = textValue.trim().length < minLength;
+  const isTooShort = trimmedLength < minLength;
   const isCooldownActive = typeof cooldownSeconds === 'number' && cooldownSeconds > 0;
   const buttonDisabled = busy || disabled || isTooShort || isCooldownActive;
+  const showLongTextWarning =
+    typeof longTextWarningThreshold === 'number' && trimmedLength > longTextWarningThreshold && Boolean(longTextWarningMessage);
 
   return (
     <form onSubmit={submitHandler} className="space-y-6">
@@ -119,6 +128,12 @@ export function ComposeForm({
           <div role="status" aria-live="polite" className="mt-1 text-sm text-red-400">
             {textError}
           </div>
+        ) : null}
+        {showLongTextWarning ? (
+          <p className="mt-2 text-sm text-uyan-light">{longTextWarningMessage}</p>
+        ) : null}
+        {helperHint ? (
+          <div className="mt-3 space-y-1 text-sm leading-relaxed text-text-tertiary">{helperHint}</div>
         ) : null}
       </div>
 

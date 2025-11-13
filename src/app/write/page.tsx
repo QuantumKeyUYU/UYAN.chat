@@ -230,6 +230,7 @@ export default function WritePage() {
           busy={loading}
           cooldownSeconds={cooldownSeconds}
           onChange={() => setErrorMessage(null)}
+          helperHint={<p>Лучше одно-два честных предложения, чем большое эссе.</p>}
         />
       </Card>
       </motion.div>

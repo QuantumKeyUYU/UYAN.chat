@@ -13,11 +13,12 @@ import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
 import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
 import { useDeviceStore } from '@/store/device';
-import type { MessageCategory, ResponseType } from '@/types/firestore';
+import type { MessageCategory } from '@/types/firestore';
 import { useSoftMotion } from '@/lib/animation';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { formatSeconds } from '@/lib/time';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import { RESPONSE_LENGTH_WARNING_THRESHOLD } from '@/lib/shareCard';
 
 type MessagePayload = {
   id: string;
@@ -28,21 +29,13 @@ type MessagePayload = {
   status: string;
 };
 
-type Phase = 'explore' | 'select' | 'custom' | 'quick' | 'ai' | 'success';
+type Phase = 'explore' | 'compose' | 'success';
 
 const phaseDescriptions: Record<Phase, string> = {
   explore: 'Ищем того, кому сейчас особенно важно быть услышанным.',
-  select: 'Выбираем, как лучше поддержать человека.',
-  custom: 'Пишем отклик своими словами — спокойно и бережно.',
-  quick: 'Можно выбрать один из коротких тёплых откликов.',
-  ai: 'ИИ подскажет идеи, финальный отклик всё равно за тобой.',
+  compose: 'Пиши отклик своими словами — спокойно и бережно.',
   success: 'Отклик уже в пути и скоро окажется у автора мысли.',
 };
-
-interface AiVariant {
-  tone: 'empathy' | 'hope';
-  text: string;
-}
 
 const MIN_LENGTH = 20;
 const MAX_LENGTH = 200;
@@ -66,12 +59,7 @@ export default function SupportPage() {
   const [phase, setPhase] = useState<Phase>('explore');
   const [message, setMessage] = useState<MessagePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
-  const [selectedQuick, setSelectedQuick] = useState<string | null>(null);
-  const [aiVariants, setAiVariants] = useState<AiVariant[]>([]);
-  const [selectedAi, setSelectedAi] = useState<number | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isBanned, setIsBanned] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
@@ -85,10 +73,6 @@ export default function SupportPage() {
     setLoadingMessage(true);
     setError(null);
     setPhase('explore');
-    setQuickSuggestions([]);
-    setSelectedQuick(null);
-    setAiVariants([]);
-    setSelectedAi(null);
     setSubmissionError(null);
     try {
       const response = await fetch('/api/messages/random', {
@@ -137,7 +121,7 @@ export default function SupportPage() {
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
 
-  const sendResponse = async (text: string, type: ResponseType, honeypot?: string) => {
+  const sendResponse = async (text: string, honeypot?: string) => {
     if (!deviceId || !message) return;
     if (isBanned) {
       setSubmissionError('Доступ к откликам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
@@ -152,7 +136,7 @@ export default function SupportPage() {
         body: JSON.stringify({
           messageId: message.id,
           text,
-          type,
+          type: 'custom',
           honeypot,
         }),
       });
@@ -196,10 +180,6 @@ export default function SupportPage() {
         return;
       }
       reset({ text: '', honeypot: '' });
-      setQuickSuggestions([]);
-      setSelectedQuick(null);
-      setAiVariants([]);
-      setSelectedAi(null);
       setPhase('success');
       setCooldownSeconds(null);
     } catch (err) {
@@ -211,67 +191,7 @@ export default function SupportPage() {
   };
 
   const handleCustomSubmit: SubmitHandler<ComposeFormFields> = async (values) => {
-    await sendResponse(values.text, 'custom', values.honeypot);
-  };
-
-  const startQuickFlow = async () => {
-    if (!message) return;
-    setPhase('quick');
-    setSubmissionError(null);
-    setGenerating(true);
-    setQuickSuggestions([]);
-    setSelectedQuick(null);
-    try {
-      const response = await fetch('/api/responses/generate-quick', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageText: message.text,
-          category: message.category,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error ?? 'Не удалось получить предложения');
-      }
-      setQuickSuggestions((result.suggestions as string[]) ?? []);
-    } catch (err) {
-      console.error(err);
-      setSubmissionError('Не получилось загрузить быстрые отклики. Попробуй ещё раз позже.');
-      setPhase('select');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const startAiFlow = async () => {
-    if (!message) return;
-    setPhase('ai');
-    setSubmissionError(null);
-    setGenerating(true);
-    setAiVariants([]);
-    setSelectedAi(null);
-    try {
-      const response = await fetch('/api/responses/ai-assist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageText: message.text,
-          category: message.category,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error ?? 'Не удалось получить варианты');
-      }
-      setAiVariants((result.variants as AiVariant[]) ?? []);
-    } catch (err) {
-      console.error(err);
-      setSubmissionError('Не получилось получить подсказки от ИИ. Попробуй чуть позже.');
-      setPhase('select');
-    } finally {
-      setGenerating(false);
-    }
+    await sendResponse(values.text, values.honeypot);
   };
 
   if (!deviceId) {
@@ -322,7 +242,7 @@ export default function SupportPage() {
     );
   }
 
-  const showSticky = !['success', 'custom', 'quick', 'ai'].includes(phase);
+  const showSticky = phase === 'explore';
 
   return (
     <>
@@ -338,8 +258,9 @@ export default function SupportPage() {
         </div>
 
         <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
-          <p>Здесь собраны записи людей, которым сейчас особенно нужна опора — каждая история анонимна.</p>
-          <p className="mt-2">Ответ тоже остаётся без имени. Пиши бережно и помни, что по ту сторону — живой человек.</p>
+          <p>Здесь собраны анонимные записи людей, которым сейчас особенно нужна опора.</p>
+          <p className="mt-2">Выбери одну мысль и ответь на неё несколькими тёплыми фразами. Один внимательный ответ может выдержать чей-то день.</p>
+          <p className="mt-4 text-xs text-text-tertiary">Каждая история анонимна. Ответ тоже остаётся без имени.</p>
         </div>
 
         <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
@@ -350,9 +271,9 @@ export default function SupportPage() {
           </Notice>
         ) : null}
 
-        {submissionError && phase !== 'custom' ? <Notice variant="error">{submissionError}</Notice> : null}
+        {submissionError && phase !== 'compose' ? <Notice variant="error">{submissionError}</Notice> : null}
 
-        {cooldownSeconds && cooldownSeconds > 0 && phase !== 'custom' ? (
+        {cooldownSeconds && cooldownSeconds > 0 && phase !== 'compose' ? (
           <Notice variant="info">
             Пауза перед следующей попыткой — осталось {formatSeconds(cooldownSeconds)}.
           </Notice>
@@ -382,7 +303,14 @@ export default function SupportPage() {
             </div>
             <p className="text-lg text-text-primary">{message.text}</p>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Button onClick={() => setPhase('select')} className="w-full sm:w-auto" disabled={isBanned}>
+              <Button
+                onClick={() => {
+                  setSubmissionError(null);
+                  setPhase('compose');
+                }}
+                className="w-full sm:w-auto"
+                disabled={isBanned}
+              >
                 💬 Написать тёплый отклик
               </Button>
               <Button
@@ -397,153 +325,42 @@ export default function SupportPage() {
           </Card>
         ) : null}
 
-        {phase === 'select' && message ? (
-          <Card className="space-y-4">
-            <h2 className="text-xl font-semibold text-text-primary">Выбери, как хочешь поддержать</h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Button
-                onClick={() => {
-                  setSubmissionError(null);
-                  setPhase('custom');
-                }}
-                variant="secondary"
-                className="w-full"
-              >
-                ✍️ Написать тёплый отклик своими словами
-              </Button>
-              <Button onClick={startQuickFlow} variant="secondary" className="w-full" disabled={generating}>
-                ⚡ Быстрый отклик
-              </Button>
-              <Button onClick={startAiFlow} variant="secondary" className="w-full" disabled={generating}>
-                🤖 Подсказка ИИ
-              </Button>
+        {phase === 'compose' && message ? (
+          <Card className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-text-primary">Твой отклик</h2>
+              <p className="text-text-secondary">20–200 символов тепла и поддержки.</p>
             </div>
-            <Button variant="ghost" onClick={() => setPhase('explore')} className="w-full">
+            <ComposeForm
+              form={form}
+              onSubmit={handleCustomSubmit}
+              minLength={MIN_LENGTH}
+              maxLength={MAX_LENGTH}
+              placeholder="Напиши, что ты рядом и слышишь. Делись поддержкой простыми словами…"
+              submitLabel="Отправить тёплый отклик"
+              loadingLabel="Отправляем…"
+              errorMessage={submissionError}
+              busy={submitting}
+              disabled={isBanned}
+              cooldownSeconds={cooldownSeconds}
+              onChange={() => setSubmissionError(null)}
+              longTextWarningThreshold={RESPONSE_LENGTH_WARNING_THRESHOLD}
+              longTextWarningMessage="Текст длинный — шрифт на открытке будет мельче, чтобы всё поместилось."
+              helperHint={
+                <>
+                  <p>Иногда трудно подобрать слова.</p>
+                  <p>Можно начать так:</p>
+                  <p>«Спасибо, что поделился(лась)…»</p>
+                  <p>«Я рядом с тобой, даже через экран.»</p>
+                  <p>«Понимаю, как это тяжело.»</p>
+                </>
+              }
+            />
+            <Button variant="secondary" onClick={() => setPhase('explore')} className="w-full sm:w-auto">
               Назад
             </Button>
           </Card>
         ) : null}
-
-      {phase === 'custom' && message ? (
-        <Card className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary">Твой отклик</h2>
-            <p className="text-text-secondary">20–200 символов тепла и поддержки.</p>
-          </div>
-          <ComposeForm
-            form={form}
-            onSubmit={handleCustomSubmit}
-            minLength={MIN_LENGTH}
-            maxLength={MAX_LENGTH}
-            placeholder="Напиши, что ты рядом и слышишь. Делись поддержкой простыми словами…"
-            submitLabel="Отправить тёплый отклик"
-            loadingLabel="Отправляем…"
-            errorMessage={submissionError}
-            busy={submitting}
-            disabled={isBanned}
-            cooldownSeconds={cooldownSeconds}
-            onChange={() => setSubmissionError(null)}
-          />
-          <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
-            Назад
-          </Button>
-        </Card>
-      ) : null}
-
-      {phase === 'quick' && message ? (
-        <Card className="space-y-5">
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary">Выбери быстрый отклик</h2>
-            <p className="text-text-secondary">Мы подготовили тёплые варианты. Выбери тот отклик, что ближе тебе.</p>
-          </div>
-          {generating ? (
-            <p className="text-center text-text-secondary">Готовим тёплые слова…</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {quickSuggestions.map((suggestion, index) => {
-                const active = selectedQuick === suggestion;
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => setSelectedQuick(suggestion)}
-                    className={`rounded-2xl border p-4 text-left transition ${
-                      active
-                        ? 'border-uyan-light bg-uyan-light/10 text-text-primary'
-                        : 'border-white/10 bg-bg-secondary/40 text-text-secondary hover:border-uyan-light/60'
-                    }`}
-                  >
-                    {suggestion}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button
-              onClick={() => selectedQuick && sendResponse(selectedQuick, 'quick')}
-              disabled={!selectedQuick || submitting || generating || isBanned}
-              className="w-full"
-            >
-              {submitting ? 'Отправляем…' : 'Отправить тёплый отклик'}
-            </Button>
-            <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
-              Назад
-            </Button>
-          </div>
-        </Card>
-      ) : null}
-
-      {phase === 'ai' && message ? (
-        <Card className="space-y-5">
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary">Отклик с подсказкой ИИ</h2>
-            <p className="text-text-secondary">Один вариант — чистая эмпатия, второй — луч надежды. Выбери, что ближе.</p>
-          </div>
-          {generating ? (
-            <p className="text-center text-text-secondary">Думаем вместе с ИИ…</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {aiVariants.map((variant, index) => {
-                const active = selectedAi === index;
-                return (
-                  <button
-                    key={variant.tone}
-                    type="button"
-                    onClick={() => setSelectedAi(index)}
-                    className={`rounded-2xl border p-4 text-left transition ${
-                      active
-                        ? 'border-uyan-light bg-uyan-light/10 text-text-primary'
-                        : 'border-white/10 bg-bg-secondary/40 text-text-secondary hover:border-uyan-light/60'
-                    }`}
-                  >
-                    <span className="mb-2 block text-sm uppercase tracking-[0.3em] text-uyan-light">
-                      {variant.tone === 'empathy' ? 'ЭМПАТИЯ' : 'НАДЕЖДА'}
-                    </span>
-                    {variant.text}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button
-              onClick={() =>
-                selectedAi !== null &&
-                selectedAi < aiVariants.length &&
-                sendResponse(aiVariants[selectedAi].text, 'ai-assisted')
-              }
-              disabled={selectedAi === null || submitting || generating || isBanned}
-              className="w-full"
-            >
-              {submitting ? 'Отправляем…' : 'Отправить тёплый отклик'}
-            </Button>
-            <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
-              Назад
-            </Button>
-          </div>
-        </Card>
-      ) : null}
       </motion.div>
       {showSticky ? <MobileStickyActions /> : null}
     </>
