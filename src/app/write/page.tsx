@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeForm';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { MobileStickyActions } from '@/components/cta/MobileStickyActions';
 import { useDeviceStore } from '@/store/device';
 import { useSoftMotion } from '@/lib/animation';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
@@ -234,7 +233,6 @@ export default function WritePage() {
         />
       </Card>
       </motion.div>
-      <MobileStickyActions />
     </>
   );
 }

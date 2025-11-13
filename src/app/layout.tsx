@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { MobileNavBar } from '@/components/layout/MobileNavBar';
 import Providers from '@/components/layout/Providers';
 import DevicePathWidget from '@/components/debug/DevicePathWidget';
 import PageTransition from '@/components/layout/PageTransition';
@@ -24,12 +25,13 @@ export default function RootLayout({
           <div className="flex min-h-dvh flex-col">
             <Header />
             <main
-              className="flex-1 px-4 sm:px-6 lg:px-8"
-              style={{ paddingTop: 'var(--header-h)', paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
+              className="flex-1 min-h-screen px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 sm:px-6 lg:px-8"
+              style={{ paddingTop: 'var(--header-h)' }}
             >
               <PageTransition>{children}</PageTransition>
             </main>
             <Footer />
+            <MobileNavBar />
           </div>
         </Providers>
         <DevicePathWidget />
