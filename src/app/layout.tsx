@@ -25,7 +25,7 @@ export default function RootLayout({
           <div className="flex min-h-dvh flex-col">
             <Header />
             <main
-              className="flex-1 min-h-screen px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 sm:px-6 lg:px-8"
+              className="flex-1 min-h-screen px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 sm:px-6 lg:px-8"
               style={{ paddingTop: 'var(--header-h)' }}
             >
               <PageTransition>{children}</PageTransition>
