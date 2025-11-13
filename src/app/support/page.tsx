@@ -280,16 +280,24 @@ export default function SupportPage() {
         ) : null}
 
         {error ? (
-          <Card className="space-y-4">
-            <Notice variant="info">{error}</Notice>
-            <Button
-              variant="secondary"
-              onClick={fetchRandomMessage}
-              className="w-full"
-              disabled={loadingMessage}
-            >
-              {loadingMessage ? 'Ищем мысль…' : 'Попробовать ещё раз'}
-            </Button>
+          <Card className="space-y-6 text-center">
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-text-primary">Сейчас нет мыслей, которые ждут внимания.</p>
+              <p className="text-text-secondary">Можно заглянуть позже или поделиться своей историей.</p>
+            </div>
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Button onClick={() => router.push('/write')} className="w-full sm:w-auto">
+                Отправить свою мысль
+              </Button>
+              <button
+                type="button"
+                onClick={fetchRandomMessage}
+                className="text-sm font-medium text-text-tertiary underline-offset-4 transition hover:text-text-secondary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary disabled:pointer-events-none disabled:opacity-60"
+                disabled={loadingMessage}
+              >
+                {loadingMessage ? 'Обновляем…' : 'Попробовать ещё раз'}
+              </button>
+            </div>
           </Card>
         ) : null}
 
@@ -346,15 +354,7 @@ export default function SupportPage() {
               onChange={() => setSubmissionError(null)}
               longTextWarningThreshold={RESPONSE_LENGTH_WARNING_THRESHOLD}
               longTextWarningMessage="Текст длинный — шрифт на открытке будет мельче, чтобы всё поместилось."
-              helperHint={
-                <>
-                  <p>Иногда трудно подобрать слова.</p>
-                  <p>Можно начать так:</p>
-                  <p>«Спасибо, что поделился(лась)…»</p>
-                  <p>«Я рядом с тобой, даже через экран.»</p>
-                  <p>«Понимаю, как это тяжело.»</p>
-                </>
-              }
+              mode="support"
             />
             <Button variant="secondary" onClick={() => setPhase('explore')} className="w-full sm:w-auto">
               Назад

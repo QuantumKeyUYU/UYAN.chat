@@ -175,10 +175,10 @@ export default function HomePage() {
               <Link
                 key={action.id}
                 href={action.href}
-                className="group block h-full rounded-3xl transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary active:scale-[0.99]"
+                className="group block h-full rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
               >
                 <motion.div
-                  className="flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-4 text-left shadow-sm transition duration-200 ease-out group-hover:-translate-y-0.5 group-hover:border-uyan-light/60 group-hover:shadow-xl group-focus-visible:border-uyan-light/60 cursor-pointer select-none sm:p-6"
+                  className="flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-4 text-left shadow-sm transition duration-200 ease-out group-hover:border-uyan-light/60 group-focus-visible:border-uyan-light/60 cursor-pointer select-none transition-transform transition-shadow hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:scale-[0.98] sm:p-6"
                   initial={initial}
                   animate={animate}
                   transition={
