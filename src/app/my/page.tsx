@@ -17,6 +17,8 @@ import { saveLight, loadGarden } from '@/lib/garden';
 import { hideResponseLocally, loadHiddenResponses } from '@/lib/hiddenResponses';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import { useRepliesStatus } from '@/lib/hooks/useRepliesStatus';
+import { useRepliesStore } from '@/store/replies';
 import {
   SHARE_CARD_PIXEL_RATIO,
   SHARE_CARD_WIDTH,
@@ -140,6 +142,9 @@ export default function MyLightsPage() {
   const shareCardRef = useRef<HTMLDivElement | null>(null);
   const previewWrapperRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
+  const { markAsSeen, refresh: refreshRepliesStatus } = useRepliesStatus();
+  const [hasMarkedSeen, setHasMarkedSeen] = useState(false);
+  const unreadCount = useRepliesStore((state) => state.unreadCount);
 
   const refreshSaved = useCallback(() => {
     setSavedIds(new Set(loadGarden().map((item) => item.id)));
@@ -151,6 +156,7 @@ export default function MyLightsPage() {
 
   const loadReceivedMessages = useCallback(async () => {
     if (!deviceId) return;
+    setHasMarkedSeen(false);
     setLoadingReceived(true);
     try {
       const response = await fetch('/api/messages/my', {
@@ -161,6 +167,7 @@ export default function MyLightsPage() {
       const data = await response.json();
       const normalized = (data.messages ?? []).map((item: any) => normalizeMessageWithResponses(item));
       setMessages(normalized);
+      void refreshRepliesStatus();
       setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
     } catch (error) {
       console.error('[my] Failed to load messages', error);
@@ -168,7 +175,7 @@ export default function MyLightsPage() {
     } finally {
       setLoadingReceived(false);
     }
-  }, [deviceId]);
+  }, [deviceId, refreshRepliesStatus]);
 
   const loadSent = useCallback(async () => {
     if (!deviceId) return;
@@ -201,6 +208,26 @@ export default function MyLightsPage() {
     void loadSent();
   }, [deviceId, loadReceivedMessages, loadSent]);
 
+  useEffect(() => {
+    if (activeTab !== 'received') {
+      return;
+    }
+    if (loadingReceived) {
+      return;
+    }
+    if (hasMarkedSeen) {
+      return;
+    }
+    setHasMarkedSeen(true);
+    void markAsSeen();
+  }, [activeTab, hasMarkedSeen, loadingReceived, markAsSeen]);
+
+  useEffect(() => {
+    if (activeTab !== 'received') {
+      setHasMarkedSeen(false);
+    }
+  }, [activeTab]);
+
   const handleSaveToGarden = (message: MessageWithResponses, response: ResponseDetail) => {
     if (response.hidden) return;
     saveLight({
@@ -211,7 +238,7 @@ export default function MyLightsPage() {
       savedAt: Date.now(),
     });
     refreshSaved();
-    setPageNotice({ variant: 'success', message: 'Отклик сохранён в «Сохранённом» ✨' });
+    setPageNotice({ variant: 'success', message: 'Отклик сохранён в «Откликах» ✨' });
   };
 
   const handleHideResponse = (responseId: string) => {
@@ -366,8 +393,11 @@ export default function MyLightsPage() {
       transition={{ duration: 0.3 }}
     >
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">✨ Сохранённое</h1>
-        <p className="text-text-secondary">Возвращайся к откликам, которые греют, и следи за словами поддержки, которыми делишься.</p>
+        <h1 className="text-3xl font-semibold text-text-primary">✨ Отклики</h1>
+        <p className="text-text-secondary">
+          Возвращайся к откликам, которые греют, и следи за словами поддержки, которыми делишься. Здесь собраны ответы для тебя
+          и твои ответы другим людям.
+        </p>
       </div>
 
       <div className="flex gap-2 rounded-2xl border border-white/10 bg-bg-secondary/60 p-2">
@@ -382,7 +412,14 @@ export default function MyLightsPage() {
                 isActive ? 'bg-white/10 text-text-primary shadow-inner' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
-              {tab.label}
+              <span className="inline-flex items-center justify-center gap-2">
+                <span>{tab.label}</span>
+                {tab.key === 'received' && unreadCount > 0 ? (
+                  <span className="ml-2 rounded-full bg-uyan-gold/90 px-2 text-[11px] font-semibold text-slate-950">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}
@@ -452,7 +489,7 @@ export default function MyLightsPage() {
                                 disabled={isSaved}
                                 className="w-full sm:w-auto"
                               >
-                                {isSaved ? 'Сохранено' : 'Сохранить в «Сохранённое»'}
+                                {isSaved ? 'Сохранено' : 'Сохранить в «Отклики»'}
                               </Button>
                               <Button
                                 variant="secondary"

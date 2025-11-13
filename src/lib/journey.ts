@@ -517,6 +517,15 @@ export const mergeDevicePath = async (
         : targetStats.lastActiveAt
       : sourceStats.lastActiveAt;
 
+    const sourceLastRepliesSeenAt = sourceStats.lastRepliesSeenAt ?? null;
+    const targetLastRepliesSeenAt = targetStats?.lastRepliesSeenAt ?? null;
+    const lastRepliesSeenAt =
+      sourceLastRepliesSeenAt && targetLastRepliesSeenAt
+        ? sourceLastRepliesSeenAt.toMillis() > targetLastRepliesSeenAt.toMillis()
+          ? sourceLastRepliesSeenAt
+          : targetLastRepliesSeenAt
+        : sourceLastRepliesSeenAt ?? targetLastRepliesSeenAt ?? null;
+
     await statsRef.doc(targetHash).set(
       {
         deviceHash: targetHash,
@@ -526,6 +535,7 @@ export const mergeDevicePath = async (
         karmaScore: FieldValue.increment(sourceStats.karmaScore ?? 0),
         createdAt,
         lastActiveAt,
+        lastRepliesSeenAt,
       },
       { merge: true },
     );

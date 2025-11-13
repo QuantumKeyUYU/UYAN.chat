@@ -273,7 +273,7 @@ function SettingsPageContent() {
 
   const handleClearGarden = () => {
     clearGarden();
-    setGardenMessage('Мы очистили «Сохранённое». Можно снова собирать важные отклики.');
+    setGardenMessage('Мы очистили «Отклики». Можно снова собирать важные отклики.');
     setPurgeMessage(null);
     setPurgeError(null);
   };
@@ -368,7 +368,7 @@ function SettingsPageContent() {
               Перенести архив
             </h2>
             <p className="text-sm text-text-secondary">
-              Ссылка переноса действует 24 часа и переносит «Сохранённое» и историю откликов на другое устройство. Никто, кроме
+              Ссылка переноса действует 24 часа и переносит «Отклики» и историю откликов на другое устройство. Никто, кроме
               тебя, не увидит содержимое архива.
             </p>
           </div>
@@ -513,7 +513,7 @@ function SettingsPageContent() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button variant="secondary" onClick={handleClearGarden} className="w-full sm:w-auto">
-              Очистить «Сохранённое»
+              Очистить «Отклики»
             </Button>
             <Button variant="secondary" onClick={handleRevealHidden} className="w-full sm:w-auto">
               Вернуть скрытые отклики
@@ -530,7 +530,7 @@ function SettingsPageContent() {
             </Button>
           </div>
           <p className="text-xs text-text-tertiary">
-            После удаления данных страница перезагрузится: мы создадим новый путь устройства, а «Сохранённое», «Мои отклики» и
+            После удаления данных страница перезагрузится: мы создадим новый путь устройства, а «Отклики», «Мои отклики» и
             статистика начнутся заново.
           </p>
           <div aria-live="polite" aria-atomic="true" className="space-y-2">

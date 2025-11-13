@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, BarChart3, PenSquare } from 'lucide-react';
 import { useStatsStore } from '@/store/stats';
 import { useSettingsStore } from '@/store/settings';
+import { useRepliesStore } from '@/store/replies';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
 type HeaderLink =
@@ -17,7 +18,7 @@ const baseLinks: HeaderLink[] = [
   { href: '/', label: 'Главная' },
   { href: '/write', labelKey: 'ctaWriteShort' as const },
   { href: '/support', labelKey: 'ctaSupport' as const },
-  { href: '/my', label: 'Сохранённое' },
+  { href: '/my', label: 'Отклики' },
   { href: '/settings', label: 'Настройки' },
 ];
 
@@ -32,6 +33,7 @@ export const Header = () => {
   const stats = useStatsStore((state) => state.data);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
+  const unreadCount = useRepliesStore((state) => state.unreadCount);
   const isHome = pathname === '/';
   const isSettings = pathname === '/settings';
   const [canGoBack, setCanGoBack] = useState(false);
@@ -147,7 +149,14 @@ export const Header = () => {
                 {isActive ? (
                   <span className="absolute inset-0 rounded-xl bg-white/5" aria-hidden />
                 ) : null}
-                <span className="relative z-10">{link.label}</span>
+                <span className="relative z-10 inline-flex items-center gap-2">
+                  <span>{link.label}</span>
+                  {link.href === '/my' && unreadCount > 0 ? (
+                    <span className="inline-flex min-w-[18px] justify-center rounded-full bg-uyan-gold px-1 text-[11px] font-semibold text-slate-950">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  ) : null}
+                </span>
               </Link>
             );
           })}
@@ -173,7 +182,7 @@ export const Header = () => {
                 <p className="text-text-primary">Мыслей отправлено: {formatNumber(stats?.lightsGiven ?? 0)}</p>
                 <p className="mt-1 text-text-primary">Получено откликов: {formatNumber(stats?.lightsReceived ?? 0)}</p>
                 <p className="mt-3 text-xs text-text-tertiary">
-                  Делись теплом и возвращайся в «Сохранённое», чтобы сохранять важные слова.
+                  Делись теплом и возвращайся в «Отклики», чтобы сохранять важные слова.
                 </p>
               </div>
             ) : null}
