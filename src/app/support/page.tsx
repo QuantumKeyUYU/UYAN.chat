@@ -18,6 +18,7 @@ import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { formatSeconds } from '@/lib/time';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { RESPONSE_LENGTH_WARNING_THRESHOLD } from '@/lib/shareCard';
+import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
 
 type MessagePayload = {
   id: string;
@@ -181,6 +182,7 @@ export default function SupportPage() {
       reset({ text: '', honeypot: '' });
       setPhase('success');
       setCooldownSeconds(null);
+      triggerGlobalStatsRefresh();
     } catch (err) {
       console.error(err);
       setSubmissionError('Не получилось отправить ответ. Попробуй ещё раз.');
@@ -250,18 +252,15 @@ export default function SupportPage() {
         animate={softMotion.animate}
         transition={baseTransition}
       >
-        <div className="space-y-2">
+        <div className="space-y-3">
           <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.supportTitle}</h1>
-          <p className="text-sm text-text-secondary sm:text-base">
-            Выбирай мысль другого человека и отвечай на неё тёплыми словами. Иногда один абзац поддержки помогает
-            выдержать день.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary sm:p-5">
-          <p>Здесь собраны анонимные записи людей, которым сейчас особенно нужна опора.</p>
-          <p className="mt-2">Выбери одну мысль и ответь на неё несколькими тёплыми фразами.</p>
-          <p className="mt-2">Каждый ответ остаётся анонимным — как и сама история.</p>
+          <div className="space-y-2 text-sm text-text-secondary sm:text-base">
+            <p>Здесь собраны анонимные записи людей, которым сейчас особенно нужна опора.</p>
+            <p>
+              Выбери одну мысль и ответь на неё несколькими тёплыми фразами — один внимательный ответ может выдержать чей-то день.
+            </p>
+          </div>
+          <p className="text-xs text-text-tertiary sm:text-sm">Ответ тоже остаётся анонимным — как и сама мысль.</p>
         </div>
 
         <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
@@ -288,7 +287,7 @@ export default function SupportPage() {
             </div>
             <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/write')} className="w-full sm:w-auto">
-                Отправить свою мысль
+                Написать мысль
               </Button>
               <button
                 type="button"

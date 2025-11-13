@@ -399,11 +399,9 @@ export default function MyLightsPage() {
       transition={{ duration: 0.3 }}
     >
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">✨ Ответы</h1>
+        <h1 className="text-3xl font-semibold text-text-primary">Ответы</h1>
         <p className="text-text-secondary">
-          Возвращайся к ответам, которые греют.
-          <br />
-          Здесь и то, что написали тебе, и твои ответы другим людям.
+          Возвращайся к ответам, которые греют, и следи за словами поддержки, которыми ты делишься.
         </p>
       </div>
 

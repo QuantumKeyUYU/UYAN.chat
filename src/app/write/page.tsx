@@ -11,6 +11,7 @@ import { useDeviceStore } from '@/store/device';
 import { useSoftMotion } from '@/lib/animation';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
 
 const MIN_LENGTH = 10;
 const MAX_LENGTH = 280;
@@ -111,6 +112,7 @@ export default function WritePage() {
       form.reset({ text: '', honeypot: '' });
       setCooldownSeconds(null);
       setSubmitted(true);
+      triggerGlobalStatsRefresh();
     } catch (error) {
       console.error(error);
       setErrorMessage('Что-то пошло не так. Попробуй ещё раз чуть позже.');
@@ -207,31 +209,33 @@ export default function WritePage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.writeTitle}</h1>
           <p className="text-sm text-text-secondary sm:text-base">
-            Делись тем, что происходит внутри, простыми словами — чтобы тебя услышали внимательно и без оценок.
+            Напиши пару честных предложений — отсюда начинается разговор.
           </p>
         </div>
-        <Card className="space-y-5 border border-white/10 bg-bg-secondary/70 p-5 sm:p-6">
+        <Card className="border border-white/10 bg-bg-secondary/70 p-5 sm:p-6">
           <div className="space-y-2 text-sm leading-relaxed text-text-secondary sm:text-base">
             <p>Мы видим только текст — никаких имён и контактов.</p>
             <p>Твою мысль прочитает живой человек. Ответ может прийти не сразу — это нормально.</p>
           </div>
-          <ComposeForm
-            form={form}
-            onSubmit={onSubmit}
-            minLength={MIN_LENGTH}
-            maxLength={MAX_LENGTH}
-            placeholder="Расскажи, что чувствуешь прямо сейчас…"
-            submitLabel={vocabulary.ctaWriteShort}
-            loadingLabel="Отправляем…"
-            errorMessage={errorMessage}
-            busy={loading}
-            cooldownSeconds={cooldownSeconds}
-            onChange={() => setErrorMessage(null)}
-            helperHint={<p>Лучше одно–два честных предложения, чем большое эссе.</p>}
-            textareaWrapperClassName="space-y-3 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 sm:p-5"
-            fieldLabel="Твоё письмо"
-            helperHintClassName="mt-2 text-xs leading-relaxed text-text-tertiary/80"
-          />
+          <div className="mt-6">
+            <ComposeForm
+              form={form}
+              onSubmit={onSubmit}
+              minLength={MIN_LENGTH}
+              maxLength={MAX_LENGTH}
+              placeholder="Напиши, что у тебя внутри прямо сейчас…"
+              submitLabel={vocabulary.ctaWriteShort}
+              loadingLabel="Отправляем…"
+              errorMessage={errorMessage}
+              busy={loading}
+              cooldownSeconds={cooldownSeconds}
+              onChange={() => setErrorMessage(null)}
+              helperHint={<p>Лучше одно–два честных предложения, чем большое эссе.</p>}
+              textareaWrapperClassName="space-y-3 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 sm:p-5"
+              fieldLabel="Напиши, как тебе сейчас"
+              helperHintClassName="mt-2 text-xs leading-relaxed text-text-tertiary/80"
+            />
+          </div>
         </Card>
       </motion.div>
     </>
