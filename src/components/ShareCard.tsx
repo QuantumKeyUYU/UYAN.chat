@@ -1,4 +1,12 @@
-import { forwardRef, useMemo, type CSSProperties } from 'react';
+import {
+  forwardRef,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  type CSSProperties,
+} from 'react';
 import {
   pickFontVariant,
   SHARE_CARD_BRAND_NAME,
@@ -58,40 +66,83 @@ const STYLES: Record<
 
 export const shareCardStyles = Object.keys(STYLES);
 
+// базовые размеры шрифтов для каждого варианта
 const MESSAGE_FONT_CLASSES: Record<ShareCardFontVariant, string> = {
   lg: 'text-[72px] leading-[92px]',
   md: 'text-[60px] leading-[78px]',
   sm: 'text-[48px] leading-[64px]',
-  xs: 'text-[40px] leading-[54px]',
+  xs: 'text-[36px] leading-[48px]', // чуть меньше, чтобы гарантированно влезать
 };
 
 const RESPONSE_FONT_CLASSES: Record<ShareCardFontVariant, string> = {
   lg: 'text-[80px] leading-[100px]',
   md: 'text-[68px] leading-[88px]',
   sm: 'text-[56px] leading-[76px]',
-  xs: 'text-[44px] leading-[62px]',
+  xs: 'text-[40px] leading-[52px]', // тоже снизили xs
 };
 
-/**
- * SAFE_TEXT_CLASS:
- *  - переносы по пробелам (normal),
- *  - без автоматических дефисов (hyphens-none),
- *  - overflow-wrap: break-word на случай очень длинного слова без пробелов.
- */
+// перенос по строкам, без дефисов, с поддержкой \n
 const SAFE_TEXT_CLASS =
-  'max-h-full whitespace-normal break-normal hyphens-none [overflow-wrap:break-word]';
+  'whitespace-pre-line break-normal hyphens-none [overflow-wrap:break-word]';
 
-/**
- * SAFE ZONES:
- *  - пузырь занимает всю доступную ширину до max-w,
- *  - не shrink’ится до размера одной строки,
- *  - обрезаем только по вертикали, если текста уж совсем много.
- */
+// safe-зоны: больше высоты, обрезаем только по вертикали
 const MESSAGE_SAFE_ZONE =
-  'max-h-[42%] w-full max-w-[90%] overflow-y-hidden self-start';
+  'max-h-[48%] w-full max-w-[90%] overflow-y-hidden self-start';
 
 const RESPONSE_SAFE_ZONE =
-  'max-h-[46%] w-full max-w-[92%] overflow-y-hidden self-start';
+  'max-h-[52%] w-full max-w-[92%] overflow-y-hidden self-start';
+
+const FONT_ORDER: ShareCardFontVariant[] = ['lg', 'md', 'sm', 'xs'];
+
+const useIsomorphicLayoutEffect =
+  typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+function getSmallerFontVariant(
+  current: ShareCardFontVariant,
+): ShareCardFontVariant | null {
+  const index = FONT_ORDER.indexOf(current);
+  if (index === -1 || index === FONT_ORDER.length - 1) {
+    return null;
+  }
+  return FONT_ORDER[index + 1];
+}
+
+/**
+ * Хук: startingVariant задаёт начальный размер шрифта (по длине текста),
+ * дальше мы уменьшаем его, если реально не влезает в родительский контейнер.
+ */
+function useAutoFontVariant(
+  startingVariant: ShareCardFontVariant,
+  text: string,
+) {
+  const [variant, setVariant] =
+    useState<ShareCardFontVariant>(startingVariant);
+  const ref = useRef<HTMLParagraphElement | null>(null);
+
+  // при смене текста/базового варианта возвращаемся к нему
+  useEffect(() => {
+    setVariant(startingVariant);
+  }, [startingVariant, text]);
+
+  useIsomorphicLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const parent = el.parentElement;
+    if (!parent) return;
+
+    // если контент выше контейнера → уменьшаем шрифт
+    const hasOverflow = el.scrollHeight > parent.clientHeight + 1;
+
+    if (hasOverflow) {
+      const smaller = getSmallerFontVariant(variant);
+      if (smaller) {
+        setVariant(smaller);
+      }
+    }
+  }, [text, variant]);
+
+  return { ref, variant };
+}
 
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
   (
@@ -108,14 +159,24 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
       .filter(Boolean)
       .join(' ');
 
-    const messageVariant = useMemo(
+    const baseMessageVariant = useMemo(
       () => pickFontVariant(originalMessage),
       [originalMessage],
     );
-    const responseVariant = useMemo(
+    const baseResponseVariant = useMemo(
       () => pickFontVariant(responseText),
       [responseText],
     );
+
+    const {
+      ref: messageRef,
+      variant: messageVariant,
+    } = useAutoFontVariant(baseMessageVariant, originalMessage);
+
+    const {
+      ref: responseRef,
+      variant: responseVariant,
+    } = useAutoFontVariant(baseResponseVariant, responseText);
 
     return (
       <div
@@ -144,6 +205,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
             className={`rounded-[48px] ${style.accent} px-[64px] py-[56px] shadow-inner shadow-black/10 ${MESSAGE_SAFE_ZONE}`}
           >
             <p
+              ref={messageRef}
               className={`${MESSAGE_FONT_CLASSES[messageVariant]} font-medium ${style.textColor} ${SAFE_TEXT_CLASS}`}
             >
               “{originalMessage}”
@@ -163,6 +225,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
             className={`rounded-[52px] bg-white/90 px-[72px] py-[64px] text-slate-900 shadow-xl shadow-black/15 ${RESPONSE_SAFE_ZONE}`}
           >
             <p
+              ref={responseRef}
               className={`${RESPONSE_FONT_CLASSES[responseVariant]} font-semibold ${SAFE_TEXT_CLASS}`}
             >
               “{responseText}”
