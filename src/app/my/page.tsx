@@ -164,11 +164,11 @@ export default function MyLightsPage() {
       });
       if (!response.ok) throw new Error('Ошибка загрузки');
       const data = await response.json();
-      const normalized = (data.messages ?? []).map((item: any) => normalizeMessageWithResponses(item));
+      const normalized = (data.messages ?? []).map((item: unknown) => normalizeMessageWithResponses(item));
       setMessages(normalized);
       const replyDates: number[] = [];
-      normalized.forEach((message) => {
-        message.responses.forEach((response) => {
+      normalized.forEach((message: MessageWithResponses) => {
+        message.responses.forEach((response: ResponseDetail) => {
           replyDates.push(getMillis(response.createdAt));
         });
       });
