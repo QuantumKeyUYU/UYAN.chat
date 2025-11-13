@@ -41,17 +41,19 @@ export const MobileNavBar = () => {
                 isActive ? 'text-uyan-gold' : 'text-slate-300 hover:text-slate-50'
               }`}
             >
-              <span className="relative flex flex-col items-center gap-1">
-                <span className="text-lg" aria-hidden>
-                  {item.icon}
+              <span className="flex flex-col items-center gap-1">
+                <span className="relative flex items-center justify-center">
+                  <span className="text-lg" aria-hidden>
+                    {item.icon}
+                  </span>
+                  {item.id === 'saved' && unreadCount > 0 ? (
+                    <span
+                      className="absolute -top-0.5 -right-1.5 h-2.5 w-2.5 rounded-full bg-uyan-gold shadow-sm"
+                      aria-hidden="true"
+                    />
+                  ) : null}
                 </span>
                 <span className="text-xs">{item.label}</span>
-                {item.id === 'saved' && unreadCount > 0 ? (
-                  <span
-                    className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-uyan-gold shadow-sm"
-                    aria-hidden="true"
-                  />
-                ) : null}
               </span>
             </Link>
           );

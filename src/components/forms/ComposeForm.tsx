@@ -32,6 +32,10 @@ interface ComposeFormProps {
   longTextWarningThreshold?: number;
   longTextWarningMessage?: string;
   mode?: 'write' | 'support';
+  descriptionClassName?: string;
+  textareaWrapperClassName?: string;
+  fieldLabel?: ReactNode;
+  helperHintClassName?: string;
 }
 
 export function ComposeForm({
@@ -52,6 +56,10 @@ export function ComposeForm({
   longTextWarningThreshold,
   longTextWarningMessage,
   mode = 'write',
+  descriptionClassName,
+  textareaWrapperClassName,
+  fieldLabel,
+  helperHintClassName,
 }: ComposeFormProps) {
   const {
     register,
@@ -100,13 +108,22 @@ export function ComposeForm({
   const showLongTextWarning =
     typeof longTextWarningThreshold === 'number' && trimmedLength > longTextWarningThreshold && Boolean(longTextWarningMessage);
 
+  const descriptionClasses = `rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary${
+    descriptionClassName ? ` ${descriptionClassName}` : ''
+  }`;
+  const helperHintClasses = helperHintClassName
+    ? helperHintClassName
+    : 'mt-3 space-y-1 text-sm leading-relaxed text-text-tertiary';
+  const wrapperClasses = `space-y-2${textareaWrapperClassName ? ` ${textareaWrapperClassName}` : ''}`;
+
   return (
     <form onSubmit={submitHandler} className="space-y-6">
-      {description ? (
-        <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">{description}</div>
-      ) : null}
+      {description ? <div className={descriptionClasses}>{description}</div> : null}
 
-      <div>
+      <div className={wrapperClasses}>
+        {fieldLabel ? (
+          <p className="text-sm font-medium text-text-secondary">{fieldLabel}</p>
+        ) : null}
         <Textarea
           rows={4}
           maxLength={maxLength}
@@ -135,7 +152,7 @@ export function ComposeForm({
           <p className="mt-2 text-sm text-uyan-light">{longTextWarningMessage}</p>
         ) : null}
         {helperHint ? (
-          <div className="mt-3 space-y-1 text-sm leading-relaxed text-text-tertiary">{helperHint}</div>
+          <div className={helperHintClasses}>{helperHint}</div>
         ) : null}
         {mode === 'support' ? (
           <div className="mt-3 space-y-1 text-sm leading-relaxed text-text-tertiary">
