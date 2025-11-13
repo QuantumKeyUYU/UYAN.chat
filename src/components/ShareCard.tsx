@@ -71,27 +71,28 @@ const MESSAGE_FONT_CLASSES: Record<ShareCardFontVariant, string> = {
   lg: 'text-[72px] leading-[92px]',
   md: 'text-[60px] leading-[78px]',
   sm: 'text-[48px] leading-[64px]',
-  xs: 'text-[36px] leading-[48px]', // чуть меньше, чтобы гарантированно влезать
+  xs: 'text-[36px] leading-[48px]', // самый маленький — под длинные тексты
 };
 
 const RESPONSE_FONT_CLASSES: Record<ShareCardFontVariant, string> = {
   lg: 'text-[80px] leading-[100px]',
   md: 'text-[68px] leading-[88px]',
   sm: 'text-[56px] leading-[76px]',
-  xs: 'text-[40px] leading-[52px]', // тоже снизили xs
+  xs: 'text-[40px] leading-[52px]',
 };
 
-// перенос по строкам, без дефисов, с поддержкой \n
+// перенос по строкам, без дефисов, поддерживаем \n
 const SAFE_TEXT_CLASS =
   'whitespace-pre-line break-normal hyphens-none [overflow-wrap:break-word]';
 
-// safe-зоны: больше высоты, обрезаем только по вертикали
+// safe-зоны: даём побольше высоты, режем только по вертикали
 const MESSAGE_SAFE_ZONE =
   'max-h-[48%] w-full max-w-[90%] overflow-y-hidden self-start';
 
 const RESPONSE_SAFE_ZONE =
   'max-h-[52%] w-full max-w-[92%] overflow-y-hidden self-start';
 
+// порядок уменьшения шрифта
 const FONT_ORDER: ShareCardFontVariant[] = ['lg', 'md', 'sm', 'xs'];
 
 const useIsomorphicLayoutEffect =
@@ -108,8 +109,9 @@ function getSmallerFontVariant(
 }
 
 /**
- * Хук: startingVariant задаёт начальный размер шрифта (по длине текста),
- * дальше мы уменьшаем его, если реально не влезает в родительский контейнер.
+ * Хук авто-подбора шрифта:
+ *  1) стартуем с варианта по длине строки (pickFontVariant),
+ *  2) если текст не влез в контейнер по высоте — уменьшаем шаг за шагом.
  */
 function useAutoFontVariant(
   startingVariant: ShareCardFontVariant,
@@ -119,7 +121,7 @@ function useAutoFontVariant(
     useState<ShareCardFontVariant>(startingVariant);
   const ref = useRef<HTMLParagraphElement | null>(null);
 
-  // при смене текста/базового варианта возвращаемся к нему
+  // при смене текста или стартового варианта — сбрасываемся
   useEffect(() => {
     setVariant(startingVariant);
   }, [startingVariant, text]);
@@ -130,7 +132,6 @@ function useAutoFontVariant(
     const parent = el.parentElement;
     if (!parent) return;
 
-    // если контент выше контейнера → уменьшаем шрифт
     const hasOverflow = el.scrollHeight > parent.clientHeight + 1;
 
     if (hasOverflow) {
