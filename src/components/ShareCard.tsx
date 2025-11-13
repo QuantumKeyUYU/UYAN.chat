@@ -72,10 +72,11 @@ const RESPONSE_FONT_CLASSES: Record<ShareCardFontVariant, string> = {
   xs: 'text-[44px] leading-[62px]',
 };
 
-const SAFE_TEXT_CLASS = 'max-h-full overflow-hidden whitespace-pre-wrap break-words hyphens-auto';
+const SAFE_TEXT_CLASS =
+  'max-h-full whitespace-normal break-words hyphens-auto [overflow-wrap:break-word] [word-break:break-word]';
 
-const MESSAGE_SAFE_ZONE = 'max-h-[42%] overflow-hidden';
-const RESPONSE_SAFE_ZONE = 'max-h-[46%] overflow-hidden';
+const MESSAGE_SAFE_ZONE = 'max-h-[42%] w-fit max-w-[90%] overflow-y-hidden';
+const RESPONSE_SAFE_ZONE = 'max-h-[46%] w-fit max-w-[92%] overflow-y-hidden';
 
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
   ({ originalMessage, responseText, styleId, className, style: customStyle }, ref) => {
