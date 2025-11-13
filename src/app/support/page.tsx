@@ -31,7 +31,7 @@ type MessagePayload = {
 type Phase = 'explore' | 'select' | 'custom' | 'quick' | 'ai' | 'success';
 
 const phaseDescriptions: Record<Phase, string> = {
-  explore: 'Ищем мысль, которой сейчас особенно нужен отклик.',
+  explore: 'Ищем того, кому сейчас особенно важно быть услышанным.',
   select: 'Выбираем, как лучше поддержать человека.',
   custom: 'Пишем отклик своими словами — спокойно и бережно.',
   quick: 'Можно выбрать один из коротких тёплых откликов.',
@@ -100,7 +100,7 @@ export default function SupportPage() {
       const data = await response.json();
       if (!data.message) {
         setMessage(null);
-        setError('Сейчас нет мыслей, которые ждут ответа. Можно вернуться позже или отправить свою.');
+        setError('Сейчас нет мыслей, которые ждут внимания. Можно заглянуть позже или поделиться своей историей.');
         reset({ text: '', honeypot: '' });
         setCooldownSeconds(null);
         return;
@@ -110,7 +110,7 @@ export default function SupportPage() {
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setError('Сейчас нет мыслей, которые ждут ответа. Можно вернуться позже или отправить свою.');
+      setError('Сейчас нет мыслей, которые ждут внимания. Можно заглянуть позже или поделиться своей историей.');
       setMessage(null);
     } finally {
       setLoadingMessage(false);
@@ -338,8 +338,8 @@ export default function SupportPage() {
         </div>
 
         <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
-          <p>Здесь собраны мысли людей, которым сейчас нужен тёплый отклик — каждая из них анонимна.</p>
-          <p className="mt-2">Отклик тоже остаётся анонимным. Пиши бережно и помни, что по ту сторону — живой человек.</p>
+          <p>Здесь собраны записи людей, которым сейчас особенно нужна опора — каждая история анонимна.</p>
+          <p className="mt-2">Ответ тоже остаётся без имени. Пиши бережно и помни, что по ту сторону — живой человек.</p>
         </div>
 
         <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
