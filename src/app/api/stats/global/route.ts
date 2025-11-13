@@ -8,10 +8,16 @@ export async function GET() {
     const now = Date.now();
     const dayAgo = Timestamp.fromMillis(now - 24 * 60 * 60 * 1000);
 
+    const activeWaitingQuery = db
+      .collection('messages')
+      .where('status', '==', 'waiting')
+      .where('moderationPassed', '==', true)
+      .where('expiresAt', '>', Timestamp.fromMillis(now));
+
     const [totalMessagesSnap, totalResponsesSnap, waitingSnap, lightsTodaySnap] = await Promise.all([
       db.collection('messages').count().get(),
       db.collection('responses').count().get(),
-      db.collection('messages').where('status', '==', 'waiting').count().get(),
+      activeWaitingQuery.count().get(),
       db.collection('responses').where('createdAt', '>', dayAgo).count().get(),
     ]);
 
