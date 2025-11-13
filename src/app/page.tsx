@@ -238,21 +238,20 @@ export default function HomePage() {
           <div className="space-y-3">
             <h3 className="text-xl font-semibold text-text-primary">Зачем это нужно</h3>
             <p className="text-text-secondary">
-              UYAN.chat — тёплое пространство без гонки за лайками. Здесь можно честно говорить о своём состоянии и получать
-              поддержку от живых людей.
+              UYAN.chat — тихое место без гонки за лайками. Здесь можно честно говорить о своём состоянии и получать поддержку.
             </p>
             <p className="text-text-secondary">
-              Каждая мысль проходит модерацию, а отклики пишутся вручную. Так мы поддерживаем безопасность и доверие.
+              Каждая мысль проходит модерацию, а ответы пишут живые люди, не алгоритмы. Так мы бережём безопасность и доверие.
             </p>
           </div>
           <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
             <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">что почувствуешь внутри</p>
             <div className="mt-4 space-y-3 text-lg">
               <p className="text-text-secondary">
-                Бережное внимание, тишина без оценок и пространство, куда можно вернуться.
+                Бережное внимание, тишина без оценок и место, куда можно вернуться.
               </p>
               <p className="text-text-secondary">
-                «Сохранённое» бережно хранит важные слова, чтобы ты мог(ла) перечитать их позже и поделиться этим теплом дальше.
+                «Сохранённое» хранит важные слова, чтобы ты мог(ла) перечитывать их позже и делиться этим теплом дальше.
               </p>
             </div>
           </div>
