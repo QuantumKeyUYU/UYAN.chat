@@ -100,7 +100,7 @@ export default function SupportPage() {
       const data = await response.json();
       if (!data.message) {
         setMessage(null);
-        setError('Похоже, все мысли уже получили отклик. Загляни позже.');
+        setError('Сейчас нет мыслей, которые ждут ответа. Можно вернуться позже или отправить свою.');
         reset({ text: '', honeypot: '' });
         setCooldownSeconds(null);
         return;
@@ -110,7 +110,7 @@ export default function SupportPage() {
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setError('Кажется, сейчас в потоке нет свободных мыслей. Попробуй заглянуть позже.');
+      setError('Сейчас нет мыслей, которые ждут ответа. Можно вернуться позже или отправить свою.');
       setMessage(null);
     } finally {
       setLoadingMessage(false);
@@ -383,7 +383,7 @@ export default function SupportPage() {
             <p className="text-lg text-text-primary">{message.text}</p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button onClick={() => setPhase('select')} className="w-full sm:w-auto" disabled={isBanned}>
-                💬 {vocabulary.ctaSupport}
+                💬 Написать тёплый отклик
               </Button>
               <Button
                 variant="secondary"
@@ -409,7 +409,7 @@ export default function SupportPage() {
                 variant="secondary"
                 className="w-full"
               >
-                ✍️ Написать отклик своими словами
+                ✍️ Написать тёплый отклик своими словами
               </Button>
               <Button onClick={startQuickFlow} variant="secondary" className="w-full" disabled={generating}>
                 ⚡ Быстрый отклик
@@ -435,9 +435,9 @@ export default function SupportPage() {
             onSubmit={handleCustomSubmit}
             minLength={MIN_LENGTH}
             maxLength={MAX_LENGTH}
-            placeholder="Напиши, что ты рядом и слышишь. Делись поддержкой простыми словами..."
-            submitLabel={vocabulary.ctaSupport}
-            loadingLabel="Отправляем..."
+            placeholder="Напиши, что ты рядом и слышишь. Делись поддержкой простыми словами…"
+            submitLabel="Отправить тёплый отклик"
+            loadingLabel="Отправляем…"
             errorMessage={submissionError}
             busy={submitting}
             disabled={isBanned}
@@ -457,7 +457,7 @@ export default function SupportPage() {
             <p className="text-text-secondary">Мы подготовили тёплые варианты. Выбери тот отклик, что ближе тебе.</p>
           </div>
           {generating ? (
-            <p className="text-center text-text-secondary">Готовим тёплые слова...</p>
+            <p className="text-center text-text-secondary">Готовим тёплые слова…</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {quickSuggestions.map((suggestion, index) => {
@@ -485,7 +485,7 @@ export default function SupportPage() {
               disabled={!selectedQuick || submitting || generating || isBanned}
               className="w-full"
             >
-              {submitting ? 'Отправляем...' : 'Отправить отклик'}
+              {submitting ? 'Отправляем…' : 'Отправить тёплый отклик'}
             </Button>
             <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
               Назад
@@ -501,7 +501,7 @@ export default function SupportPage() {
             <p className="text-text-secondary">Один вариант — чистая эмпатия, второй — луч надежды. Выбери, что ближе.</p>
           </div>
           {generating ? (
-            <p className="text-center text-text-secondary">Думаем вместе с ИИ...</p>
+            <p className="text-center text-text-secondary">Думаем вместе с ИИ…</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {aiVariants.map((variant, index) => {
@@ -536,7 +536,7 @@ export default function SupportPage() {
               disabled={selectedAi === null || submitting || generating || isBanned}
               className="w-full"
             >
-              {submitting ? 'Отправляем...' : 'Отправить отклик'}
+              {submitting ? 'Отправляем…' : 'Отправить тёплый отклик'}
             </Button>
             <Button variant="secondary" onClick={() => setPhase('select')} className="w-full sm:w-auto">
               Назад

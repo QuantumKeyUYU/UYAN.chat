@@ -334,7 +334,7 @@ export default function MyLightsPage() {
     >
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">✨ Сохранённое</h1>
-        <p className="text-text-secondary">Возвращайся к откликам, которые согревают, и следи за словами поддержки, которыми делишься.</p>
+        <p className="text-text-secondary">Возвращайся к откликам, которые греют, и следи за словами поддержки, которыми делишься.</p>
       </div>
 
       <div className="flex gap-2 rounded-2xl border border-white/10 bg-bg-secondary/60 p-2">

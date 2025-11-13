@@ -30,21 +30,21 @@ export default function HomePage() {
       {
         id: 'share',
         title: vocabulary.ctaWriteShort,
-        description: 'Напиши то, что внутри, и отправь в безопасное пространство без оценок.',
+        description: 'Напиши, что чувствуешь прямо сейчас. Здесь слушают внимательно и без оценок.',
         href: '/write',
         accent: '🕯️',
       },
       {
         id: 'reply',
         title: vocabulary.ctaSupport,
-        description: 'Выбирай мысль другого человека и отвечай ему тёплыми словами.',
+        description: 'Выбирай мысль другого человека и отвечай ему тёплыми словами поддержки.',
         href: '/support',
         accent: '💬',
       },
       {
         id: 'saved',
         title: 'Сохранённое',
-        description: 'Возвращайся к откликам, которые ты отметил(а) как важные.',
+        description: 'Возвращайся к откликам, которые греют, и следи за словами поддержки, которыми делишься.',
         href: '/my',
         accent: '✨',
       },
@@ -56,7 +56,7 @@ export default function HomePage() {
     () => [
       {
         title: vocabulary.flow.writeTitle,
-        description: 'Коротко расскажи о своём состоянии. Здесь слушают внимательно и без оценок.',
+        description: 'Коротко расскажи о своём состоянии. Здесь тебя не оценивают, а слушают.',
       },
       {
         title: 'Подождать отклики',
@@ -69,6 +69,8 @@ export default function HomePage() {
     ],
     [vocabulary],
   );
+
+  const heroTitleLines = useMemo(() => vocabulary.homeHeroTitle.split('\n'), [vocabulary.homeHeroTitle]);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -136,12 +138,17 @@ export default function HomePage() {
                   ) : null}
                 </p>
                 <h1 className="text-3xl font-semibold text-text-primary sm:text-4xl">
-                  {vocabulary.homeHeroTitle}
+                  {heroTitleLines.map((line, index) => (
+                    <span key={`${line}-${index}`}>
+                      {line}
+                      {index < heroTitleLines.length - 1 ? <br /> : null}
+                    </span>
+                  ))}
                 </h1>
               </div>
               <p className="max-w-2xl text-lg text-text-secondary">{vocabulary.homeHeroSubtitle}</p>
             </div>
-            <div className="flex flex-col gap-3 sm:w-auto">
+            <div className="flex flex-col gap-2 sm:w-auto">
               <Button
                 onClick={() => router.push('/write')}
                 size="lg"
@@ -149,6 +156,9 @@ export default function HomePage() {
               >
                 {vocabulary.ctaWriteHero}
               </Button>
+              <p className="text-center text-xs text-text-tertiary sm:text-left">
+                Без регистрации и лайков. Только живые слова.
+              </p>
             </div>
           </div>
         </motion.section>
@@ -237,10 +247,14 @@ export default function HomePage() {
           </div>
           <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
             <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">что почувствуешь внутри</p>
-            <p className="mt-4 text-lg">
-              Бережное внимание, тишина без оценок и пространство, куда можно вернуться. «Сохранённое» бережно хранит важные
-              слова, чтобы ты мог(ла) перечитать их позже и поделиться теплом дальше.
-            </p>
+            <div className="mt-4 space-y-3 text-lg">
+              <p className="text-text-secondary">
+                Бережное внимание, тишина без оценок и пространство, куда можно вернуться.
+              </p>
+              <p className="text-text-secondary">
+                «Сохранённое» бережно хранит важные слова, чтобы ты мог(ла) перечитать их позже и поделиться этим теплом дальше.
+              </p>
+            </div>
           </div>
         </motion.section>
 
@@ -255,7 +269,7 @@ export default function HomePage() {
               <div className="space-y-1">
                 <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Сегодня</p>
                 <p className="text-2xl font-semibold text-text-primary">{stats.lightsToday}</p>
-                <p className="text-sm text-text-secondary">мыслей прозвучало за последние 24 часа</p>
+                <p className="text-sm text-text-secondary">мысли прозвучали за последние 24 часа</p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего мыслей</p>
@@ -271,7 +285,7 @@ export default function HomePage() {
                 <p className="text-2xl font-semibold text-text-primary transition group-hover:text-uyan-light">
                   {stats.messagesWaiting}
                 </p>
-                <p className="text-sm text-text-secondary">мыслей сейчас ищут внимание</p>
+                <p className="text-sm text-text-secondary">мысли сейчас ищут внимание</p>
               </Link>
             </>
           ) : (
