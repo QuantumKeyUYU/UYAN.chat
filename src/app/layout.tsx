@@ -10,7 +10,7 @@ import PageTransition from '@/components/layout/PageTransition';
 export const metadata: Metadata = {
   title: 'UYAN.chat — пространство тёплых мыслей',
   description:
-    'Анонимное пространство нового интернета: делись мыслями, получай бережные отклики и храни важные слова в архиве — без шума и гонки за лайками.',
+    'Анонимное пространство нового интернета: делись мыслями, получай бережные ответы и храни важные слова в архиве — без шума и гонки за лайками.',
 };
 
 export default function RootLayout({

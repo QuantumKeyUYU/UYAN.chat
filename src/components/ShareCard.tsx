@@ -139,7 +139,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
           </div>
         </div>
 
-        {/* Нижний блок: отклик */}
+        {/* Нижний блок: ответ */}
         <div className="relative flex flex-col gap-10">
           <div
             className={`text-[28px] uppercase tracking-[0.4em] ${style.textColor} opacity-80`}

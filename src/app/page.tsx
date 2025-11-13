@@ -36,15 +36,15 @@ export default function HomePage() {
       },
       {
         id: 'reply',
-        title: vocabulary.ctaSupport,
+        title: 'Поддержать',
         description: 'Выбирай мысль другого человека и отвечай ему тёплыми словами поддержки.',
         href: '/support',
         accent: '💬',
       },
       {
         id: 'saved',
-        title: 'Отклики',
-        description: 'Возвращайся к откликам, которые греют, и следи за словами поддержки, которыми делишься.',
+        title: 'Ответы',
+        description: 'Возвращайся к ответам, которые греют, и следи за словами поддержки, которыми делишься.',
         href: '/my',
         accent: '✨',
       },
@@ -59,12 +59,12 @@ export default function HomePage() {
         description: 'Коротко расскажи о своём состоянии. Здесь тебя не оценивают, а слушают.',
       },
       {
-        title: 'Подождать отклики',
+        title: 'Подождать ответы',
         description: 'Сообщество прочитает твою историю и ответит тёплыми словами поддержки.',
       },
       {
         title: 'Сохранить важное',
-        description: 'Отмечай ценные отклики и находи их позже в разделе «Отклики».',
+        description: 'Отмечай ценные ответы и находи их позже в разделе «Ответы».',
       },
     ],
     [vocabulary],
@@ -255,7 +255,7 @@ export default function HomePage() {
                 Бережное внимание, тишина без оценок и место, куда можно вернуться.
               </p>
               <p className="text-text-secondary">
-                «Отклики» хранит важные слова, чтобы ты мог(ла) перечитывать их позже и делиться этим теплом дальше.
+                «Ответы» хранит важные слова, чтобы ты мог(ла) перечитывать их позже и делиться этим теплом дальше.
               </p>
             </div>
           </div>
@@ -278,13 +278,13 @@ export default function HomePage() {
                 <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего мыслей</p>
                 <p className="text-2xl font-semibold text-text-primary">{stats.totalMessages}</p>
                 <p className="text-sm text-text-secondary">историй, которыми поделились</p>
-                <p className="text-xs text-text-tertiary">откликов: {stats.totalResponses}</p>
+                <p className="text-xs text-text-tertiary">ответов: {stats.totalResponses}</p>
               </div>
               <Link
                 href="/support"
                 className="group -m-2 flex flex-col space-y-1 rounded-2xl border border-transparent p-2 transition hover:border-uyan-light/40 hover:bg-bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light/60 active:bg-bg-secondary/60"
               >
-                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут отклика</p>
+                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут ответа</p>
                 <p className="text-2xl font-semibold text-text-primary transition group-hover:text-uyan-light">
                   {stats.messagesWaiting}
                 </p>

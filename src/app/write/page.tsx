@@ -182,18 +182,18 @@ export default function WritePage() {
             <h2 className="text-2xl font-semibold text-text-primary">Мысль сохранена</h2>
             <p className="text-text-secondary">
               Спасибо, что доверил нам эту мысль. Следующий шаг — {vocabulary.ctaSupport.toLowerCase()} кому-то ещё. После
-              этого заглядывай в «Мои отклики» — мы напомним, когда появятся ответы.
+              этого заглядывай в «Мои ответы» — мы напомним, когда появятся новые слова поддержки.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/support')} className="w-full sm:w-auto">
                 {vocabulary.ctaSupport}
               </Button>
               <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
-                Перейти в «Мои отклики»
+                Перейти в «Мои ответы»
               </Button>
             </div>
             <p className="text-sm text-text-tertiary">
-              Отклики появятся в разделе «Мои отклики». Если захочется передохнуть, можно вернуться на главную в любой момент.
+              Ответы появятся в разделе «Мои ответы». Если захочется передохнуть, можно вернуться на главную в любой момент.
             </p>
           </div>
         </Card>
@@ -221,7 +221,7 @@ export default function WritePage() {
             <>
               <p>Мы видим только текст — никаких имён и контактов.</p>
               <p className="mt-2">
-                Твою мысль прочитает живой человек из сообщества. Отклик может прийти не сразу — это нормально.
+                Твою мысль прочитает живой человек из сообщества. Ответ может прийти не сразу — это нормально.
               </p>
             </>
           }
