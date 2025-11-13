@@ -172,34 +172,38 @@ export default function HomePage() {
           {navigationCards.map((action, index) => {
             const delay = reducedMotion ? 0 : index * 0.05;
             return (
-              <motion.div
+              <Link
                 key={action.id}
-                className="group flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-4 text-left shadow-sm transition hover:border-uyan-light/60 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light sm:p-6"
-                initial={initial}
-                animate={animate}
-                transition={
-                  reducedMotion
-                    ? baseTransition
-                    : { ...baseTransition, delay: (actionsTransition.delay ?? 0.15) + delay, duration: 0.45 }
-                }
+                href={action.href}
+                className="group block h-full rounded-3xl transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary active:scale-[0.99]"
               >
-                <div className="space-y-4">
-                  <span className="text-3xl" aria-hidden>
-                    {action.accent}
-                  </span>
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-semibold text-text-primary group-hover:text-uyan-light">{action.title}</h2>
-                    <p className="text-sm text-text-secondary">{action.description}</p>
-                  </div>
-                </div>
-                <Link
-                  href={action.href}
-                  className="inline-flex items-center gap-2 text-sm font-medium text-uyan-light transition hover:text-uyan-light/80"
+                <motion.div
+                  className="flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-4 text-left shadow-sm transition duration-200 ease-out group-hover:-translate-y-0.5 group-hover:border-uyan-light/60 group-hover:shadow-xl group-focus-visible:border-uyan-light/60 cursor-pointer select-none sm:p-6"
+                  initial={initial}
+                  animate={animate}
+                  transition={
+                    reducedMotion
+                      ? baseTransition
+                      : { ...baseTransition, delay: (actionsTransition.delay ?? 0.15) + delay, duration: 0.45 }
+                  }
                 >
-                  Перейти →
-                  <span className="sr-only">к разделу {action.title}</span>
-                </Link>
-              </motion.div>
+                  <div className="space-y-4">
+                    <span className="text-3xl" aria-hidden>
+                      {action.accent}
+                    </span>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-semibold text-text-primary transition-colors group-hover:text-uyan-light">
+                        {action.title}
+                      </h2>
+                      <p className="text-sm text-text-secondary">{action.description}</p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-2 text-sm font-medium text-uyan-light transition group-hover:text-uyan-light/80">
+                    Перейти →
+                    <span className="sr-only">к разделу {action.title}</span>
+                  </span>
+                </motion.div>
+              </Link>
             );
           })}
         </motion.section>
