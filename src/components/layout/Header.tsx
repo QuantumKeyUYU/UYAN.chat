@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -10,13 +10,10 @@ import { useSettingsStore } from '@/store/settings';
 import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 
-type HeaderLink =
-  | { href: string; label: string }
-  | { href: string; labelKey: 'ctaWriteShort' | 'ctaSupport' };
+type HeaderLink = { href: string; label: string };
 
 const baseLinks: HeaderLink[] = [
   { href: '/', label: 'Главная' },
-  { href: '/write', labelKey: 'ctaWriteShort' as const },
   { href: '/support', label: 'Поддержать' },
   { href: '/my', label: 'Ответы' },
   { href: '/settings', label: 'Настройки' },
@@ -38,14 +35,7 @@ export const Header = () => {
   const isSettings = pathname === '/settings';
   const [canGoBack, setCanGoBack] = useState(false);
 
-  const links = useMemo(() => {
-    return baseLinks.map((link) => {
-      if ('labelKey' in link) {
-        return { href: link.href, label: vocabulary[link.labelKey] };
-      }
-      return { href: link.href, label: link.label };
-    });
-  }, [vocabulary]);
+  const links = baseLinks;
 
   useEffect(() => {
     const updateHeaderHeight = () => {
@@ -189,23 +179,13 @@ export const Header = () => {
           </div>
 
           {!isHome ? (
-            <>
-              <Link
-                href="/write"
-                className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-text-primary transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
-              >
-                <PenSquare className="h-4 w-4" aria-hidden />
-                <span>{vocabulary.ctaWriteShort}</span>
-              </Link>
-
-              <Link
-                href="/support"
-                className="hidden items-center gap-2 rounded-xl bg-uyan-action px-4 py-2 text-sm font-semibold text-bg-primary shadow-lg shadow-uyan-action/20 transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
-              >
-                <Sparkles className="h-4 w-4" aria-hidden />
-                <span>{vocabulary.ctaSupport}</span>
-              </Link>
-            </>
+            <Link
+              href="/write"
+              className="hidden items-center gap-2 rounded-xl bg-uyan-action px-4 py-2 text-sm font-semibold text-bg-primary shadow-lg shadow-uyan-action/20 transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-action sm:inline-flex"
+            >
+              <PenSquare className="h-4 w-4" aria-hidden />
+              <span>{vocabulary.ctaWriteShort}</span>
+            </Link>
           ) : null}
 
         </div>

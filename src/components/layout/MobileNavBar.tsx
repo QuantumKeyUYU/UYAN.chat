@@ -7,9 +7,9 @@ import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 type NavSection = 'write' | 'support' | 'saved' | 'settings';
 
 const items = [
-  { id: 'write', href: '/write', label: 'Мысль', icon: '💭' },
-  { id: 'support', href: '/support', label: 'Поддержать', icon: '💬' },
-  { id: 'saved', href: '/my', label: 'Ответы', icon: '✨' },
+  { id: 'write', href: '/write', label: 'Написать', icon: '✍️' },
+  { id: 'support', href: '/support', label: 'Поддержать', icon: '🤝' },
+  { id: 'saved', href: '/my', label: 'Ответы', icon: '💬' },
   { id: 'settings', href: '/settings', label: 'Настройки', icon: '⚙️' },
 ] as const satisfies ReadonlyArray<{ id: NavSection; href: string; label: string; icon: string }>;
 
@@ -41,15 +41,16 @@ export const MobileNavBar = () => {
                 isActive ? 'text-uyan-gold' : 'text-slate-300 hover:text-slate-50'
               }`}
             >
-              <span className="text-lg" aria-hidden>
-                {item.icon}
-              </span>
-              <span className="flex items-center gap-1">
-                {item.label}
+              <span className="relative flex flex-col items-center gap-1">
+                <span className="text-lg" aria-hidden>
+                  {item.icon}
+                </span>
+                <span className="text-xs">{item.label}</span>
                 {item.id === 'saved' && unreadCount > 0 ? (
-                  <span className="mt-0.5 rounded-full bg-uyan-gold px-1.5 text-[10px] font-semibold text-slate-950">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
+                  <span
+                    className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-uyan-gold shadow-sm"
+                    aria-hidden="true"
+                  />
                 ) : null}
               </span>
             </Link>
