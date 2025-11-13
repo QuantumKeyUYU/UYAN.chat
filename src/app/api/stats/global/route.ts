@@ -6,25 +6,37 @@ export async function GET() {
   try {
     const db = getAdminDb();
     const now = Date.now();
+    const nowTimestamp = Timestamp.fromMillis(now);
     const dayAgo = Timestamp.fromMillis(now - 24 * 60 * 60 * 1000);
 
-    const activeWaitingQuery = db
+    const waitingQuery = db
       .collection('messages')
       .where('status', '==', 'waiting')
-      .where('moderationPassed', '==', true)
-      .where('expiresAt', '>', Timestamp.fromMillis(now));
+      .where('moderationPassed', '==', true);
 
-    const [totalMessagesSnap, totalResponsesSnap, waitingSnap, lightsTodaySnap] = await Promise.all([
+    const [totalMessagesSnap, totalResponsesSnap, lightsTodaySnap] = await Promise.all([
       db.collection('messages').count().get(),
       db.collection('responses').count().get(),
-      activeWaitingQuery.count().get(),
       db.collection('responses').where('createdAt', '>', dayAgo).count().get(),
     ]);
+
+    let activeWaitingCount = 0;
+
+    try {
+      const waitingSnap = await waitingQuery.get();
+      activeWaitingCount = waitingSnap.docs.filter((doc) => {
+        const data = doc.data();
+        const expiresAt = data.expiresAt as Timestamp | undefined;
+        return !expiresAt || expiresAt > nowTimestamp;
+      }).length;
+    } catch (error) {
+      console.error('[stats/global] Failed to load waiting messages count', error);
+    }
 
     const result = {
       totalMessages: totalMessagesSnap.data().count ?? 0,
       totalResponses: totalResponsesSnap.data().count ?? 0,
-      messagesWaiting: waitingSnap.data().count ?? 0,
+      messagesWaiting: activeWaitingCount,
       lightsToday: lightsTodaySnap.data().count ?? 0,
     };
 
@@ -32,8 +44,13 @@ export async function GET() {
   } catch (error) {
     console.error('[stats/global] Failed to load stats', error);
     return NextResponse.json(
-      { error: 'Не удалось загрузить статистику.' },
-      { status: 500 },
+      {
+        totalMessages: 0,
+        totalResponses: 0,
+        messagesWaiting: 0,
+        lightsToday: 0,
+      },
+      { status: 200 },
     );
   }
 }

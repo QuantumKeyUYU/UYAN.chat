@@ -245,20 +245,23 @@ export default function SupportPage() {
   return (
     <>
       <motion.div
-        className="mx-auto flex max-w-4xl flex-col gap-8"
+        className="mx-auto flex max-w-4xl flex-col gap-6"
         initial={softMotion.initial}
         animate={softMotion.animate}
         transition={baseTransition}
       >
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.supportTitle}</h1>
-          <p className="text-text-secondary">{vocabulary.supportSubtitle}</p>
+          <p className="text-sm text-text-secondary sm:text-base">
+            Выбирай мысль другого человека и отвечай на неё тёплыми словами. Иногда один абзац поддержки помогает
+            выдержать день.
+          </p>
         </div>
 
-        <div className="rounded-2xl bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary">
+        <div className="rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 text-sm leading-relaxed text-text-secondary sm:p-5">
           <p>Здесь собраны анонимные записи людей, которым сейчас особенно нужна опора.</p>
-          <p className="mt-2">Выбери одну мысль и ответь на неё несколькими тёплыми фразами. Один внимательный ответ может выдержать чей-то день.</p>
-          <p className="mt-4 text-xs text-text-tertiary">Каждая история анонимна. Ответ тоже остаётся без имени.</p>
+          <p className="mt-2">Выбери одну мысль и ответь на неё несколькими тёплыми фразами.</p>
+          <p className="mt-2">Каждый ответ остаётся анонимным — как и сама история.</p>
         </div>
 
         <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
