@@ -14,6 +14,7 @@ interface SerializedUserStats {
   karmaScore: number;
   createdAt: number | null;
   lastActiveAt: number | null;
+  lastRepliesSeenAt: number | null;
 }
 
 const serializeTimestamp = (value?: Timestamp | null): number | null => {
@@ -34,6 +35,7 @@ const emptyStats = (deviceId: string): SerializedUserStats => ({
   karmaScore: 0,
   createdAt: null,
   lastActiveAt: null,
+  lastRepliesSeenAt: null,
 });
 
 export async function GET(request: NextRequest) {
@@ -83,6 +85,7 @@ export async function GET(request: NextRequest) {
       karmaScore: data.karmaScore ?? 0,
       createdAt: serializeTimestamp(data.createdAt),
       lastActiveAt: serializeTimestamp(data.lastActiveAt),
+      lastRepliesSeenAt: serializeTimestamp(data.lastRepliesSeenAt),
     };
 
     return attachDeviceCookie(NextResponse.json({ stats }, { status: 200 }), deviceId);

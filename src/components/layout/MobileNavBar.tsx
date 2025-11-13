@@ -2,20 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useRepliesStore } from '@/store/replies';
 
-type NavSection = 'write' | 'support' | 'saved' | 'settings';
+type NavSection = 'write' | 'support' | 'replies' | 'settings';
 
 const items = [
   { id: 'write', href: '/write', label: 'Мысль', icon: '💭' },
   { id: 'support', href: '/support', label: 'Отклик', icon: '💬' },
-  { id: 'saved', href: '/my', label: 'Сохранённое', icon: '✨' },
+  { id: 'replies', href: '/my', label: 'Отклики', icon: '✨' },
   { id: 'settings', href: '/settings', label: 'Настройки', icon: '⚙️' },
 ] as const satisfies ReadonlyArray<{ id: NavSection; href: string; label: string; icon: string }>;
 
 function getActiveSection(pathname: string): NavSection | null {
   if (pathname === '/' || pathname.startsWith('/write')) return 'write';
   if (pathname.startsWith('/support')) return 'support';
-  if (pathname.startsWith('/my')) return 'saved';
+  if (pathname.startsWith('/my')) return 'replies';
   if (pathname.startsWith('/settings')) return 'settings';
   return null;
 }
@@ -23,6 +24,7 @@ function getActiveSection(pathname: string): NavSection | null {
 export const MobileNavBar = () => {
   const pathname = usePathname() ?? '/';
   const activeSection = getActiveSection(pathname);
+  const unreadCount = useRepliesStore((state) => state.unreadCount);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 backdrop-blur md:hidden">
@@ -42,7 +44,14 @@ export const MobileNavBar = () => {
               <span className="text-lg" aria-hidden>
                 {item.icon}
               </span>
-              <span>{item.label}</span>
+              <span className="flex items-center gap-1">
+                {item.label}
+                {item.id === 'replies' && unreadCount > 0 ? (
+                  <span className="mt-0.5 rounded-full bg-uyan-gold px-1.5 text-[10px] font-semibold text-slate-950">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                ) : null}
+              </span>
             </Link>
           );
         })}

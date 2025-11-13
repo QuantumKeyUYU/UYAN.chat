@@ -18,6 +18,7 @@ const buildInitialStats = (deviceHash: string): UserStats => {
     createdAt: now,
     karmaScore: 0,
     bannedUntil: null,
+    lastRepliesSeenAt: null,
   };
 };
 

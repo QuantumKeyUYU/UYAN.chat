@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from 'react';
 import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
+import { useRepliesStatus } from '@/lib/hooks/useRepliesStatus';
 import { useSettingsStore } from '@/store/settings';
 
 interface ProvidersProps {
@@ -10,6 +11,7 @@ interface ProvidersProps {
 
 const Providers = ({ children }: ProvidersProps) => {
   useDeviceJourney();
+  useRepliesStatus();
   const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
 
   useEffect(() => {
