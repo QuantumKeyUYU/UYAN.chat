@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, type Transition } from 'framer-motion';
@@ -9,12 +9,14 @@ import { OnboardingModal } from '@/components/OnboardingModal';
 import { isOnboardingDone } from '@/lib/onboarding';
 import { useSoftMotion } from '@/lib/animation';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import { addGlobalStatsRefreshListener } from '@/lib/statsEvents';
 
 interface GlobalStats {
+  todayCount: number;
   totalMessages: number;
-  totalResponses: number;
-  messagesWaiting: number;
-  lightsToday: number;
+  totalReplies: number;
+  waitingTotal: number;
+  waitingVisible?: number;
 }
 
 export default function HomePage() {
@@ -22,6 +24,7 @@ export default function HomePage() {
   const { vocabulary } = useVocabulary();
   const [stats, setStats] = useState<GlobalStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [statsLoading, setStatsLoading] = useState<boolean>(true);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const { initial, animate, transition } = useSoftMotion();
 
@@ -72,23 +75,36 @@ export default function HomePage() {
 
   const heroTitleLines = useMemo(() => vocabulary.homeHeroTitle.split('\n'), [vocabulary.homeHeroTitle]);
 
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const response = await fetch('/api/stats/global');
-        if (!response.ok) {
-          throw new Error('Failed to load stats');
-        }
-        const data = (await response.json()) as GlobalStats;
-        setStats(data);
-      } catch (error) {
-        console.error('Failed to fetch stats', error);
-        setStatsError('Не удалось загрузить статистику.');
+  const loadStats = useCallback(async () => {
+    try {
+      setStatsLoading(true);
+      setStatsError(null);
+      const response = await fetch('/api/stats/global');
+      if (!response.ok) {
+        throw new Error('Failed to load stats');
       }
-    };
-
-    loadStats();
+      const data = (await response.json()) as GlobalStats;
+      setStats(data);
+    } catch (error) {
+      console.error('Failed to fetch stats', error);
+      setStats(null);
+      setStatsError('Не удалось загрузить статистику.');
+    } finally {
+      setStatsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    const unsubscribe = addGlobalStatsRefreshListener(() => {
+      void loadStats();
+    });
+
+    return unsubscribe;
+  }, [loadStats]);
 
   useEffect(() => {
     if (isOnboardingDone()) return;
@@ -113,7 +129,7 @@ export default function HomePage() {
     : { ...baseTransition, delay: 0.4, duration: 0.6 };
 
   const statsAreMeaningful = Boolean(
-    stats && (stats.totalMessages > 0 || stats.totalResponses > 0 || stats.lightsToday > 0),
+    stats && (stats.totalMessages > 0 || stats.totalReplies > 0 || stats.todayCount > 0 || stats.waitingTotal > 0),
   );
 
   return (
@@ -267,37 +283,64 @@ export default function HomePage() {
           animate={animate}
           transition={summaryTransition}
         >
-          {stats && statsAreMeaningful ? (
-            <>
-              <div className="space-y-1">
-                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Сегодня</p>
-                <p className="text-2xl font-semibold text-text-primary">{stats.lightsToday}</p>
-                <p className="text-sm text-text-secondary">мысли прозвучали за последние 24 часа</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего мыслей</p>
-                <p className="text-2xl font-semibold text-text-primary">{stats.totalMessages}</p>
-                <p className="text-sm text-text-secondary">историй, которыми поделились</p>
-                <p className="text-xs text-text-tertiary">ответов: {stats.totalResponses}</p>
-              </div>
-              <Link
-                href="/support"
-                className="group -m-2 flex flex-col space-y-1 rounded-2xl border border-transparent p-2 transition hover:border-uyan-light/40 hover:bg-bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light/60 active:bg-bg-secondary/60"
-              >
-                <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут ответа</p>
-                <p className="text-2xl font-semibold text-text-primary transition group-hover:text-uyan-light">
-                  {stats.messagesWaiting}
-                </p>
-                <p className="text-sm text-text-secondary">мысли сейчас ищут внимание</p>
-              </Link>
-            </>
-          ) : (
-            <div className="sm:col-span-3 flex min-h-[4rem] items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-bg-secondary/50 px-4 text-sm text-text-secondary">
-              <span className="truncate" title={statsError ?? 'Сегодня несколько человек поделились теплом. Один из них — может быть, ты.'}>
-                {statsError ?? 'Сегодня несколько человек поделились теплом. Один из них — может быть, ты.'}
-              </span>
-            </div>
-          )}
+          {statsLoading
+            ? Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`stats-skeleton-${index}`}
+                  className="space-y-2 rounded-2xl border border-white/5 bg-bg-secondary/40 p-4 sm:p-5"
+                  aria-hidden
+                >
+                  <div className="h-3 w-24 rounded bg-white/10 animate-pulse" />
+                  <div className="h-8 w-20 rounded bg-white/15 animate-pulse" />
+                  <div className="h-3 w-3/4 rounded bg-white/5 animate-pulse" />
+                </div>
+              ))
+            : stats && statsAreMeaningful
+              ? (
+                <>
+                  <div className="space-y-1">
+                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Сегодня</p>
+                    <p className="text-2xl font-semibold text-text-primary">{stats.todayCount}</p>
+                    <p className="text-sm text-text-secondary">мыслей появилось за последние 24 часа</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего мыслей</p>
+                    <p className="text-2xl font-semibold text-text-primary">{stats.totalMessages}</p>
+                    <p className="text-sm text-text-secondary">историй, которыми поделились</p>
+                    <p className="text-xs text-text-tertiary">ответов: {stats.totalReplies}</p>
+                  </div>
+                  <Link
+                    href="/support"
+                    className="group -m-2 flex flex-col space-y-1 rounded-2xl border border-transparent p-2 transition hover:border-uyan-light/40 hover:bg-bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light/60 active:bg-bg-secondary/60"
+                  >
+                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут ответа</p>
+                    <p className="text-2xl font-semibold text-text-primary transition group-hover:text-uyan-light">
+                      {stats.waitingTotal}
+                    </p>
+                    <p className="text-sm text-text-secondary">мысли сейчас ждут ответа</p>
+                  </Link>
+                </>
+              )
+              : (
+                <div className="sm:col-span-3 flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-bg-secondary/50 px-4 py-6 text-center text-sm text-text-secondary">
+                  <p className="max-w-md">
+                    {statsError ?? 'Сегодня несколько человек поделились теплом. Один из них — может быть, ты.'}
+                  </p>
+                  {statsError ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        void loadStats();
+                      }}
+                      className="px-4"
+                    >
+                      Попробовать ещё раз
+                    </Button>
+                  ) : null}
+                </div>
+              )}
         </motion.section>
       </div>
       <p className="mx-auto mt-10 max-w-5xl px-4 text-center text-xs text-text-tertiary sm:px-6 sm:text-sm sm:text-left">
