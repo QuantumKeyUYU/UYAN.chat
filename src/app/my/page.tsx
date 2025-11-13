@@ -17,6 +17,11 @@ import { saveLight, loadGarden } from '@/lib/garden';
 import { hideResponseLocally, loadHiddenResponses } from '@/lib/hiddenResponses';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import {
+  SHARE_CARD_PIXEL_RATIO,
+  SHARE_CARD_WIDTH,
+  SHARE_CARD_HEIGHT,
+} from '@/lib/shareCard';
 
 const tabs = [
   { key: 'received', label: 'Мне ответили' },
@@ -133,6 +138,8 @@ export default function MyLightsPage() {
   const [savingImage, setSavingImage] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const shareCardRef = useRef<HTMLDivElement | null>(null);
+  const previewWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [previewScale, setPreviewScale] = useState(1);
 
   const refreshSaved = useCallback(() => {
     setSavedIds(new Set(loadGarden().map((item) => item.id)));
@@ -282,6 +289,30 @@ export default function MyLightsPage() {
     setShareError(null);
   };
 
+  useEffect(() => {
+    const wrapper = previewWrapperRef.current;
+    if (!wrapper) return;
+
+    const updateScale = (width: number) => {
+      if (!width) return;
+      setPreviewScale(Math.min(1, width / SHARE_CARD_WIDTH));
+    };
+
+    updateScale(wrapper.clientWidth);
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        updateScale(entry.contentRect.width);
+      }
+    });
+
+    observer.observe(wrapper);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [shareOpen]);
+
   const downloadAsImage = async () => {
     if (savingImage || !shareData) return;
     const element = shareCardRef.current;
@@ -297,13 +328,15 @@ export default function MyLightsPage() {
     setSavingImage(true);
     setShareError(null);
     try {
-      const pixelRatio = Math.max(2, Math.min(4, 1080 / clientWidth));
       const dataUrl = await toPng(element, {
         cacheBust: true,
-        pixelRatio,
-        width: clientWidth,
-        height: clientHeight,
-        style: { transform: 'none' },
+        pixelRatio: SHARE_CARD_PIXEL_RATIO,
+        width: SHARE_CARD_WIDTH,
+        height: SHARE_CARD_HEIGHT,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+        },
       });
       const link = document.createElement('a');
       link.download = `uyan-light-${Date.now()}.png`;
@@ -544,13 +577,18 @@ export default function MyLightsPage() {
         {shareData ? (
           <div className="space-y-4">
             <div className="mx-auto w-full max-w-[min(420px,90vw)]">
-              <div className="relative rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4" style={{ aspectRatio: '4 / 5' }}>
+              <div
+                ref={previewWrapperRef}
+                className="relative overflow-hidden rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4"
+                style={{ aspectRatio: '9 / 16' }}
+              >
                 <ShareCard
                   ref={shareCardRef}
                   originalMessage={shareData.message}
                   responseText={shareData.response}
                   styleId={shareStyle}
-                  className="absolute inset-0"
+                  className="absolute left-0 top-0 origin-top-left"
+                  style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
                 />
               </div>
             </div>

@@ -1,10 +1,19 @@
-import { forwardRef } from 'react';
+import { forwardRef, useMemo, type CSSProperties } from 'react';
+import {
+  pickFontVariant,
+  SHARE_CARD_BRAND_NAME,
+  SHARE_CARD_BRAND_TAGLINE,
+  SHARE_CARD_HEIGHT,
+  SHARE_CARD_WIDTH,
+  ShareCardFontVariant,
+} from '@/lib/shareCard';
 
 interface ShareCardProps {
   originalMessage: string;
   responseText: string;
   styleId: string;
   className?: string;
+  style?: CSSProperties;
 }
 
 const STYLES: Record<
@@ -49,43 +58,68 @@ const STYLES: Record<
 
 export const shareCardStyles = Object.keys(STYLES);
 
+const MESSAGE_FONT_CLASSES: Record<ShareCardFontVariant, string> = {
+  lg: 'text-[72px] leading-[92px]',
+  md: 'text-[60px] leading-[78px]',
+  sm: 'text-[48px] leading-[64px]',
+  xs: 'text-[40px] leading-[54px]',
+};
+
+const RESPONSE_FONT_CLASSES: Record<ShareCardFontVariant, string> = {
+  lg: 'text-[80px] leading-[100px]',
+  md: 'text-[68px] leading-[88px]',
+  sm: 'text-[56px] leading-[76px]',
+  xs: 'text-[44px] leading-[62px]',
+};
+
+const SAFE_TEXT_CLASS = 'max-h-full overflow-hidden whitespace-pre-wrap break-words hyphens-auto';
+
+const MESSAGE_SAFE_ZONE = 'max-h-[42%] overflow-hidden';
+const RESPONSE_SAFE_ZONE = 'max-h-[46%] overflow-hidden';
+
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
-  ({ originalMessage, responseText, styleId, className }, ref) => {
+  ({ originalMessage, responseText, styleId, className, style: customStyle }, ref) => {
     const style = STYLES[styleId] ?? STYLES.dawn;
     const containerClassName = [
-      'relative flex h-full w-full flex-col justify-between gap-[8%] overflow-hidden rounded-[12%] bg-gradient-to-br p-[8%] shadow-2xl',
+      'relative flex h-full w-full min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-[60px] bg-gradient-to-br p-[96px] shadow-2xl',
       style.background,
       className ?? '',
     ]
       .filter(Boolean)
       .join(' ');
 
+    const messageVariant = useMemo(() => pickFontVariant(originalMessage), [originalMessage]);
+    const responseVariant = useMemo(() => pickFontVariant(responseText), [responseText]);
+
     return (
-      <div ref={ref} className={containerClassName}>
-        <div className="absolute inset-0 bg-white/5" aria-hidden />
-        <div className="relative flex flex-col gap-[6%]">
+      <div
+        ref={ref}
+        className={containerClassName}
+        style={{ width: SHARE_CARD_WIDTH, height: SHARE_CARD_HEIGHT, ...customStyle }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-white/10" aria-hidden />
+        <div className="relative flex flex-col gap-12">
           <div
-            className={`inline-flex w-min items-center gap-2 rounded-full px-[1.2em] py-[0.55em] text-[clamp(0.55rem,0.4rem+0.6vw,0.85rem)] font-medium uppercase tracking-[0.35em] ${style.badgeColor} ${style.badgeTextColor}`}
+            className={`inline-flex w-min items-center gap-2 rounded-full px-10 py-4 text-[26px] font-semibold uppercase tracking-[0.35em] ${style.badgeColor} ${style.badgeTextColor}`}
           >
             uyan.chat
           </div>
-          <div
-            className={`rounded-[10%] ${style.accent} p-[6%] text-[clamp(1.15rem,0.95rem+2vw,2.2rem)] font-medium leading-[clamp(1.6rem,1.2rem+2.4vw,2.8rem)] ${style.textColor} whitespace-pre-wrap break-words`}
-          >
-            “{originalMessage}”
+          <div className={`rounded-[48px] ${style.accent} px-[64px] py-[56px] shadow-inner shadow-black/10 ${MESSAGE_SAFE_ZONE}`}>
+            <p className={`${MESSAGE_FONT_CLASSES[messageVariant]} font-medium ${style.textColor} ${SAFE_TEXT_CLASS}`}>
+              “{originalMessage}”
+            </p>
           </div>
         </div>
-        <div className="relative flex flex-col gap-[5%]">
-          <div className={`text-[clamp(0.6rem,0.5rem+0.6vw,0.9rem)] uppercase tracking-[0.4em] ${style.textColor} opacity-80`}>
-            свет для тебя
+        <div className="relative flex flex-col gap-10">
+          <div className={`text-[28px] uppercase tracking-[0.4em] ${style.textColor} opacity-80`}>свет для тебя</div>
+          <div className={`rounded-[52px] bg-white/90 px-[72px] py-[64px] text-slate-900 shadow-xl shadow-black/15 ${RESPONSE_SAFE_ZONE}`}>
+            <p className={`${RESPONSE_FONT_CLASSES[responseVariant]} font-semibold ${SAFE_TEXT_CLASS}`}>
+              “{responseText}”
+            </p>
           </div>
-          <div
-            className={`rounded-[10%] bg-white/90 p-[7%] text-[clamp(1.25rem,1.05rem+2.2vw,2.3rem)] font-semibold leading-[clamp(1.8rem,1.4rem+2.6vw,3.1rem)] text-slate-900 shadow-xl shadow-black/10 whitespace-pre-wrap break-words`}
-          >
-            “{responseText}”
-          </div>
-          <div className={`text-right text-[clamp(0.55rem,0.45rem+0.55vw,0.85rem)] uppercase tracking-[0.35em] ${style.textColor} opacity-70`}>
-            делись светом • #uyan
+          <div className={`flex flex-col items-end text-right text-[28px] font-medium ${style.textColor} opacity-85`}>
+            <span className="uppercase tracking-[0.35em] text-[22px] font-semibold opacity-70">{SHARE_CARD_BRAND_NAME}</span>
+            <span className="text-[26px] leading-[34px] opacity-80">{SHARE_CARD_BRAND_TAGLINE}</span>
           </div>
         </div>
       </div>

@@ -9,6 +9,11 @@ import { Modal } from '@/components/ui/Modal';
 import { Notice } from '@/components/ui/Notice';
 import { ShareCard, shareCardStyles } from '@/components/ShareCard';
 import { loadGarden, removeLight, SavedLight } from '@/lib/garden';
+import {
+  SHARE_CARD_PIXEL_RATIO,
+  SHARE_CARD_WIDTH,
+  SHARE_CARD_HEIGHT,
+} from '@/lib/shareCard';
 
 const styleLabels: Record<string, string> = {
   dawn: 'Рассвет',
@@ -25,6 +30,8 @@ export default function GardenPage() {
   const [savingImage, setSavingImage] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const shareCardRef = useRef<HTMLDivElement | null>(null);
+  const previewWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [previewScale, setPreviewScale] = useState(1);
 
   const refresh = () => {
     setLights(loadGarden());
@@ -51,6 +58,30 @@ export default function GardenPage() {
     setExportError(null);
   };
 
+  useEffect(() => {
+    const wrapper = previewWrapperRef.current;
+    if (!wrapper) return;
+
+    const updateScale = (width: number) => {
+      if (!width) return;
+      setPreviewScale(Math.min(1, width / SHARE_CARD_WIDTH));
+    };
+
+    updateScale(wrapper.clientWidth);
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        updateScale(entry.contentRect.width);
+      }
+    });
+
+    observer.observe(wrapper);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [shareOpen]);
+
   const downloadAsImage = async () => {
     if (savingImage) return;
     if (!shareLight) return;
@@ -71,13 +102,15 @@ export default function GardenPage() {
     setSavingImage(true);
     setExportError(null);
     try {
-      const upscale = Math.max(2, Math.min(4, 1080 / clientWidth));
       const dataUrl = await toPng(element, {
         cacheBust: true,
-        pixelRatio: upscale,
-        width: clientWidth,
-        height: clientHeight,
-        style: { transform: 'none' },
+        pixelRatio: SHARE_CARD_PIXEL_RATIO,
+        width: SHARE_CARD_WIDTH,
+        height: SHARE_CARD_HEIGHT,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+        },
       });
       const link = document.createElement('a');
       link.download = `svetlya-${shareLight.id}.png`;
@@ -147,15 +180,17 @@ export default function GardenPage() {
           <div className="space-y-4">
             <div className="mx-auto w-full max-w-[min(420px,90vw)]">
               <div
-                className="relative rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4"
-                style={{ aspectRatio: '4 / 5' }}
+                ref={previewWrapperRef}
+                className="relative overflow-hidden rounded-3xl border border-white/10 bg-bg-tertiary/40 p-4"
+                style={{ aspectRatio: '9 / 16' }}
               >
                 <ShareCard
                   ref={shareCardRef}
                   originalMessage={shareLight.originalMessage}
                   responseText={shareLight.responseText}
                   styleId={shareStyle}
-                  className="absolute inset-0"
+                  className="absolute left-0 top-0 origin-top-left"
+                  style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
                 />
               </div>
             </div>
