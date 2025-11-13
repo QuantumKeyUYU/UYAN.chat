@@ -190,7 +190,7 @@ export default function WritePage() {
                 {vocabulary.ctaSupport}
               </Button>
               <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
-                Перейти к откликам
+                Перейти в «Мои отклики»
               </Button>
             </div>
             <p className="text-sm text-text-tertiary">
@@ -215,9 +215,9 @@ export default function WritePage() {
           onSubmit={onSubmit}
           minLength={MIN_LENGTH}
           maxLength={MAX_LENGTH}
-          placeholder="Расскажи, что чувствуешь прямо сейчас..."
+          placeholder="Расскажи, что чувствуешь прямо сейчас…"
           submitLabel={vocabulary.ctaWriteShort}
-          loadingLabel="Отправляем..."
+          loadingLabel="Отправляем…"
           description={
             <>
               <p>Твоя мысль остаётся полностью анонимной — мы видим только текст.</p>

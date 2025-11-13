@@ -93,8 +93,6 @@ function SettingsPageContent() {
   const [purgeError, setPurgeError] = useState<string | null>(null);
   const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
   const [purgeLoading, setPurgeLoading] = useState(false);
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   const prefersReducedMotion = useReducedMotion();
@@ -287,23 +285,6 @@ function SettingsPageContent() {
     setPurgeError(null);
   };
 
-  const handleResetDevice = () => {
-    setResetDialogOpen(true);
-  };
-
-  const confirmResetDevice = () => {
-    setResetLoading(true);
-    clearDeviceId();
-    setDeviceId(null);
-    setStats(null);
-    window.location.reload();
-  };
-
-  const cancelResetDevice = () => {
-    if (resetLoading) return;
-    setResetDialogOpen(false);
-  };
-
   const handlePurgeData = () => {
     setGardenMessage(null);
     setPurgeMessage(null);
@@ -370,7 +351,9 @@ function SettingsPageContent() {
     <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-10" style={{ minHeight: '65vh' }}>
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-text-primary">Настройки</h1>
-        <p className="text-text-secondary">Настрой плавность анимаций, переноси архив и управляй данными устройства.</p>
+        <p className="text-text-secondary">
+          Здесь можно сделать пространство ещё спокойнее: перенести архив, уменьшить анимации или удалить данные устройства.
+        </p>
       </div>
 
       <section
@@ -385,8 +368,8 @@ function SettingsPageContent() {
               Перенести архив
             </h2>
             <p className="text-sm text-text-secondary">
-              Ссылка переноса действует 24 часа и переносит «Сохранённое» и историю откликов на другое устройство. Никто кроме
-              тебя не увидит содержимое архива.
+              Ссылка переноса действует 24 часа и переносит «Сохранённое» и историю откликов на другое устройство. Никто, кроме
+              тебя, не увидит содержимое архива.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -477,11 +460,16 @@ function SettingsPageContent() {
             <h2 id="settings-motion" className="text-xl font-semibold text-text-primary">
               Анимации
             </h2>
-            <p className="text-sm text-text-secondary">Включи этот режим, если хочешь сделать переходы более спокойными.</p>
+            <p className="text-sm text-text-secondary">
+              Включи этот режим, если хочешь сделать переходы более спокойными. Анимации станут статичными, без переливов и
+              смещений.
+            </p>
           </div>
           <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-bg-secondary/60 p-4">
             <div>
-              <p className="text-sm font-medium text-text-primary">Уменьшить анимации</p>
+              <p className="text-sm font-medium text-text-primary">
+                {reducedMotion ? 'Уменьшить анимации' : 'Оставить анимации как сейчас'}
+              </p>
               <p className="text-xs text-text-tertiary">Анимации станут статичными, без переливов и смещений.</p>
             </div>
             <button
@@ -516,11 +504,11 @@ function SettingsPageContent() {
               Данные устройства
             </h2>
             <p className="text-sm text-text-secondary">
-              Мы используем технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе. Ни имён, ни логинов —
-              только путь устройства.
+              Мы используем технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе. Ни имени, ни телефона
+              — только путь устройства.
             </p>
             <p className="text-sm text-text-secondary">
-              Здесь можно очистить сохранённые ответы, вернуть скрытые отклики или удалить все данные.
+              Здесь можно очистить сохранённые ответы, вернуть скрытые отклики или удалить все свои данные.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -529,9 +517,6 @@ function SettingsPageContent() {
             </Button>
             <Button variant="secondary" onClick={handleRevealHidden} className="w-full sm:w-auto">
               Вернуть скрытые отклики
-            </Button>
-            <Button variant="ghost" onClick={handleResetDevice} className="w-full sm:w-auto">
-              Сбросить идентификатор устройства
             </Button>
             <Button onClick={handlePurgeData} className="w-full gap-2 sm:w-auto" disabled={purgeLoading}>
               {purgeLoading ? (
@@ -545,7 +530,8 @@ function SettingsPageContent() {
             </Button>
           </div>
           <p className="text-xs text-text-tertiary">
-            После сброса идентификатора страница перезагрузится, а статистика начнёт считаться заново.
+            После удаления данных страница перезагрузится: мы создадим новый путь устройства, а «Сохранённое», «Мои отклики» и
+            статистика начнутся заново.
           </p>
           <div aria-live="polite" aria-atomic="true" className="space-y-2">
             {gardenMessage ? <Notice variant="success">{gardenMessage}</Notice> : null}
@@ -554,17 +540,6 @@ function SettingsPageContent() {
           </div>
         </Card>
       </section>
-
-      <ConfirmDialog
-        open={resetDialogOpen}
-        title="Сбросить идентификатор устройства?"
-        description="Мы создадим новый технический идентификатор и обнулим локальные данные. Это действие нельзя отменить."
-        confirmLabel="Сбросить"
-        onConfirm={confirmResetDevice}
-        onCancel={cancelResetDevice}
-        loading={resetLoading}
-        danger
-      />
 
       <ConfirmDialog
         open={purgeDialogOpen}
