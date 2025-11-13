@@ -31,6 +31,7 @@ interface ComposeFormProps {
   helperHint?: ReactNode;
   longTextWarningThreshold?: number;
   longTextWarningMessage?: string;
+  mode?: 'write' | 'support';
 }
 
 export function ComposeForm({
@@ -50,6 +51,7 @@ export function ComposeForm({
   helperHint,
   longTextWarningThreshold,
   longTextWarningMessage,
+  mode = 'write',
 }: ComposeFormProps) {
   const {
     register,
@@ -134,6 +136,15 @@ export function ComposeForm({
         ) : null}
         {helperHint ? (
           <div className="mt-3 space-y-1 text-sm leading-relaxed text-text-tertiary">{helperHint}</div>
+        ) : null}
+        {mode === 'support' ? (
+          <div className="mt-3 space-y-1 text-sm leading-relaxed text-text-tertiary">
+            <p>Иногда трудно подобрать слова.</p>
+            <p>Можно начать так:</p>
+            <p>«Спасибо, что поделился(лась) этим…»</p>
+            <p>«Я рядом и слышу тебя, даже через экран.»</p>
+            <p>«Понимаю, как это нелегко. Ты не один(одна).»</p>
+          </div>
         ) : null}
       </div>
 
