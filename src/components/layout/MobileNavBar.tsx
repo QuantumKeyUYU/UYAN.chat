@@ -51,13 +51,15 @@ export const MobileNavBar = () => {
                 </span>
                 <span className="text-xs">{item.label}</span>
                 {item.id === 'answers' && hasUnseenReplies ? (
-                  <span
-                    className="absolute -top-1 -right-3 flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-uyan-gold px-1 text-[10px] font-semibold leading-none text-slate-950 shadow-sm"
-                    role="status"
-                    aria-label={`${count} новых ответов`}
-                  >
-                    {count > 9 ? '9+' : count}
-                  </span>
+                  <>
+                    <span className="sr-only">Есть непрочитанные ответы</span>
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -top-1.5 -right-2.5 flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-uyan-gold px-1 text-[10px] font-semibold leading-tight text-slate-950 shadow-sm"
+                    >
+                      {count > 9 ? '9+' : count}
+                    </span>
+                  </>
                 ) : null}
               </span>
             </Link>

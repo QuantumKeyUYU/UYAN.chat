@@ -11,11 +11,21 @@ export function getLastRepliesSeenAt(): number | null {
   return Number.isFinite(ts) ? ts : null;
 }
 
-export function setLastRepliesSeenNow(): number | null {
+export function setLastRepliesSeenAt(value: number | null): number | null {
   if (typeof window === 'undefined') return null;
-  const value = Date.now();
-  window.localStorage.setItem(LAST_REPLIES_SEEN_KEY, String(value));
-  const event = new CustomEvent(LAST_REPLIES_SEEN_EVENT, { detail: { value } });
+  if (value == null || !Number.isFinite(value)) {
+    window.localStorage.removeItem(LAST_REPLIES_SEEN_KEY);
+    const event = new CustomEvent(LAST_REPLIES_SEEN_EVENT, { detail: { value: null } });
+    window.dispatchEvent(event);
+    return null;
+  }
+  const normalized = Number(value);
+  window.localStorage.setItem(LAST_REPLIES_SEEN_KEY, String(normalized));
+  const event = new CustomEvent(LAST_REPLIES_SEEN_EVENT, { detail: { value: normalized } });
   window.dispatchEvent(event);
-  return value;
+  return normalized;
+}
+
+export function setLastRepliesSeenNow(): number | null {
+  return setLastRepliesSeenAt(Date.now());
 }

@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
@@ -30,12 +30,6 @@ type MessagePayload = {
 };
 
 type Phase = 'explore' | 'compose' | 'success';
-
-const phaseDescriptions: Record<Phase, string> = {
-  explore: 'Ищем того, кому сейчас особенно важно быть услышанным.',
-  compose: 'Пиши ответ своими словами — спокойно и бережно.',
-  success: 'Ответ уже в пути и скоро окажется у автора мысли.',
-};
 
 const MIN_LENGTH = 20;
 const MAX_LENGTH = 200;
@@ -68,6 +62,15 @@ export default function SupportPage() {
     reset,
   } = form;
 
+  const phaseDescriptions = useMemo<Record<Phase, string>>(
+    () => ({
+      explore: vocabulary.supportPageLookingFor,
+      compose: 'Пиши ответ своими словами — спокойно и бережно.',
+      success: 'Ответ уже в пути и скоро окажется у автора мысли.',
+    }),
+    [vocabulary.supportPageLookingFor],
+  );
+
   const fetchRandomMessage = async () => {
     if (!deviceId) return;
     setLoadingMessage(true);
@@ -84,7 +87,7 @@ export default function SupportPage() {
       const data = await response.json();
       if (!data.message) {
         setMessage(null);
-        setError('Сейчас нет мыслей, которые ждут внимания. Можно заглянуть позже или поделиться своей историей.');
+        setError('Сейчас нет историй, которые ждут поддержки. Можно заглянуть позже или поделиться своей.');
         reset({ text: '', honeypot: '' });
         setCooldownSeconds(null);
         return;
@@ -94,7 +97,7 @@ export default function SupportPage() {
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setError('Сейчас нет мыслей, которые ждут внимания. Можно заглянуть позже или поделиться своей историей.');
+      setError('Сейчас нет историй, которые ждут поддержки. Можно заглянуть позже или поделиться своей.');
       setMessage(null);
     } finally {
       setLoadingMessage(false);
@@ -255,12 +258,10 @@ export default function SupportPage() {
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.supportTitle}</h1>
           <div className="space-y-2 text-sm text-text-secondary sm:text-base">
-            <p>Здесь собраны анонимные записи людей, которым сейчас особенно нужна опора.</p>
-            <p>
-              Выбери одну мысль и ответь на неё несколькими тёплыми фразами — один внимательный ответ может выдержать чей-то день.
-            </p>
+            <p>{vocabulary.supportSubtitle}</p>
+            <p>{vocabulary.supportPageHelper}</p>
           </div>
-          <p className="text-xs text-text-tertiary sm:text-sm">Ответ тоже остаётся анонимным — как и сама мысль.</p>
+          <p className="text-xs text-text-tertiary sm:text-sm">{vocabulary.supportPageAnonNote}</p>
         </div>
 
         <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
@@ -282,8 +283,8 @@ export default function SupportPage() {
         {error ? (
           <Card className="space-y-6 text-center">
             <div className="space-y-2">
-              <p className="text-lg font-semibold text-text-primary">Сейчас нет мыслей, которые ждут внимания.</p>
-              <p className="text-text-secondary">Можно заглянуть позже или поделиться своей историей.</p>
+              <p className="text-lg font-semibold text-text-primary">Сейчас нет историй, которые ждут поддержки.</p>
+              <p className="text-text-secondary">Можно заглянуть позже или поделиться своей.</p>
             </div>
             <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/write')} className="w-full sm:w-auto">

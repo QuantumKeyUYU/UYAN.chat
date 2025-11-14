@@ -10,6 +10,7 @@ import type { AdminMessage, AdminMessageDoc } from '@/types/firestoreAdmin';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { attachDeviceCookie, readDeviceIdFromRequest } from '@/lib/device/server';
+import { buildWaitingMessagesQuery } from '@/lib/messagesQueue';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,10 +22,7 @@ export async function GET(request: NextRequest) {
     const deviceHash = hashDeviceId(deviceId);
 
     const db = getAdminDb();
-    const snapshot = await db
-      .collection('messages')
-      .where('status', '==', 'waiting')
-      .where('moderationPassed', '==', true)
+    const snapshot = await buildWaitingMessagesQuery(db)
       .orderBy('createdAt', 'asc')
       .limit(25)
       .get();

@@ -15,7 +15,7 @@ interface GlobalStats {
   todayCount: number;
   totalMessages: number;
   totalReplies: number;
-  waitingTotal: number;
+  waitingCount: number;
   waitingVisible?: number;
 }
 
@@ -32,22 +32,22 @@ export default function HomePage() {
     () => [
       {
         id: 'share',
-        title: vocabulary.ctaWriteShort,
-        description: 'Напиши, что чувствуешь прямо сейчас. Здесь слушают внимательно и без оценок.',
+        title: vocabulary.homeTileWriteTitle,
+        description: vocabulary.homeTileWriteBody,
         href: '/write',
         accent: '✍️',
       },
       {
         id: 'reply',
-        title: 'Поддержать',
-        description: 'Выбирай мысль другого человека и отвечай ему тёплыми словами поддержки.',
+        title: vocabulary.homeTileSupportTitle,
+        description: vocabulary.homeTileSupportBody,
         href: '/support',
         accent: '🤝',
       },
       {
         id: 'saved',
-        title: 'Ответы',
-        description: 'Возвращайся к ответам, которые греют, и следи за словами поддержки, которыми делишься.',
+        title: vocabulary.homeTileAnswersTitle,
+        description: vocabulary.homeTileAnswersBody,
         href: '/my',
         accent: '💬',
       },
@@ -59,15 +59,15 @@ export default function HomePage() {
     () => [
       {
         title: vocabulary.flow.writeTitle,
-        description: 'Коротко расскажи о своём состоянии. Здесь тебя не оценивают, а слушают.',
+        description: vocabulary.flow.writeDescription,
       },
       {
-        title: 'Подождать ответы',
-        description: 'Сообщество прочитает твою историю и ответит тёплыми словами поддержки.',
+        title: vocabulary.flow.waitTitle,
+        description: vocabulary.flow.waitDescription,
       },
       {
-        title: 'Сохранить важное',
-        description: 'Отмечай ценные ответы и находи их позже в разделе «Ответы».',
+        title: vocabulary.flow.saveTitle,
+        description: vocabulary.flow.saveDescription,
       },
     ],
     [vocabulary],
@@ -83,8 +83,22 @@ export default function HomePage() {
       if (!response.ok) {
         throw new Error('Failed to load stats');
       }
-      const data = (await response.json()) as GlobalStats;
-      setStats(data);
+      const data = (await response.json()) as Partial<GlobalStats> & { waitingTotal?: number };
+      const normalized: GlobalStats = {
+        todayCount: data.todayCount ?? 0,
+        totalMessages: data.totalMessages ?? 0,
+        totalReplies: data.totalReplies ?? 0,
+        waitingCount:
+          typeof data.waitingCount === 'number'
+            ? data.waitingCount
+            : typeof data.waitingVisible === 'number'
+              ? data.waitingVisible
+              : typeof data.waitingTotal === 'number'
+                ? data.waitingTotal
+                : 0,
+        waitingVisible: data.waitingVisible,
+      };
+      setStats(normalized);
     } catch (error) {
       console.error('Failed to fetch stats', error);
       setStats(null);
@@ -129,7 +143,7 @@ export default function HomePage() {
     : { ...baseTransition, delay: 0.4, duration: 0.6 };
 
   const statsAreMeaningful = Boolean(
-    stats && (stats.totalMessages > 0 || stats.totalReplies > 0 || stats.todayCount > 0 || stats.waitingTotal > 0),
+    stats && (stats.totalMessages > 0 || stats.totalReplies > 0 || stats.todayCount > 0 || stats.waitingCount > 0),
   );
 
   return (
@@ -299,25 +313,27 @@ export default function HomePage() {
               ? (
                 <>
                   <div className="space-y-1">
-                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Сегодня</p>
+                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">{vocabulary.statsTodayTitle}</p>
                     <p className="text-2xl font-semibold text-text-primary">{stats.todayCount}</p>
-                    <p className="text-sm text-text-secondary">мыслей появилось за последние 24 часа</p>
+                    <p className="text-sm text-text-secondary">{vocabulary.statsTodaySubtitle}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Всего мыслей</p>
+                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">{vocabulary.statsTotalTitle}</p>
                     <p className="text-2xl font-semibold text-text-primary">{stats.totalMessages}</p>
-                    <p className="text-sm text-text-secondary">историй, которыми поделились</p>
-                    <p className="text-xs text-text-tertiary">ответов: {stats.totalReplies}</p>
+                    <p className="text-sm text-text-secondary">{vocabulary.statsTotalSubtitle}</p>
+                    <p className="text-xs text-text-tertiary">
+                      {vocabulary.statsTotalRepliesLabel}: {stats.totalReplies}
+                    </p>
                   </div>
                   <Link
                     href="/support"
                     className="group -m-2 flex flex-col space-y-1 rounded-2xl border border-transparent p-2 transition hover:border-uyan-light/40 hover:bg-bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light/60 active:bg-bg-secondary/60"
                   >
-                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">Ждут ответа</p>
+                    <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">{vocabulary.statsWaitingTitle}</p>
                     <p className="text-2xl font-semibold text-text-primary transition group-hover:text-uyan-light">
-                      {stats.waitingTotal}
+                      {stats.waitingCount}
                     </p>
-                    <p className="text-sm text-text-secondary">мысли сейчас ждут ответа</p>
+                    <p className="text-sm text-text-secondary">{vocabulary.statsWaitingSubtitle}</p>
                   </Link>
                 </>
               )

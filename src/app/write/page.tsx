@@ -211,10 +211,7 @@ export default function WritePage() {
           <p className="text-sm text-text-secondary sm:text-base">{vocabulary.writeSubtitle}</p>
         </div>
         <Card className="border border-white/10 bg-bg-secondary/70 p-5 sm:p-6">
-          <div className="space-y-2 text-sm leading-relaxed text-text-secondary sm:text-base">
-            <p>Мы видим только текст — никаких имён и контактов.</p>
-            <p>Твою мысль прочитает живой человек. Ответ может прийти не сразу — это нормально.</p>
-          </div>
+          <p className="text-sm leading-relaxed text-text-secondary sm:text-base">{vocabulary.writeInfoBlock}</p>
           <div className="mt-6">
             <ComposeForm
               form={form}
@@ -228,9 +225,9 @@ export default function WritePage() {
               busy={loading}
               cooldownSeconds={cooldownSeconds}
               onChange={() => setErrorMessage(null)}
-              helperHint={<p>Лучше одно–два честных предложения, чем большое эссе.</p>}
+              helperHint={<p>Несколько честных предложений достаточно, чтобы тебя услышали.</p>}
               textareaWrapperClassName="space-y-3 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 sm:p-5"
-              fieldLabel="Напиши, как тебе сейчас"
+              fieldLabel={vocabulary.writeFieldLabel}
               helperHintClassName="mt-2 text-xs leading-relaxed text-text-tertiary/80"
             />
           </div>

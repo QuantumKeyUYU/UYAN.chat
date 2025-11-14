@@ -108,15 +108,6 @@ const normalizeSentResponse = (raw: any): SentResponse => ({
     : null,
 });
 
-const getMillis = (value: unknown): number => {
-  if (typeof value === 'number') return value;
-  if (value && typeof (value as { toMillis?: () => unknown }).toMillis === 'function') {
-    const millis = (value as { toMillis: () => unknown }).toMillis();
-    if (typeof millis === 'number') return millis;
-  }
-  return 0;
-};
-
 export default function MyLightsPage() {
   const router = useRouter();
   const deviceId = useDeviceStore((state) => state.id);
@@ -141,7 +132,7 @@ export default function MyLightsPage() {
   const shareCardRef = useRef<HTMLDivElement | null>(null);
   const previewWrapperRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
-  const { markSeen, updateFromReplyDates, count: unreadCount, hasUnseenReplies } = useRepliesBadge();
+  const { markAllSeen, syncFromMessages, count: unreadCount, hasUnseenReplies } = useRepliesBadge();
   const [hasMarkedSeen, setHasMarkedSeen] = useState(false);
 
   const refreshSaved = useCallback(() => {
@@ -165,13 +156,7 @@ export default function MyLightsPage() {
       const data = await response.json();
       const normalized = (data.messages ?? []).map((item: unknown) => normalizeMessageWithResponses(item));
       setMessages(normalized);
-      const replyDates: number[] = [];
-      normalized.forEach((message: MessageWithResponses) => {
-        message.responses.forEach((response: ResponseDetail) => {
-          replyDates.push(getMillis(response.createdAt));
-        });
-      });
-      updateFromReplyDates(replyDates);
+      syncFromMessages(normalized);
       setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
     } catch (error) {
       console.error('[my] Failed to load messages', error);
@@ -179,7 +164,7 @@ export default function MyLightsPage() {
     } finally {
       setLoadingReceived(false);
     }
-  }, [deviceId, updateFromReplyDates]);
+  }, [deviceId, syncFromMessages]);
 
   const loadSent = useCallback(async () => {
     if (!deviceId) return;
@@ -228,8 +213,8 @@ export default function MyLightsPage() {
       return;
     }
     setHasMarkedSeen(true);
-    markSeen();
-  }, [activeTab, hasMarkedSeen, hasReplies, hasUnseenReplies, loadingReceived, markSeen]);
+    void markAllSeen();
+  }, [activeTab, hasMarkedSeen, hasReplies, hasUnseenReplies, loadingReceived, markAllSeen]);
 
   useEffect(() => {
     if (activeTab !== 'received') {
@@ -402,10 +387,8 @@ export default function MyLightsPage() {
       transition={{ duration: 0.3 }}
     >
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-text-primary">Ответы</h1>
-        <p className="text-text-secondary">
-          Возвращайся к ответам, которые греют, и следи за словами поддержки, которыми ты делишься.
-        </p>
+        <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.answersPageTitle}</h1>
+        <p className="text-text-secondary">{vocabulary.answersPageSubtitle}</p>
       </div>
 
       <div className="flex gap-2 rounded-2xl border border-white/10 bg-bg-secondary/60 p-2">
@@ -420,12 +403,18 @@ export default function MyLightsPage() {
                 isActive ? 'bg-white/10 text-text-primary shadow-inner' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
-              <span className="inline-flex items-center justify-center gap-2">
+              <span className="relative inline-flex items-center justify-center gap-2">
                 <span>{tab.label}</span>
                 {tab.key === 'received' && hasUnseenReplies ? (
-                  <span className="ml-2 rounded-full bg-uyan-gold/90 px-2 text-[11px] font-semibold text-slate-950">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
+                  <>
+                    <span className="sr-only">Есть непрочитанные ответы</span>
+                    <span
+                      aria-hidden
+                      className="absolute -top-1 -right-3 min-h-[16px] min-w-[16px] rounded-full bg-uyan-gold px-1 text-[10px] font-semibold leading-tight text-slate-950 shadow-sm"
+                    >
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  </>
                 ) : null}
               </span>
             </button>

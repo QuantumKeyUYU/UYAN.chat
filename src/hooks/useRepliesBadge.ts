@@ -6,13 +6,22 @@ import {
   getLastRepliesSeenAt,
   LAST_REPLIES_SEEN_EVENT,
   LAST_REPLIES_SEEN_KEY,
-  setLastRepliesSeenNow,
+  setLastRepliesSeenAt,
 } from '@/lib/repliesBadge';
 import { useDeviceStore } from '@/store/device';
-import { useRepliesStore } from '@/store/replies';
+import { useRepliesStore, type ReplyEntry } from '@/store/replies';
 
-type RawReply = { createdAt?: unknown };
-type RawMessage = { responses?: RawReply[] };
+type RawReply = {
+  id?: string;
+  createdAt?: unknown;
+  seenAt?: unknown;
+  seen?: boolean;
+};
+
+type RawMessage = {
+  id?: string;
+  responses?: RawReply[];
+};
 
 const getMillis = (value: unknown): number => {
   if (typeof value === 'number') return value;
@@ -23,89 +32,118 @@ const getMillis = (value: unknown): number => {
   return 0;
 };
 
-const extractReplyDates = (data: unknown): number[] => {
-  if (!data || typeof data !== 'object') return [];
-  const messages = (data as { messages?: RawMessage[] }).messages;
-  if (!Array.isArray(messages)) return [];
+const getMillisOrNull = (value: unknown): number | null => {
+  const millis = getMillis(value);
+  return Number.isFinite(millis) && millis > 0 ? millis : null;
+};
 
-  const dates: number[] = [];
+const extractReplies = (messages: RawMessage[]): ReplyEntry[] => {
+  const replies = new Map<string, ReplyEntry>();
+
   messages.forEach((message) => {
-    if (!message || !Array.isArray(message.responses)) return;
-    message.responses.forEach((reply) => {
-      const createdAt = getMillis(reply.createdAt);
-      if (createdAt > 0) {
-        dates.push(createdAt);
-      }
+    const messageId = typeof message?.id === 'string' ? message.id : null;
+    if (!Array.isArray(message?.responses)) return;
+
+    message.responses.forEach((rawReply) => {
+      if (!rawReply || typeof rawReply.id !== 'string') return;
+      const createdAt = getMillis(rawReply.createdAt);
+      if (!Number.isFinite(createdAt) || createdAt <= 0) return;
+
+      replies.set(rawReply.id, {
+        id: rawReply.id,
+        messageId,
+        createdAt,
+        seenAt: getMillisOrNull(rawReply.seenAt),
+        seen: Boolean(rawReply.seen),
+      });
     });
   });
 
-  return dates;
-};
-
-export const computeUnreadCount = (replyDates: number[], lastSeen: number | null | undefined) => {
-  const validDates = replyDates.filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0);
-  if (lastSeen == null) {
-    return validDates.length;
-  }
-  return validDates.reduce((total, createdAt) => (createdAt > lastSeen ? total + 1 : total), 0);
+  return Array.from(replies.values());
 };
 
 export const useRepliesBadge = () => {
   const deviceId = useDeviceStore((state) => state.id);
-  const unreadCount = useRepliesStore((state) => state.unreadCount);
+  const unseenCount = useRepliesStore((state) => state.unseenCount);
   const loading = useRepliesStore((state) => state.loading);
   const initialized = useRepliesStore((state) => state.initialized);
   const lastSeenAt = useRepliesStore((state) => state.lastSeenAt);
-  const setUnreadCount = useRepliesStore((state) => state.setUnreadCount);
+  const replaceReplies = useRepliesStore((state) => state.replaceReplies);
+  const markAllSeenLocal = useRepliesStore((state) => state.markAllSeenLocal);
   const setInitialized = useRepliesStore((state) => state.setInitialized);
   const setLoading = useRepliesStore((state) => state.setLoading);
   const setLastSeenAt = useRepliesStore((state) => state.setLastSeenAt);
 
-  const applyReplyDates = useCallback(
-    (replyDates: number[]) => {
-      const storedLastSeen = getLastRepliesSeenAt();
-      setLastSeenAt(storedLastSeen);
-      const effectiveLastSeen = storedLastSeen ?? lastSeenAt ?? null;
-      setUnreadCount(computeUnreadCount(replyDates, effectiveLastSeen));
-    },
-    [lastSeenAt, setLastSeenAt, setUnreadCount],
-  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = getLastRepliesSeenAt();
+    setLastSeenAt(stored);
+  }, [setLastSeenAt]);
 
   const refresh = useCallback(async () => {
     if (!deviceId) return;
     setLoading(true);
     try {
-      const response = await fetch('/api/messages/my', {
-        headers: { [DEVICE_ID_HEADER]: deviceId },
-        cache: 'no-store',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to load replies');
+      const headers = { [DEVICE_ID_HEADER]: deviceId };
+      const [metaResult, messagesResult] = await Promise.allSettled([
+        fetch('/api/responses/unread', { headers, cache: 'no-store' }),
+        fetch('/api/messages/my', { headers, cache: 'no-store' }),
+      ]);
+
+      let serverLastSeen: number | null = null;
+
+      if (metaResult.status === 'fulfilled' && metaResult.value.ok) {
+        try {
+          const metaData = await metaResult.value.json();
+          if (typeof metaData?.lastRepliesSeenAt === 'number') {
+            serverLastSeen = metaData.lastRepliesSeenAt;
+          }
+        } catch (error) {
+          console.warn('[useRepliesBadge] Failed to parse unread meta', error);
+        }
       }
-      const data = await response.json();
-      const replyDates = extractReplyDates(data);
-      applyReplyDates(replyDates);
+
+      if (serverLastSeen != null) {
+        setLastRepliesSeenAt(serverLastSeen);
+        setLastSeenAt(serverLastSeen);
+      } else {
+        const stored = getLastRepliesSeenAt();
+        if (stored != null) {
+          setLastSeenAt(stored);
+        }
+      }
+
+      let replies: ReplyEntry[] = [];
+      if (messagesResult.status === 'fulfilled' && messagesResult.value.ok) {
+        try {
+          const data = await messagesResult.value.json();
+          const rawMessages = Array.isArray(data?.messages) ? (data.messages as RawMessage[]) : [];
+          replies = extractReplies(rawMessages);
+        } catch (error) {
+          console.warn('[useRepliesBadge] Failed to parse replies payload', error);
+        }
+      }
+
+      const effectiveLastSeen = serverLastSeen ?? getLastRepliesSeenAt() ?? lastSeenAt ?? null;
+      replaceReplies(replies, { lastSeenAt: effectiveLastSeen });
     } catch (error) {
       console.warn('[useRepliesBadge] Failed to refresh replies badge', error);
     } finally {
       setInitialized(true);
       setLoading(false);
     }
-  }, [applyReplyDates, deviceId, setInitialized, setLoading]);
+  }, [deviceId, lastSeenAt, replaceReplies, setInitialized, setLastSeenAt, setLoading]);
 
-  const updateFromReplyDates = useCallback(
-    (replyDates: number[]) => {
-      applyReplyDates(replyDates);
+  const syncFromMessages = useCallback(
+    (messages: unknown[], options?: { lastSeenAt?: number | null }) => {
+      const rawMessages = Array.isArray(messages) ? (messages as RawMessage[]) : [];
+      const replies = extractReplies(rawMessages);
+      replaceReplies(replies, options);
       setInitialized(true);
       setLoading(false);
     },
-    [applyReplyDates, setInitialized, setLoading],
+    [replaceReplies, setInitialized, setLoading],
   );
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setLastSeenAt(getLastRepliesSeenAt());
-  }, [setLastSeenAt]);
 
   useEffect(() => {
     if (!deviceId) return;
@@ -122,6 +160,7 @@ export const useRepliesBadge = () => {
         void refresh();
       }
     };
+
     const handleCustom = (event: Event) => {
       const detailValue = (event as CustomEvent<{ value?: unknown }>).detail?.value;
       if (typeof detailValue === 'number' && Number.isFinite(detailValue)) {
@@ -131,9 +170,11 @@ export const useRepliesBadge = () => {
       }
       void refresh();
     };
+
     const handleFocus = () => {
       void refresh();
     };
+
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         void refresh();
@@ -153,20 +194,45 @@ export const useRepliesBadge = () => {
     };
   }, [refresh, setLastSeenAt]);
 
-  const markSeen = useCallback(() => {
-    const value = setLastRepliesSeenNow();
-    if (typeof value === 'number') {
-      setLastSeenAt(value);
+  const markAllSeen = useCallback(async () => {
+    if (unseenCount <= 0) {
+      return;
     }
-    setUnreadCount(0);
-  }, [setLastSeenAt, setUnreadCount]);
+
+    const optimisticTimestamp = Date.now();
+    markAllSeenLocal(optimisticTimestamp);
+    setLastRepliesSeenAt(optimisticTimestamp);
+    setLastSeenAt(optimisticTimestamp);
+
+    if (!deviceId) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/responses/mark-seen', {
+        method: 'POST',
+        headers: { [DEVICE_ID_HEADER]: deviceId },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to persist mark-seen state');
+      }
+      const data = await response.json();
+      const serverTimestamp =
+        typeof data?.lastRepliesSeenAt === 'number' ? data.lastRepliesSeenAt : optimisticTimestamp;
+      markAllSeenLocal(serverTimestamp);
+      setLastRepliesSeenAt(serverTimestamp);
+      setLastSeenAt(serverTimestamp);
+    } catch (error) {
+      console.warn('[useRepliesBadge] Failed to persist seen status', error);
+    }
+  }, [deviceId, markAllSeenLocal, setLastSeenAt, unseenCount]);
 
   return {
-    count: unreadCount,
-    hasUnseenReplies: unreadCount > 0,
+    count: unseenCount,
+    hasUnseenReplies: unseenCount > 0,
     loading,
     refresh,
-    markSeen,
-    updateFromReplyDates,
+    markAllSeen,
+    syncFromMessages,
   };
 };
