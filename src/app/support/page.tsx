@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
@@ -45,7 +45,13 @@ const pluralizeMinutes = (minutes: number) => {
 };
 
 export default function SupportPage() {
-  const { deviceId, status: deviceStatus, resolving: deviceResolving, error: deviceError, refresh: refreshDevice } =
+  const {
+    deviceId,
+    status: deviceStatus,
+    resolving: deviceResolving,
+    error: deviceResolutionError,
+    refresh: refreshDevice,
+  } =
     useResolvedDeviceId();
   const deviceFailed = deviceStatus === 'error' || deviceStatus === 'failed';
   const { vocabulary } = useVocabulary();
@@ -55,6 +61,7 @@ export default function SupportPage() {
   const [phase, setPhase] = useState<Phase>('explore');
   const [message, setMessage] = useState<MessagePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deviceError, setDeviceError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isBanned, setIsBanned] = useState(false);
@@ -73,7 +80,28 @@ export default function SupportPage() {
     [vocabulary.supportPageLookingFor],
   );
 
+  const errorHeading = useMemo(() => {
+    if (deviceError) {
+      return 'Не получилось настроить устройство.';
+    }
+    if (error && error.startsWith('Не удалось загрузить мысль')) {
+      return 'Не удалось загрузить мысль.';
+    }
+    return 'Сейчас нет историй, которые ждут поддержки.';
+  }, [deviceError, error]);
+
+  const errorDescription = useMemo(() => {
+    if (deviceError) {
+      return 'Не получилось настроить это устройство. Попробуй обновить страницу позже.';
+    }
+    return error ?? '';
+  }, [deviceError, error]);
+
   const fetchRandomMessage = useCallback(async () => {
+    if (deviceError) {
+      return;
+    }
+
     setLoadingMessage(true);
     setError(null);
     setPhase('explore');
@@ -83,53 +111,63 @@ export default function SupportPage() {
       if (deviceId) {
         headers[DEVICE_ID_HEADER] = deviceId;
       }
+
       const response = await fetch('/api/messages/random', { headers });
-      const payload = (await response.json().catch(() => null)) as { message?: unknown; error?: unknown } | null;
+      const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+
       if (!response.ok) {
-        const errorMessage = typeof payload?.error === 'string' ? payload.error : null;
-        if (errorMessage === DEVICE_UNIDENTIFIED_ERROR) {
-          setError('Не удалось подготовить устройство, поэтому новые мысли пока недоступны. Попробуй обновить страницу.');
+        const errorCode = typeof data?.['code'] === 'string' ? (data['code'] as string) : null;
+        const errorMessage = typeof data?.['message'] === 'string' ? (data['message'] as string) : null;
+
+        if (errorCode === DEVICE_UNIDENTIFIED_ERROR) {
+          setDeviceError(true);
+          setError('Не получилось настроить это устройство. Попробуй обновить страницу позже.');
           setMessage(null);
           return;
         }
-        throw new Error(errorMessage ?? 'Не удалось получить мысль');
-      }
-      if (!payload?.message) {
+
+        setError(errorMessage ?? 'Не удалось загрузить мысль.');
         setMessage(null);
-        setError('Сейчас нет историй, которые ждут поддержки. Можно заглянуть позже или поделиться своей.');
+        return;
+      }
+
+      const payload = data?.['message'];
+      if (!payload || typeof payload !== 'object') {
+        setDeviceError(false);
+        setMessage(null);
+        setError('Можно заглянуть позже или поделиться своей.');
         reset({ text: '', honeypot: '' });
         setCooldownSeconds(null);
         return;
       }
-      setMessage(payload.message as MessagePayload);
+
+      setDeviceError(false);
+      setMessage(payload as MessagePayload);
       reset({ text: '', honeypot: '' });
       setCooldownSeconds(null);
     } catch (err) {
       console.error(err);
-      setError('Сейчас нет историй, которые ждут поддержки. Можно заглянуть позже или поделиться своей.');
+      setDeviceError(false);
+      setError('Не удалось загрузить мысль. Попробуй позже.');
       setMessage(null);
     } finally {
       setLoadingMessage(false);
     }
-  }, [deviceId, reset]);
-
-  const initialFetchRef = useRef(false);
+  }, [deviceError, deviceId, reset]);
 
   useEffect(() => {
-    if (loadingMessage) {
+    if (deviceError) {
+      return;
+    }
+    if (deviceStatus !== 'ready' || !deviceId) {
+      return;
+    }
+    if (loadingMessage || message || submitting) {
       return;
     }
 
-    if (!initialFetchRef.current) {
-      initialFetchRef.current = true;
-      void fetchRandomMessage();
-      return;
-    }
-
-    if (!message && !submitting && phase === 'explore') {
-      void fetchRandomMessage();
-    }
-  }, [deviceId, fetchRandomMessage, loadingMessage, message, phase, submitting]);
+    void fetchRandomMessage();
+  }, [deviceError, deviceStatus, deviceId, fetchRandomMessage, loadingMessage, message, submitting]);
 
   useEffect(() => {
     if (!cooldownSeconds || cooldownSeconds <= 0) return;
@@ -295,7 +333,8 @@ export default function SupportPage() {
         ) : null}
         {!deviceResolving && deviceFailed ? (
           <Notice variant="warning">
-            {deviceError ?? 'Не удалось подготовить устройство. Ты всё равно можешь попробовать поддержать кого-то.'}{' '}
+            {deviceResolutionError ??
+              'Не удалось подготовить устройство. Ты всё равно можешь попробовать поддержать кого-то.'}{' '}
             <button type="button" className="underline" onClick={() => { void refreshDevice(); }}>
               Попробовать снова
             </button>
@@ -319,8 +358,8 @@ export default function SupportPage() {
         {error ? (
           <Card className="space-y-6 text-center">
             <div className="space-y-2">
-              <p className="text-lg font-semibold text-text-primary">Сейчас нет историй, которые ждут поддержки.</p>
-              <p className="text-text-secondary">Можно заглянуть позже или поделиться своей.</p>
+              <p className="text-lg font-semibold text-text-primary">{errorHeading}</p>
+              <p className="text-text-secondary">{errorDescription}</p>
             </div>
             <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/write')} className="w-full sm:w-auto">
@@ -330,7 +369,7 @@ export default function SupportPage() {
                 type="button"
                 onClick={fetchRandomMessage}
                 className="text-sm font-medium text-text-tertiary underline-offset-4 transition hover:text-text-secondary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary disabled:pointer-events-none disabled:opacity-60"
-                disabled={loadingMessage}
+                disabled={loadingMessage || deviceError}
               >
                 {loadingMessage ? 'Обновляем…' : 'Попробовать ещё раз'}
               </button>
