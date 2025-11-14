@@ -4,19 +4,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 
-type NavSection = 'write' | 'support' | 'saved' | 'settings';
+type NavSection = 'write' | 'support' | 'answers' | 'settings';
 
 const items = [
   { id: 'write', href: '/write', label: 'Написать', icon: '✍️' },
   { id: 'support', href: '/support', label: 'Поддержать', icon: '🤝' },
-  { id: 'saved', href: '/my', label: 'Ответы', icon: '💬' },
+  { id: 'answers', href: '/my', label: 'Ответы', icon: '💬' },
   { id: 'settings', href: '/settings', label: 'Настройки', icon: '⚙️' },
 ] as const satisfies ReadonlyArray<{ id: NavSection; href: string; label: string; icon: string }>;
 
 function getActiveSection(pathname: string): NavSection | null {
   if (pathname === '/' || pathname.startsWith('/write')) return 'write';
   if (pathname.startsWith('/support')) return 'support';
-  if (pathname.startsWith('/my')) return 'saved';
+  if (pathname.startsWith('/my')) return 'answers';
   if (pathname.startsWith('/settings')) return 'settings';
   return null;
 }
@@ -24,7 +24,7 @@ function getActiveSection(pathname: string): NavSection | null {
 export const MobileNavBar = () => {
   const pathname = usePathname() ?? '/';
   const activeSection = getActiveSection(pathname);
-  const { unreadCount } = useRepliesBadge();
+  const { hasUnseenReplies, count } = useRepliesBadge();
 
   return (
     <nav
@@ -45,22 +45,20 @@ export const MobileNavBar = () => {
                 isActive ? 'text-uyan-gold' : 'text-slate-300 hover:text-slate-50'
               } active:scale-95 active:opacity-85`}
             >
-              <span className="flex flex-col items-center gap-1">
-                <span className="relative flex items-center justify-center">
-                  <span className="text-lg" aria-hidden>
-                    {item.icon}
-                  </span>
-                  {item.id === 'saved' && unreadCount > 0 ? (
-                    <span
-                      className="absolute -top-0.5 -right-1.5 flex h-2.5 w-2.5 items-center justify-center"
-                      role="status"
-                      aria-label="Есть новые ответы"
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full bg-uyan-gold shadow-sm" aria-hidden />
-                    </span>
-                  ) : null}
+              <span className="relative flex flex-col items-center gap-1">
+                <span className="text-lg" aria-hidden>
+                  {item.icon}
                 </span>
                 <span className="text-xs">{item.label}</span>
+                {item.id === 'answers' && hasUnseenReplies ? (
+                  <span
+                    className="absolute -top-1 -right-3 flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-uyan-gold px-1 text-[10px] font-semibold leading-none text-slate-950 shadow-sm"
+                    role="status"
+                    aria-label={`${count} новых ответов`}
+                  >
+                    {count > 9 ? '9+' : count}
+                  </span>
+                ) : null}
               </span>
             </Link>
           );
