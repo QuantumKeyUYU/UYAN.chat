@@ -1,9 +1,13 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import Link from 'next/link';
-// если у тебя другой путь — поправь
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
+import { DEVICE_ID_HEADER, DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
+import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
 
 type DeviceStatus = 'idle' | 'resolving' | 'ready' | 'failed';
 
@@ -18,7 +22,7 @@ interface SupportMessage {
 interface RandomMessageResponse {
   message?: SupportMessage | null;
   code?: string;
-  messageText?: string; // на всякий, если бэкенд кладёт текст сюда
+  messageText?: string;
   error?: string;
 }
 
@@ -36,8 +40,6 @@ function canUseDevice(status: DeviceStatus, deviceId: string | null): boolean {
 
 export default function SupportPage() {
   const { deviceId, status: rawStatus, error: deviceHookError } = useResolvedDeviceId();
-
-  // привели тип явно, чтобы TS не ругался
   const deviceStatus = rawStatus as DeviceStatus;
 
   const [message, setMessage] = useState<SupportMessage | null>(null);
@@ -52,16 +54,15 @@ export default function SupportPage() {
   const [deviceHardError, setDeviceHardError] = useState<string | null>(null);
 
   const deviceReady = canUseDevice(deviceStatus, deviceId ?? null);
-
   const isBusy = loadingMessage || submitting;
 
   const showSkeleton = !message && loadingMessage && !loadError && !deviceHardError;
   const showEmptyState = !message && !loadingMessage && !loadError && !deviceHardError;
 
-  // Тексты статуса устройства / ошибки
   const deviceStatusLabel = useMemo(() => {
     if (deviceHardError) return deviceHardError;
-    if (deviceHookError) return 'Не получилось настроить это устройство. Попробуй обновить страницу.';
+    if (deviceHookError)
+      return 'Не получилось настроить это устройство. Попробуй обновить страницу.';
     if (deviceStatus === 'resolving' || deviceStatus === 'idle')
       return 'Готовим страницу, это может занять пару секунд…';
     if (deviceStatus === 'failed')
@@ -70,9 +71,7 @@ export default function SupportPage() {
   }, [deviceHookError, deviceStatus, deviceHardError]);
 
   const fetchRandomMessage = useCallback(async () => {
-    if (!deviceReady) {
-      return;
-    }
+    if (!deviceReady) return;
 
     setLoadingMessage(true);
     setLoadError(null);
@@ -80,21 +79,20 @@ export default function SupportPage() {
     setSubmitError(null);
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (deviceId) {
+        headers[DEVICE_ID_HEADER] = deviceId;
+      }
+
       const res = await fetch('/api/messages/random', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          // если бэкенд ждёт deviceId через заголовок — оставь;
-          // если через query/body — поменяй реализацию
-          'x-device-id': deviceId ?? '',
-        },
+        headers,
       });
 
       const data = (await res.json()) as RandomMessageResponse;
 
       if (!res.ok) {
-        // Специальный код про устройство — больше не мучаем сеть
-        if (data.code === 'DEVICE_UNIDENTIFIED_ERROR') {
+        if (data.code === DEVICE_UNIDENTIFIED_ERROR) {
           setDeviceHardError(
             'Не получилось настроить это устройство. Попробуй обновить страницу или зайти позже.',
           );
@@ -102,7 +100,6 @@ export default function SupportPage() {
           return;
         }
 
-        // Нет мыслей, ждущих ответа — это не ошибка, просто пустое состояние
         if (data.code === 'NO_MESSAGES') {
           setMessage(null);
           setLoadError(null);
@@ -131,7 +128,6 @@ export default function SupportPage() {
     }
   }, [deviceReady, deviceId]);
 
-  // Автозагрузка первой мысли
   useEffect(() => {
     if (!deviceReady) return;
     if (deviceHardError) return;
@@ -152,6 +148,7 @@ export default function SupportPage() {
     if (!message) return;
     const text = responseText.trim();
     if (!text) return;
+
     if (!deviceReady) {
       setSubmitError('Не получилось настроить устройство. Попробуй обновить страницу.');
       return;
@@ -162,12 +159,14 @@ export default function SupportPage() {
     setSubmitSuccess(false);
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (deviceId) {
+        headers[DEVICE_ID_HEADER] = deviceId;
+      }
+
       const res = await fetch('/api/responses/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-id': deviceId ?? '',
-        },
+        headers,
         body: JSON.stringify({
           messageId: message.id,
           text,
@@ -177,7 +176,6 @@ export default function SupportPage() {
       const data = (await res.json()) as CreateResponseResult;
 
       if (!res.ok) {
-        // какие-то наши специфичные коды, если есть
         if (data.code === 'MESSAGE_ALREADY_ANSWERED') {
           setSubmitError('Кто-то уже поддержал эту мысль. Можно выбрать другую.');
         } else if (data.code === 'CANNOT_ANSWER_OWN_MESSAGE') {
@@ -192,8 +190,14 @@ export default function SupportPage() {
 
       setSubmitSuccess(true);
       setResponseText('');
-      // сразу же подгружаем следующую мысль
       setMessage(null);
+
+      try {
+        triggerGlobalStatsRefresh();
+      } catch (statsError) {
+        console.error('[support] Failed to trigger stats refresh', statsError);
+      }
+
       void fetchRandomMessage();
     } catch (err) {
       setSubmitError('Не удалось отправить ответ. Проверь интернет и попробуй ещё раз.');
@@ -268,7 +272,9 @@ export default function SupportPage() {
         {/* Пустое состояние */}
         {showEmptyState && (
           <div className="flex flex-col items-start gap-4">
-            <h2 className="text-xl font-semibold text-slate-50">Сейчас нет мыслей, которые ждут внимания.</h2>
+            <h2 className="text-xl font-semibold text-slate-50">
+              Сейчас нет мыслей, которые ждут внимания.
+            </h2>
             <p className="text-sm text-slate-300">
               Можно заглянуть позже или поделиться своей историей.
             </p>
