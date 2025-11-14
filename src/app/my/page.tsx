@@ -121,7 +121,7 @@ export default function MyLightsPage() {
   const [sentResponses, setSentResponses] = useState<SentResponse[]>([]);
   const [loadingReceived, setLoadingReceived] = useState(false);
   const [loadingSent, setLoadingSent] = useState(false);
-  const [pageNotice, setPageNotice] = useState<{ variant: 'error' | 'success' | 'info'; message: string } | null>(null);
+  const [pageNotice, setPageNotice] = useState<{ variant: 'error' | 'success' | 'info' | 'warning'; message: string } | null>(null);
   const [reportReason, setReportReason] = useState('offensive');
   const [reportText, setReportText] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
@@ -210,7 +210,8 @@ export default function MyLightsPage() {
         }
         throw new Error(errorMessage);
       }
-      const normalized = (payload?.responses ?? []).map((item: unknown) => normalizeSentResponse(item));
+      const rawResponses = Array.isArray(payload?.responses) ? payload.responses : [];
+      const normalized = rawResponses.map((item: unknown) => normalizeSentResponse(item));
       normalized.sort((a: SentResponse, b: SentResponse) => b.createdAt - a.createdAt);
       setSentResponses(normalized);
     } catch (error) {
