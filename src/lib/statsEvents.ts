@@ -4,7 +4,12 @@ type Listener = () => void;
 
 export const triggerGlobalStatsRefresh = () => {
   if (typeof window === 'undefined') return;
-  window.dispatchEvent(new Event(GLOBAL_STATS_REFRESH_EVENT));
+
+  try {
+    window.dispatchEvent(new Event(GLOBAL_STATS_REFRESH_EVENT));
+  } catch (error) {
+    console.error('[statsEvents] Failed to dispatch global stats refresh', error);
+  }
 };
 
 export const addGlobalStatsRefreshListener = (listener: Listener) => {

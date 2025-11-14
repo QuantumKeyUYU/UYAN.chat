@@ -64,6 +64,7 @@ export default function WritePage() {
         body: JSON.stringify({
           text: values.text,
           honeypot: values.honeypot,
+          deviceId,
         }),
       });
 
@@ -112,7 +113,11 @@ export default function WritePage() {
       form.reset({ text: '', honeypot: '' });
       setCooldownSeconds(null);
       setSubmitted(true);
-      triggerGlobalStatsRefresh();
+      try {
+        triggerGlobalStatsRefresh();
+      } catch (error) {
+        console.error('[write] Failed to trigger stats refresh', error);
+      }
     } catch (error) {
       console.error(error);
       setErrorMessage('Что-то пошло не так. Попробуй ещё раз чуть позже.');

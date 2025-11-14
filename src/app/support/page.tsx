@@ -141,6 +141,7 @@ export default function SupportPage() {
           text,
           type: 'custom',
           honeypot,
+          deviceId,
         }),
       });
       const result = await response.json();
@@ -185,7 +186,11 @@ export default function SupportPage() {
       reset({ text: '', honeypot: '' });
       setPhase('success');
       setCooldownSeconds(null);
-      triggerGlobalStatsRefresh();
+      try {
+        triggerGlobalStatsRefresh();
+      } catch (error) {
+        console.error('[support] Failed to trigger stats refresh', error);
+      }
     } catch (err) {
       console.error(err);
       setSubmissionError('Не получилось отправить ответ. Попробуй ещё раз.');
