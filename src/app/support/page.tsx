@@ -1,443 +1,352 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm, type SubmitHandler } from 'react-hook-form';
-import { motion } from 'framer-motion';
-import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeForm';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Notice } from '@/components/ui/Notice';
-import type { MessageCategory } from '@/types/firestore';
-import { useSoftMotion } from '@/lib/animation';
-import { DEVICE_ID_HEADER, DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
-import { formatSeconds } from '@/lib/time';
-import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+// если у тебя другой путь — поправь
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
-import { RESPONSE_LENGTH_WARNING_THRESHOLD } from '@/lib/shareCard';
-import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
 
-type MessagePayload = {
+type DeviceStatus = 'idle' | 'resolving' | 'ready' | 'failed';
+
+interface SupportMessage {
   id: string;
   text: string;
-  category: MessageCategory;
-  createdAt: number;
-  expiresAt: number;
-  status: string;
-};
+  category?: string | null;
+  createdAt?: string;
+  expiresAt?: string;
+}
 
-type Phase = 'explore' | 'compose' | 'success';
+interface RandomMessageResponse {
+  message?: SupportMessage | null;
+  code?: string;
+  messageText?: string; // на всякий, если бэкенд кладёт текст сюда
+  error?: string;
+}
 
-const MIN_LENGTH = 20;
-const MAX_LENGTH = 200;
+interface CreateResponseResult {
+  ok?: boolean;
+  message?: string;
+  error?: string;
+  code?: string;
+}
 
-const pluralizeMinutes = (minutes: number) => {
-  if (minutes % 10 === 1 && minutes % 100 !== 11) {
-    return 'минуту';
-  }
-  if ([2, 3, 4].includes(minutes % 10) && ![12, 13, 14].includes(minutes % 100)) {
-    return 'минуты';
-  }
-  return 'минут';
-};
+// небольшой хелпер, чтобы не дёргать рандомное сообщение без deviceId
+function canUseDevice(status: DeviceStatus, deviceId: string | null): boolean {
+  return status === 'ready' && !!deviceId;
+}
 
 export default function SupportPage() {
-  const {
-    deviceId,
-    status: deviceStatus,
-    resolving: deviceResolving,
-    error: deviceResolutionError,
-    refresh: refreshDevice,
-  } =
-    useResolvedDeviceId();
-  const deviceFailed = deviceStatus === 'error' || deviceStatus === 'failed';
-  const { vocabulary } = useVocabulary();
-  const router = useRouter();
-  const softMotion = useSoftMotion();
+  const { deviceId, status: rawStatus, error: deviceHookError } = useResolvedDeviceId();
+
+  // привели тип явно, чтобы TS не ругался
+  const deviceStatus = rawStatus as DeviceStatus;
+
+  const [message, setMessage] = useState<SupportMessage | null>(null);
   const [loadingMessage, setLoadingMessage] = useState(false);
-  const [phase, setPhase] = useState<Phase>('explore');
-  const [message, setMessage] = useState<MessagePayload | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [deviceError, setDeviceError] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [responseText, setResponseText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [submissionError, setSubmissionError] = useState<string | null>(null);
-  const [isBanned, setIsBanned] = useState(false);
-  const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
-  const form = useForm<ComposeFormFields>({ defaultValues: { text: '', honeypot: '' } });
-  const {
-    reset,
-  } = form;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const phaseDescriptions = useMemo<Record<Phase, string>>(
-    () => ({
-      explore: vocabulary.supportPageLookingFor,
-      compose: 'Пиши ответ своими словами — спокойно и бережно.',
-      success: 'Ответ уже в пути и скоро окажется у автора мысли.',
-    }),
-    [vocabulary.supportPageLookingFor],
-  );
+  const [deviceHardError, setDeviceHardError] = useState<string | null>(null);
 
-  const errorHeading = useMemo(() => {
-    if (deviceError) {
-      return 'Не получилось настроить устройство.';
-    }
-    if (error && error.startsWith('Не удалось загрузить мысль')) {
-      return 'Не удалось загрузить мысль.';
-    }
-    return 'Сейчас нет историй, которые ждут поддержки.';
-  }, [deviceError, error]);
+  const deviceReady = canUseDevice(deviceStatus, deviceId ?? null);
 
-  const errorDescription = useMemo(() => {
-    if (deviceError) {
-      return 'Не получилось настроить это устройство. Попробуй обновить страницу позже.';
-    }
-    return error ?? '';
-  }, [deviceError, error]);
+  const isBusy = loadingMessage || submitting;
+
+  const showSkeleton = !message && loadingMessage && !loadError && !deviceHardError;
+  const showEmptyState = !message && !loadingMessage && !loadError && !deviceHardError;
+
+  // Тексты статуса устройства / ошибки
+  const deviceStatusLabel = useMemo(() => {
+    if (deviceHardError) return deviceHardError;
+    if (deviceHookError) return 'Не получилось настроить это устройство. Попробуй обновить страницу.';
+    if (deviceStatus === 'resolving' || deviceStatus === 'idle')
+      return 'Готовим страницу, это может занять пару секунд…';
+    if (deviceStatus === 'failed')
+      return 'Не удалось настроить устройство. Попробуй обновить страницу чуть позже.';
+    return null;
+  }, [deviceHookError, deviceStatus, deviceHardError]);
 
   const fetchRandomMessage = useCallback(async () => {
-    if (deviceError) {
+    if (!deviceReady) {
       return;
     }
 
     setLoadingMessage(true);
-    setError(null);
-    setPhase('explore');
-    setSubmissionError(null);
+    setLoadError(null);
+    setSubmitSuccess(false);
+    setSubmitError(null);
+
     try {
-      const headers: HeadersInit = {};
-      if (deviceId) {
-        headers[DEVICE_ID_HEADER] = deviceId;
-      }
+      const res = await fetch('/api/messages/random', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // если бэкенд ждёт deviceId через заголовок — оставь;
+          // если через query/body — поменяй реализацию
+          'x-device-id': deviceId ?? '',
+        },
+      });
 
-      const response = await fetch('/api/messages/random', { headers });
-      const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+      const data = (await res.json()) as RandomMessageResponse;
 
-      if (!response.ok) {
-        const errorCode = typeof data?.['code'] === 'string' ? (data['code'] as string) : null;
-        const errorMessage = typeof data?.['message'] === 'string' ? (data['message'] as string) : null;
-
-        if (errorCode === DEVICE_UNIDENTIFIED_ERROR) {
-          setDeviceError(true);
-          setError('Не получилось настроить это устройство. Попробуй обновить страницу позже.');
+      if (!res.ok) {
+        // Специальный код про устройство — больше не мучаем сеть
+        if (data.code === 'DEVICE_UNIDENTIFIED_ERROR') {
+          setDeviceHardError(
+            'Не получилось настроить это устройство. Попробуй обновить страницу или зайти позже.',
+          );
           setMessage(null);
           return;
         }
 
-        setError(errorMessage ?? 'Не удалось загрузить мысль.');
+        // Нет мыслей, ждущих ответа — это не ошибка, просто пустое состояние
+        if (data.code === 'NO_MESSAGES') {
+          setMessage(null);
+          setLoadError(null);
+          return;
+        }
+
         setMessage(null);
+        setLoadError(
+          data.message ??
+            data.error ??
+            'Не удалось загрузить мысль. Проверь интернет и попробуй ещё раз.',
+        );
         return;
       }
 
-      const payload = data?.['message'];
-      if (!payload || typeof payload !== 'object') {
-        setDeviceError(false);
-        setMessage(null);
-        setError('Можно заглянуть позже или поделиться своей.');
-        reset({ text: '', honeypot: '' });
-        setCooldownSeconds(null);
-        return;
-      }
+      const payloadMessage: SupportMessage | null =
+        (data.message as SupportMessage | null | undefined) ?? null;
 
-      setDeviceError(false);
-      setMessage(payload as MessagePayload);
-      reset({ text: '', honeypot: '' });
-      setCooldownSeconds(null);
+      setMessage(payloadMessage);
+      setLoadError(null);
     } catch (err) {
-      console.error(err);
-      setDeviceError(false);
-      setError('Не удалось загрузить мысль. Попробуй позже.');
       setMessage(null);
+      setLoadError('Не удалось загрузить мысль. Проверь интернет и попробуй ещё раз.');
     } finally {
       setLoadingMessage(false);
     }
-  }, [deviceError, deviceId, reset]);
+  }, [deviceReady, deviceId]);
 
+  // Автозагрузка первой мысли
   useEffect(() => {
-    if (deviceError) {
-      return;
-    }
-    if (deviceStatus !== 'ready' || !deviceId) {
-      return;
-    }
-    if (loadingMessage || message || submitting) {
-      return;
-    }
+    if (!deviceReady) return;
+    if (deviceHardError) return;
+    if (loadingMessage) return;
+    if (message) return;
 
     void fetchRandomMessage();
-  }, [deviceError, deviceStatus, deviceId, fetchRandomMessage, loadingMessage, message, submitting]);
+  }, [deviceReady, deviceHardError, loadingMessage, message, fetchRandomMessage]);
 
-  useEffect(() => {
-    if (!cooldownSeconds || cooldownSeconds <= 0) return;
-    const timer = setInterval(() => {
-      setCooldownSeconds((prev) => {
-        if (!prev || prev <= 1) {
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldownSeconds]);
+  const handleAnotherMessage = async () => {
+    if (isBusy) return;
+    setResponseText('');
+    await fetchRandomMessage();
+  };
 
-  const sendResponse = async (text: string, honeypot?: string) => {
-    if (!message) {
-      setSubmissionError('Не удалось выбрать мысль для ответа. Попробуй обновить страницу.');
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!message) return;
+    const text = responseText.trim();
+    if (!text) return;
+    if (!deviceReady) {
+      setSubmitError('Не получилось настроить устройство. Попробуй обновить страницу.');
       return;
     }
-    if (isBanned) {
-      setSubmissionError('Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
-      return;
-    }
+
     setSubmitting(true);
-    setSubmissionError(null);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (deviceId) {
-        headers[DEVICE_ID_HEADER] = deviceId;
-      }
-      const response = await fetch('/api/responses/create', {
+      const res = await fetch('/api/responses/create', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId ?? '',
+        },
         body: JSON.stringify({
           messageId: message.id,
           text,
-          type: 'custom',
-          honeypot,
-          deviceId: deviceId ?? null,
         }),
       });
-      const result = await response.json();
-      if (response.status === 403) {
-        setIsBanned(true);
-        setSubmissionError('Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
-        return;
-      }
-      if (!response.ok) {
-        if (response.status === 429) {
-          const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
-          const minutes = Math.max(1, Math.ceil(retryAfter / 60));
-          setSubmissionError(
-            `Сегодня ты уже поддержал много мыслей. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+
+      const data = (await res.json()) as CreateResponseResult;
+
+      if (!res.ok) {
+        // какие-то наши специфичные коды, если есть
+        if (data.code === 'MESSAGE_ALREADY_ANSWERED') {
+          setSubmitError('Кто-то уже поддержал эту мысль. Можно выбрать другую.');
+        } else if (data.code === 'CANNOT_ANSWER_OWN_MESSAGE') {
+          setSubmitError('Нельзя отвечать на свою мысль. Можно поддержать кого-то ещё.');
+        } else {
+          setSubmitError(
+            data.message ?? data.error ?? 'Не удалось отправить ответ. Попробуй ещё раз.',
           );
-          setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
-          return;
         }
-
-        if (result?.suggestion) {
-          setSubmissionError(result.suggestion);
-          return;
-        }
-
-        const reasonMessages: Record<string, string> = {
-          contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
-          spam: 'Ответ выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
-          too_short: 'Добавь чуть больше тепла и конкретики, чтобы автор почувствовал твою поддержку.',
-          too_long: 'Сократи ответ до 200 символов, чтобы его легко было дочитать.',
-          crisis:
-            'Если текст задевает кризисную тему, лучше направить автора к специалистам и избегать подробностей.',
-        };
-
-        if (result?.reason && reasonMessages[result.reason]) {
-          setSubmissionError(reasonMessages[result.reason]);
-          return;
-        }
-
-        setSubmissionError(result?.error ?? 'Не удалось отправить ответ. Попробуй ещё раз.');
         return;
       }
-      reset({ text: '', honeypot: '' });
-      setPhase('success');
-      setCooldownSeconds(null);
-      try {
-        triggerGlobalStatsRefresh();
-      } catch (error) {
-        console.error('[support] Failed to trigger stats refresh', error);
-      }
+
+      setSubmitSuccess(true);
+      setResponseText('');
+      // сразу же подгружаем следующую мысль
+      setMessage(null);
+      void fetchRandomMessage();
     } catch (err) {
-      console.error(err);
-      setSubmissionError('Не получилось отправить ответ. Попробуй ещё раз.');
+      setSubmitError('Не удалось отправить ответ. Проверь интернет и попробуй ещё раз.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCustomSubmit: SubmitHandler<ComposeFormFields> = async (values) => {
-    await sendResponse(values.text, values.honeypot);
-  };
-
-  const baseTransition = softMotion.transition;
-  const successInitial =
-    baseTransition.duration === 0 ? softMotion.initial : { ...softMotion.initial, scale: 0.96 };
-  const successAnimate =
-    baseTransition.duration === 0 ? softMotion.animate : { ...softMotion.animate, scale: 1 };
-
-  if (phase === 'success') {
-    return (
-      <motion.div
-        className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center"
-        initial={successInitial}
-        animate={successAnimate}
-        transition={baseTransition}
-      >
-        <Card className="w-full">
-          <div className="space-y-4">
-            <motion.div
-              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-uyan-light/20 text-3xl"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1.1, opacity: 1 }}
-              transition={{ repeat: Infinity, repeatType: 'reverse', duration: 1.6 }}
-            >
-              💫
-            </motion.div>
-            <h2 className="text-2xl font-semibold text-text-primary">Ответ отправлен</h2>
-            <p className="text-text-secondary">Ты подарил тёплый ответ. Пусть автор мысли почувствует, что он не один.</p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button onClick={() => fetchRandomMessage()} className="w-full sm:w-auto">
-                Поддержать ещё раз
-              </Button>
-              <Button variant="secondary" onClick={() => router.push('/my')} className="w-full sm:w-auto">
-                Проверить «Мои ответы»
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </motion.div>
-    );
-  }
-
-
   return (
-    <>
-      <motion.div
-        className="mx-auto flex max-w-4xl flex-col gap-6"
-        initial={softMotion.initial}
-        animate={softMotion.animate}
-        transition={baseTransition}
-      >
-        <div className="space-y-3">
-          <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.supportTitle}</h1>
-          <div className="space-y-2 text-sm text-text-secondary sm:text-base">
-            <p>{vocabulary.supportSubtitle}</p>
-            <p>{vocabulary.supportPageHelper}</p>
+    <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-10 md:py-12">
+      {/* Заголовок и описание */}
+      <section className="flex flex-col gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-50 md:text-4xl">
+          Поддержать
+        </h1>
+        <p className="max-w-2xl text-base leading-relaxed text-slate-300">
+          Выбирай мысль другого человека и отвечай на неё с теплом. Иногда один абзац поддержки
+          помогает выдержать день.
+        </p>
+      </section>
+
+      {/* Инфо-блок про анонимность */}
+      <section className="rounded-3xl bg-slate-900/60 p-5 text-sm leading-relaxed text-slate-200 shadow-lg shadow-black/30 md:p-6">
+        <p>
+          Здесь собраны анонимные записи людей, которым сейчас особенно нужна опора. Выбери одну
+          мысль и ответь на неё несколькими тёплыми фразами. Один внимательный ответ может выдержать
+          чей-то день.
+        </p>
+        <p className="mt-3 text-slate-400">
+          Каждая история анонимна. Ответ тоже остаётся без имени.
+        </p>
+      </section>
+
+      {/* Ошибка устройства / статуса */}
+      {deviceStatusLabel && (
+        <section className="rounded-3xl border border-red-500/40 bg-red-950/40 px-5 py-4 text-sm text-red-100">
+          {deviceStatusLabel}
+        </section>
+      )}
+
+      {/* Ошибка загрузки мысли */}
+      {loadError && !deviceHardError && (
+        <section className="rounded-3xl border border-red-500/40 bg-red-950/40 px-5 py-4 text-sm text-red-100">
+          <p className="mb-2">{loadError}</p>
+          <button
+            type="button"
+            onClick={fetchRandomMessage}
+            disabled={loadingMessage || !!deviceHardError}
+            className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-60"
+          >
+            Попробовать ещё раз
+          </button>
+        </section>
+      )}
+
+      {/* Основная карточка */}
+      <section className="rounded-3xl bg-slate-900/70 p-5 shadow-xl shadow-black/40 md:p-6">
+        {/* Скелетон */}
+        {showSkeleton && (
+          <div className="flex flex-col gap-4">
+            <div className="h-4 w-24 rounded-full bg-slate-700/60" />
+            <div className="h-5 w-48 rounded-full bg-slate-700/60" />
+            <div className="mt-2 space-y-3">
+              <div className="h-4 w-full rounded-full bg-slate-800/60" />
+              <div className="h-4 w-full rounded-full bg-slate-800/60" />
+              <div className="h-4 w-2/3 rounded-full bg-slate-800/60" />
+            </div>
+            <div className="mt-6 h-32 w-full rounded-2xl bg-slate-800/60" />
           </div>
-          <p className="text-xs text-text-tertiary sm:text-sm">{vocabulary.supportPageAnonNote}</p>
-        </div>
+        )}
 
-        <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
+        {/* Пустое состояние */}
+        {showEmptyState && (
+          <div className="flex flex-col items-start gap-4">
+            <h2 className="text-xl font-semibold text-slate-50">Сейчас нет мыслей, которые ждут внимания.</h2>
+            <p className="text-sm text-slate-300">
+              Можно заглянуть позже или поделиться своей историей.
+            </p>
+            <Link
+              href="/write"
+              className="mt-2 inline-flex items-center rounded-full bg-sky-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-md shadow-sky-500/30 hover:bg-sky-300"
+            >
+              Написать мысль
+            </Link>
+          </div>
+        )}
 
-        {deviceResolving ? (
-          <Notice variant="info">Готовим устройство… ты всё равно можешь выбирать мысли и отправлять поддержку.</Notice>
-        ) : null}
-        {!deviceResolving && deviceFailed ? (
-          <Notice variant="warning">
-            {deviceResolutionError ??
-              'Не удалось подготовить устройство. Ты всё равно можешь попробовать поддержать кого-то.'}{' '}
-            <button type="button" className="underline" onClick={() => { void refreshDevice(); }}>
-              Попробовать снова
-            </button>
-          </Notice>
-        ) : null}
+        {/* Контент с мыслью + форма ответа */}
+        {message && (
+          <div className="flex flex-col gap-6">
+            <header className="flex flex-col gap-2">
+              {message.category && (
+                <div className="inline-flex items-center rounded-full bg-slate-800/80 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-300">
+                  Категория: {message.category}
+                </div>
+              )}
+              <h2 className="text-lg font-semibold text-slate-50">Мысль для поддержки</h2>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100">
+                {message.text}
+              </p>
+            </header>
 
-        {isBanned ? (
-          <Notice variant="info">
-            Доступ к ответам сейчас приостановлен. Мы подскажем, когда снова можно будет поддерживать других.
-          </Notice>
-        ) : null}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-slate-200">Твой тёплый ответ</label>
+                <textarea
+                  value={responseText}
+                  onChange={(e) => setResponseText(e.target.value)}
+                  rows={5}
+                  maxLength={600}
+                  placeholder="Напиши несколько тёплых фраз. Как бы ты поддержал друга в такой ситуации?"
+                  className="min-h-[140px] w-full resize-none rounded-2xl border border-slate-700 bg-slate-950/40 px-4 py-3 text-sm text-slate-50 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-400 focus:ring-2 focus:ring-sky-500/40"
+                  disabled={submitting || !!deviceHardError}
+                />
+                <p className="text-xs text-slate-400">
+                  Лучше один-два честных абзаца, чем большое эссе.
+                </p>
+              </div>
 
-        {submissionError && phase !== 'compose' ? <Notice variant="error">{submissionError}</Notice> : null}
+              {submitError && (
+                <div className="rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-3 text-xs text-red-100">
+                  {submitError}
+                </div>
+              )}
 
-        {cooldownSeconds && cooldownSeconds > 0 && phase !== 'compose' ? (
-          <Notice variant="info">
-            Пауза перед следующей попыткой — осталось {formatSeconds(cooldownSeconds)}.
-          </Notice>
-        ) : null}
+              {submitSuccess && (
+                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-3 text-xs text-emerald-100">
+                  Спасибо. Твои слова отправлены человеку, который сейчас в них нуждается.
+                </div>
+              )}
 
-        {error ? (
-          <Card className="space-y-6 text-center">
-            <div className="space-y-2">
-              <p className="text-lg font-semibold text-text-primary">{errorHeading}</p>
-              <p className="text-text-secondary">{errorDescription}</p>
-            </div>
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Button onClick={() => router.push('/write')} className="w-full sm:w-auto">
-                Написать мысль
-              </Button>
-              <button
-                type="button"
-                onClick={fetchRandomMessage}
-                className="text-sm font-medium text-text-tertiary underline-offset-4 transition hover:text-text-secondary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary disabled:pointer-events-none disabled:opacity-60"
-                disabled={loadingMessage || deviceError}
-              >
-                {loadingMessage ? 'Обновляем…' : 'Попробовать ещё раз'}
-              </button>
-            </div>
-          </Card>
-        ) : null}
+              <div className="flex flex-col gap-3 pt-1 md:flex-row md:items-center">
+                <button
+                  type="submit"
+                  disabled={submitting || !responseText.trim() || !!deviceHardError}
+                  className="inline-flex items-center justify-center rounded-full bg-sky-400 px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-md shadow-sky-500/40 transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitting ? 'Отправляем…' : 'Отправить тёплый ответ'}
+                </button>
 
-        {message ? (
-          <Card className="space-y-4">
-            <div className="flex items-center justify-between text-sm text-text-tertiary">
-              <span className="rounded-full bg-uyan-darkness/20 px-3 py-1 text-text-secondary">
-                Категория: {message.category}
-              </span>
-              <span>Истекает через 24 часа</span>
-            </div>
-            <p className="text-lg text-text-primary">{message.text}</p>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                onClick={() => {
-                  setSubmissionError(null);
-                  setPhase('compose');
-                }}
-                className="w-full sm:w-auto"
-                disabled={isBanned}
-              >
-                💬 Написать тёплый ответ
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={fetchRandomMessage}
-                className="w-full sm:w-auto"
-                disabled={loadingMessage}
-              >
-                ⏭ Другая мысль
-              </Button>
-            </div>
-          </Card>
-        ) : null}
-
-        {phase === 'compose' && message ? (
-          <Card className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-text-primary">Твой ответ</h2>
-              <p className="text-text-secondary">20–200 символов тепла и поддержки.</p>
-            </div>
-            <ComposeForm
-              form={form}
-              onSubmit={handleCustomSubmit}
-              minLength={MIN_LENGTH}
-              maxLength={MAX_LENGTH}
-              placeholder="Напиши, что ты рядом и слышишь. Делись поддержкой простыми словами…"
-              submitLabel="Отправить тёплый ответ"
-              loadingLabel="Отправляем…"
-              errorMessage={submissionError}
-              busy={submitting}
-              disabled={isBanned}
-              cooldownSeconds={cooldownSeconds}
-              onChange={() => setSubmissionError(null)}
-              longTextWarningThreshold={RESPONSE_LENGTH_WARNING_THRESHOLD}
-              longTextWarningMessage="Текст длинный — шрифт на открытке будет мельче, чтобы всё поместилось."
-              mode="support"
-            />
-            <Button variant="secondary" onClick={() => setPhase('explore')} className="w-full sm:w-auto">
-              Назад
-            </Button>
-          </Card>
-        ) : null}
-      </motion.div>
-    </>
+                <button
+                  type="button"
+                  onClick={handleAnotherMessage}
+                  disabled={isBusy || !!deviceHardError}
+                  className="inline-flex items-center justify-center rounded-full border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Другая мысль
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
