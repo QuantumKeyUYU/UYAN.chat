@@ -125,7 +125,15 @@ export default function SupportPage() {
   }, [cooldownSeconds]);
 
   const sendResponse = async (text: string, honeypot?: string) => {
-    if (!deviceId || !message) return;
+    if (!deviceId) {
+      setSubmissionError('Не удалось подготовить устройство. Попробуй ещё раз.');
+      return;
+    }
+
+    if (!message) {
+      setSubmissionError('Не удалось выбрать мысль для ответа. Попробуй обновить страницу.');
+      return;
+    }
     if (isBanned) {
       setSubmissionError('Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.');
       return;

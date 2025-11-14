@@ -15,7 +15,7 @@ import { ShareCard, shareCardStyles } from '@/components/ShareCard';
 import { useDeviceStore } from '@/store/device';
 import { saveLight, loadGarden } from '@/lib/garden';
 import { hideResponseLocally, loadHiddenResponses } from '@/lib/hiddenResponses';
-import { DEVICE_ID_HEADER } from '@/lib/device/constants';
+import { DEVICE_ID_HEADER, DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 import {
@@ -152,15 +152,29 @@ export default function MyLightsPage() {
         headers: { [DEVICE_ID_HEADER]: deviceId },
         cache: 'no-store',
       });
-      if (!response.ok) throw new Error('Ошибка загрузки');
-      const data = await response.json();
-      const normalized = (data.messages ?? []).map((item: unknown) => normalizeMessageWithResponses(item));
+      const payload = (await response.json().catch(() => null)) as
+        | { messages?: unknown; error?: unknown }
+        | null;
+      if (!response.ok) {
+        const errorMessage = typeof payload?.error === 'string' ? payload.error : 'Ошибка загрузки';
+        throw new Error(errorMessage);
+      }
+      const rawMessages = Array.isArray(payload?.messages) ? payload.messages : [];
+      const normalized = rawMessages.map((item: unknown) => normalizeMessageWithResponses(item));
       setMessages(normalized);
       syncFromMessages(normalized);
       setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
     } catch (error) {
       console.error('[my] Failed to load messages', error);
-      setPageNotice({ variant: 'error', message: 'Не получилось загрузить твои мысли. Попробуй обновить позже.' });
+      const message = error instanceof Error ? error.message : null;
+      if (message === DEVICE_UNIDENTIFIED_ERROR) {
+        setPageNotice({
+          variant: 'error',
+          message: 'Не удалось подготовить устройство. Попробуй обновить страницу.',
+        });
+      } else {
+        setPageNotice({ variant: 'error', message: 'Не получилось загрузить твои мысли. Попробуй обновить позже.' });
+      }
     } finally {
       setLoadingReceived(false);
     }

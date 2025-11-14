@@ -54,7 +54,10 @@ export default function WritePage() {
   }, [cooldownSeconds]);
 
   const onSubmit: SubmitHandler<ComposeFormFields> = async (values) => {
-    if (!deviceId) return;
+    if (!deviceId) {
+      setErrorMessage('Не удалось подготовить устройство. Попробуй ещё раз.');
+      return;
+    }
     setLoading(true);
     setErrorMessage(null);
     try {

@@ -130,10 +130,18 @@ export async function POST(request: NextRequest) {
     });
 
     if (authorDeviceHash) {
-      await incrementStatsByHash(authorDeviceHash, { lightsReceived: 1 });
+      try {
+        await incrementStatsByHash(authorDeviceHash, { lightsReceived: 1 });
+      } catch (statsError) {
+        console.error('[api/responses/create] Failed to update author stats', statsError);
+      }
     }
 
-    await incrementStats(deviceId, { lightsGiven: 1 });
+    try {
+      await incrementStats(deviceId, { lightsGiven: 1 });
+    } catch (statsError) {
+      console.error('[api/responses/create] Failed to update responder stats', statsError);
+    }
 
     return attachDeviceCookie(NextResponse.json({ ok: true }, { status: 201 }), deviceId);
   } catch (error) {
