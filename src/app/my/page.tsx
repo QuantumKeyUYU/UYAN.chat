@@ -18,7 +18,6 @@ import { hideResponseLocally, loadHiddenResponses } from '@/lib/hiddenResponses'
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useRepliesBadge } from '@/hooks/useRepliesBadge';
-import { setLastRepliesSeenNow } from '@/lib/repliesBadge';
 import {
   SHARE_CARD_PIXEL_RATIO,
   SHARE_CARD_WIDTH,
@@ -142,7 +141,7 @@ export default function MyLightsPage() {
   const shareCardRef = useRef<HTMLDivElement | null>(null);
   const previewWrapperRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
-  const { markAsSeen, updateFromReplyDates, unreadCount } = useRepliesBadge();
+  const { markSeen, updateFromReplyDates, count: unreadCount, hasUnseenReplies } = useRepliesBadge();
   const [hasMarkedSeen, setHasMarkedSeen] = useState(false);
 
   const refreshSaved = useCallback(() => {
@@ -213,6 +212,8 @@ export default function MyLightsPage() {
     void loadSent();
   }, [deviceId, loadReceivedMessages, loadSent]);
 
+  const hasReplies = useMemo(() => messages.some((message) => message.responses.length > 0), [messages]);
+
   useEffect(() => {
     if (activeTab !== 'received') {
       return;
@@ -223,10 +224,12 @@ export default function MyLightsPage() {
     if (hasMarkedSeen) {
       return;
     }
+    if (!hasReplies && !hasUnseenReplies) {
+      return;
+    }
     setHasMarkedSeen(true);
-    setLastRepliesSeenNow();
-    markAsSeen();
-  }, [activeTab, hasMarkedSeen, loadingReceived, markAsSeen]);
+    markSeen();
+  }, [activeTab, hasMarkedSeen, hasReplies, hasUnseenReplies, loadingReceived, markSeen]);
 
   useEffect(() => {
     if (activeTab !== 'received') {
@@ -419,7 +422,7 @@ export default function MyLightsPage() {
             >
               <span className="inline-flex items-center justify-center gap-2">
                 <span>{tab.label}</span>
-                {tab.key === 'received' && unreadCount > 0 ? (
+                {tab.key === 'received' && hasUnseenReplies ? (
                   <span className="ml-2 rounded-full bg-uyan-gold/90 px-2 text-[11px] font-semibold text-slate-950">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
