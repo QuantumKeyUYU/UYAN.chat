@@ -7,10 +7,11 @@ import { motion } from 'framer-motion';
 import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeForm';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { useDeviceStore } from '@/store/device';
+import { Notice } from '@/components/ui/Notice';
 import { useSoftMotion } from '@/lib/animation';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
 import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
 
 const MIN_LENGTH = 10;
@@ -28,7 +29,8 @@ const pluralizeMinutes = (minutes: number) => {
 
 export default function WritePage() {
   const router = useRouter();
-  const deviceId = useDeviceStore((state) => state.id);
+  const { deviceId, status: deviceStatus, resolving: deviceResolving, error: deviceError, refresh: refreshDevice } =
+    useResolvedDeviceId();
   const { vocabulary } = useVocabulary();
   const { initial, animate, transition } = useSoftMotion();
   const form = useForm<ComposeFormFields>({
@@ -54,20 +56,20 @@ export default function WritePage() {
   }, [cooldownSeconds]);
 
   const onSubmit: SubmitHandler<ComposeFormFields> = async (values) => {
-    if (!deviceId) {
-      setErrorMessage('Не удалось подготовить устройство. Попробуй ещё раз.');
-      return;
-    }
     setLoading(true);
     setErrorMessage(null);
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (deviceId) {
+        headers[DEVICE_ID_HEADER] = deviceId;
+      }
       const response = await fetch('/api/messages/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
+        headers,
         body: JSON.stringify({
           text: values.text,
           honeypot: values.honeypot,
-          deviceId,
+          deviceId: deviceId ?? null,
         }),
       });
 
@@ -128,14 +130,6 @@ export default function WritePage() {
       setLoading(false);
     }
   };
-
-  if (!deviceId) {
-    return (
-      <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
-      </div>
-    );
-  }
 
   if (showCrisisScreen) {
     const crisisResources = [
@@ -218,6 +212,17 @@ export default function WritePage() {
           <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.writeTitle}</h1>
           <p className="text-sm text-text-secondary sm:text-base">{vocabulary.writeSubtitle}</p>
         </div>
+        {deviceResolving ? (
+          <Notice variant="info">Готовим устройство… Ты всё равно можешь отправить мысль.</Notice>
+        ) : null}
+        {!deviceResolving && deviceStatus === 'error' ? (
+          <Notice variant="warning">
+            {deviceError ?? 'Не удалось подготовить устройство. Ты всё равно можешь отправить мысль.'}{' '}
+            <button type="button" className="underline" onClick={() => { void refreshDevice(); }}>
+              Попробовать снова
+            </button>
+          </Notice>
+        ) : null}
         <Card className="border border-white/10 bg-bg-secondary/70 p-5 sm:p-6">
           <p className="text-sm leading-relaxed text-text-secondary sm:text-base">{vocabulary.writeInfoBlock}</p>
           <div className="mt-6">

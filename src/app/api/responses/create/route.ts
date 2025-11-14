@@ -9,7 +9,6 @@ import { moderateResponse } from '@/lib/moderation';
 import { getOrCreateUserStats, incrementStats, incrementStatsByHash } from '@/lib/stats';
 import { checkRateLimit } from '@/lib/rateLimiter';
 import { hashDeviceId } from '@/lib/deviceHash';
-import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
 import type { ResponseType } from '@/types/firestore';
 
@@ -24,10 +23,11 @@ export async function POST(request: NextRequest) {
       honeypot?: string;
     };
 
-    const deviceId = await resolveDeviceId(request, deviceIdFromBody);
-
-    if (!deviceId) {
-      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
+    let deviceId: string | null = null;
+    try {
+      deviceId = await resolveDeviceId(request, deviceIdFromBody);
+    } catch (resolutionError) {
+      console.error('[api/responses/create] Failed to resolve device id', resolutionError);
     }
 
     if (!messageId || !text) {
@@ -42,20 +42,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    const rateLimit = await checkRateLimit({ deviceId, action: 'response' });
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: 'Сегодня ты уже осветил много историй. Сделай вдох, вернись чуть позже.',
-          retryAfter: rateLimit.retryAfterSeconds ?? 0,
-        },
-        { status: 429 },
-      );
+    if (deviceId) {
+      const rateLimit = await checkRateLimit({ deviceId, action: 'response' });
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: 'Сегодня ты уже осветил много историй. Сделай вдох, вернись чуть позже.',
+            retryAfter: rateLimit.retryAfterSeconds ?? 0,
+          },
+          { status: 429 },
+        );
+      }
     }
 
-    const responderStats = await getOrCreateUserStats(deviceId);
-    const bannedUntil = responderStats.bannedUntil;
-    if (bannedUntil && bannedUntil.toMillis() > Timestamp.now().toMillis()) {
+    let bannedUntilMillis: number | null = null;
+    if (deviceId) {
+      try {
+        const responderStats = await getOrCreateUserStats(deviceId);
+        const bannedUntil = responderStats.bannedUntil;
+        if (bannedUntil) {
+          try {
+            bannedUntilMillis = bannedUntil.toMillis();
+          } catch (serializeError) {
+            console.error('[api/responses/create] Failed to parse ban timestamp', serializeError);
+          }
+        }
+      } catch (statsError) {
+        console.error('[api/responses/create] Failed to load responder stats', statsError);
+      }
+    }
+
+    if (bannedUntilMillis && bannedUntilMillis > Timestamp.now().toMillis()) {
       return NextResponse.json(
         { error: 'Твой доступ к ответам временно ограничен.' },
         { status: 403 },
@@ -78,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanedText = moderation.cleanedText ?? text.trim();
-    const responderHash = hashDeviceId(deviceId);
+    const responderHash = deviceId ? hashDeviceId(deviceId) : null;
     const responseType: ResponseType =
       type === 'quick' || type === 'ai-assisted' || type === 'custom' ? (type as ResponseType) : 'custom';
 
@@ -102,7 +119,7 @@ export async function POST(request: NextRequest) {
           ? hashDeviceId(String(messageData.deviceId))
           : null;
 
-      if (messageDeviceHash && messageDeviceHash === responderHash) {
+      if (messageDeviceHash && responderHash && messageDeviceHash === responderHash) {
         throw new Error('Cannot answer own message');
       }
 
@@ -137,13 +154,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    try {
-      await incrementStats(deviceId, { lightsGiven: 1 });
-    } catch (statsError) {
-      console.error('[api/responses/create] Failed to update responder stats', statsError);
+    if (deviceId) {
+      try {
+        await incrementStats(deviceId, { lightsGiven: 1 });
+      } catch (statsError) {
+        console.error('[api/responses/create] Failed to update responder stats', statsError);
+      }
     }
 
-    return attachDeviceCookie(NextResponse.json({ ok: true }, { status: 201 }), deviceId);
+    const response = NextResponse.json({ ok: true }, { status: 201 });
+    return deviceId ? attachDeviceCookie(response, deviceId) : response;
   } catch (error) {
     console.error('Failed to create response', error);
     const rawMessage = error instanceof Error ? error.message : 'Не удалось создать ответ.';

@@ -11,12 +11,12 @@ import { ComposeForm, type ComposeFormFields } from '@/components/forms/ComposeF
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
-import { useDeviceStore } from '@/store/device';
 import type { MessageCategory } from '@/types/firestore';
 import { useSoftMotion } from '@/lib/animation';
-import { DEVICE_ID_HEADER } from '@/lib/device/constants';
+import { DEVICE_ID_HEADER, DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { formatSeconds } from '@/lib/time';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
 import { RESPONSE_LENGTH_WARNING_THRESHOLD } from '@/lib/shareCard';
 import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
 
@@ -45,7 +45,8 @@ const pluralizeMinutes = (minutes: number) => {
 };
 
 export default function SupportPage() {
-  const deviceId = useDeviceStore((state) => state.id);
+  const { deviceId, status: deviceStatus, resolving: deviceResolving, error: deviceError, refresh: refreshDevice } =
+    useResolvedDeviceId();
   const { vocabulary } = useVocabulary();
   const router = useRouter();
   const softMotion = useSoftMotion();
@@ -72,27 +73,34 @@ export default function SupportPage() {
   );
 
   const fetchRandomMessage = async () => {
-    if (!deviceId) return;
     setLoadingMessage(true);
     setError(null);
     setPhase('explore');
     setSubmissionError(null);
     try {
-      const response = await fetch('/api/messages/random', {
-        headers: { [DEVICE_ID_HEADER]: deviceId },
-      });
-      if (!response.ok) {
-        throw new Error('Не удалось получить мысль');
+      const headers: HeadersInit = {};
+      if (deviceId) {
+        headers[DEVICE_ID_HEADER] = deviceId;
       }
-      const data = await response.json();
-      if (!data.message) {
+      const response = await fetch('/api/messages/random', { headers });
+      const payload = (await response.json().catch(() => null)) as { message?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const errorMessage = typeof payload?.error === 'string' ? payload.error : null;
+        if (errorMessage === DEVICE_UNIDENTIFIED_ERROR) {
+          setError('Не удалось подготовить устройство, поэтому новые мысли пока недоступны. Попробуй обновить страницу.');
+          setMessage(null);
+          return;
+        }
+        throw new Error(errorMessage ?? 'Не удалось получить мысль');
+      }
+      if (!payload?.message) {
         setMessage(null);
         setError('Сейчас нет историй, которые ждут поддержки. Можно заглянуть позже или поделиться своей.');
         reset({ text: '', honeypot: '' });
         setCooldownSeconds(null);
         return;
       }
-      setMessage(data.message as MessagePayload);
+      setMessage(payload.message as MessagePayload);
       reset({ text: '', honeypot: '' });
       setCooldownSeconds(null);
     } catch (err) {
@@ -105,11 +113,12 @@ export default function SupportPage() {
   };
 
   useEffect(() => {
-    if (deviceId) {
-      fetchRandomMessage();
+    if (deviceStatus !== 'ready' || !deviceId) {
+      return;
     }
+    fetchRandomMessage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId]);
+  }, [deviceStatus, deviceId]);
 
   useEffect(() => {
     if (!cooldownSeconds || cooldownSeconds <= 0) return;
@@ -125,11 +134,6 @@ export default function SupportPage() {
   }, [cooldownSeconds]);
 
   const sendResponse = async (text: string, honeypot?: string) => {
-    if (!deviceId) {
-      setSubmissionError('Не удалось подготовить устройство. Попробуй ещё раз.');
-      return;
-    }
-
     if (!message) {
       setSubmissionError('Не удалось выбрать мысль для ответа. Попробуй обновить страницу.');
       return;
@@ -141,15 +145,19 @@ export default function SupportPage() {
     setSubmitting(true);
     setSubmissionError(null);
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (deviceId) {
+        headers[DEVICE_ID_HEADER] = deviceId;
+      }
       const response = await fetch('/api/responses/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', [DEVICE_ID_HEADER]: deviceId },
+        headers,
         body: JSON.stringify({
           messageId: message.id,
           text,
           type: 'custom',
           honeypot,
-          deviceId,
+          deviceId: deviceId ?? null,
         }),
       });
       const result = await response.json();
@@ -211,14 +219,6 @@ export default function SupportPage() {
     await sendResponse(values.text, values.honeypot);
   };
 
-  if (!deviceId) {
-    return (
-      <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Не удалось определить путь устройства. Перезагрузи страницу или попробуй открыть сервис заново.
-      </div>
-    );
-  }
-
   const baseTransition = softMotion.transition;
   const successInitial =
     baseTransition.duration === 0 ? softMotion.initial : { ...softMotion.initial, scale: 0.96 };
@@ -278,6 +278,18 @@ export default function SupportPage() {
         </div>
 
         <p className="text-sm text-text-tertiary">{phaseDescriptions[phase]}</p>
+
+        {deviceResolving ? (
+          <Notice variant="info">Готовим устройство… ты всё равно можешь выбирать мысли и отправлять поддержку.</Notice>
+        ) : null}
+        {!deviceResolving && deviceStatus === 'error' ? (
+          <Notice variant="warning">
+            {deviceError ?? 'Не удалось подготовить устройство. Ты всё равно можешь попробовать поддержать кого-то.'}{' '}
+            <button type="button" className="underline" onClick={() => { void refreshDevice(); }}>
+              Попробовать снова
+            </button>
+          </Notice>
+        ) : null}
 
         {isBanned ? (
           <Notice variant="info">
