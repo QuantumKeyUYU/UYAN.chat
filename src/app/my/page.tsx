@@ -12,7 +12,6 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Notice } from '@/components/ui/Notice';
 import { ShareCard, shareCardStyles } from '@/components/ShareCard';
-import { useDeviceStore } from '@/store/device';
 import { saveLight, loadGarden } from '@/lib/garden';
 import { hideResponseLocally, loadHiddenResponses } from '@/lib/hiddenResponses';
 import { DEVICE_ID_HEADER, DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
@@ -23,6 +22,7 @@ import {
   SHARE_CARD_WIDTH,
   SHARE_CARD_HEIGHT,
 } from '@/lib/shareCard';
+import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
 
 const tabs = [
   { key: 'received', label: 'Мне ответили' },
@@ -110,7 +110,11 @@ const normalizeSentResponse = (raw: any): SentResponse => ({
 
 export default function MyLightsPage() {
   const router = useRouter();
-  const deviceId = useDeviceStore((state) => state.id);
+  const { deviceId, status: deviceStatus, resolving: deviceResolving, error: deviceError, refresh: refreshDevice } =
+    useResolvedDeviceId();
+  const isDevicePreparing = deviceResolving || deviceStatus === 'idle';
+  const deviceUnavailableMessage =
+    'Не удалось подготовить устройство, поэтому мы не можем показать предыдущие ответы. Попробуй открыть страницу позже или с этого же браузера.';
   const { vocabulary } = useVocabulary();
   const [activeTab, setActiveTab] = useState<TabKey>('received');
   const [messages, setMessages] = useState<MessageWithResponses[]>([]);
@@ -144,8 +148,13 @@ export default function MyLightsPage() {
   }, []);
 
   const loadReceivedMessages = useCallback(async () => {
-    if (!deviceId) return;
     setHasMarkedSeen(false);
+    if (!deviceId) {
+      setMessages([]);
+      syncFromMessages([]);
+      setLoadingReceived(false);
+      return;
+    }
     setLoadingReceived(true);
     try {
       const response = await fetch('/api/messages/my', {
@@ -170,7 +179,7 @@ export default function MyLightsPage() {
       if (message === DEVICE_UNIDENTIFIED_ERROR) {
         setPageNotice({
           variant: 'error',
-          message: 'Не удалось подготовить устройство. Попробуй обновить страницу.',
+          message: deviceUnavailableMessage,
         });
       } else {
         setPageNotice({ variant: 'error', message: 'Не получилось загрузить твои мысли. Попробуй обновить позже.' });
@@ -181,35 +190,62 @@ export default function MyLightsPage() {
   }, [deviceId, syncFromMessages]);
 
   const loadSent = useCallback(async () => {
-    if (!deviceId) return;
+    if (!deviceId) {
+      setSentResponses([]);
+      setLoadingSent(false);
+      return;
+    }
     setLoadingSent(true);
     try {
       const response = await fetch('/api/responses/my', {
         headers: { [DEVICE_ID_HEADER]: deviceId },
         cache: 'no-store',
       });
-      if (!response.ok) throw new Error('Ошибка загрузки ответов');
-      const data = await response.json();
-      const normalized = (data.responses ?? []).map((item: unknown) => normalizeSentResponse(item));
+      const payload = (await response.json().catch(() => null)) as { responses?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const errorMessage = typeof payload?.error === 'string' ? payload.error : 'Ошибка загрузки ответов';
+        if (errorMessage === DEVICE_UNIDENTIFIED_ERROR) {
+          setPageNotice({ variant: 'error', message: deviceUnavailableMessage });
+          return;
+        }
+        throw new Error(errorMessage);
+      }
+      const normalized = (payload?.responses ?? []).map((item: unknown) => normalizeSentResponse(item));
       normalized.sort((a: SentResponse, b: SentResponse) => b.createdAt - a.createdAt);
       setSentResponses(normalized);
     } catch (error) {
       console.error('[my] Failed to load sent responses', error);
-      setPageNotice((prev) =>
-        prev?.variant === 'error'
-          ? prev
-          : { variant: 'error', message: 'Не получилось загрузить отправленные ответы. Попробуй позже.' },
-      );
+      setPageNotice((prev) => {
+        if (prev?.variant === 'error') {
+          return prev;
+        }
+        return { variant: 'error', message: 'Не получилось загрузить отправленные ответы. Попробуй позже.' };
+      });
     } finally {
       setLoadingSent(false);
     }
   }, [deviceId]);
 
   useEffect(() => {
-    if (!deviceId) return;
+    if (deviceStatus === 'error') {
+      setLoadingReceived(false);
+      setLoadingSent(false);
+      setPageNotice(null);
+      return;
+    }
+
+    if (deviceStatus !== 'ready' || !deviceId) {
+      if (isDevicePreparing) {
+        setLoadingReceived(true);
+        setLoadingSent(true);
+      }
+      return;
+    }
+
+    setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
     void loadReceivedMessages();
     void loadSent();
-  }, [deviceId, loadReceivedMessages, loadSent]);
+  }, [deviceStatus, deviceId, isDevicePreparing, loadReceivedMessages, loadSent]);
 
   const hasReplies = useMemo(() => messages.some((message) => message.responses.length > 0), [messages]);
 
@@ -385,14 +421,6 @@ export default function MyLightsPage() {
     }
   };
 
-  if (!deviceId) {
-    return (
-      <div className="mx-auto max-w-2xl text-center text-text-secondary">
-        Не удалось определить устройство. Перезагрузи страницу или попробуй открыть сервис заново.
-      </div>
-    );
-  }
-
   return (
     <motion.div
       className="mx-auto flex max-w-4xl flex-col gap-8"
@@ -435,6 +463,18 @@ export default function MyLightsPage() {
           );
         })}
       </div>
+
+      {isDevicePreparing ? (
+        <Notice variant="info">Готовим устройство… если здесь уже были ответы, они появятся через мгновение.</Notice>
+      ) : null}
+      {!isDevicePreparing && deviceStatus === 'error' ? (
+        <Notice variant="warning">
+          {deviceError ?? deviceUnavailableMessage}{' '}
+          <button type="button" className="underline" onClick={() => { void refreshDevice(); }}>
+            Попробовать снова
+          </button>
+        </Notice>
+      ) : null}
 
       {pageNotice ? <Notice variant={pageNotice.variant}>{pageNotice.message}</Notice> : null}
 
