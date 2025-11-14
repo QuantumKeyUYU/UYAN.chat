@@ -83,8 +83,12 @@ export async function POST(request: NextRequest) {
     };
     const docRef = await db.collection('messages').add(messagePayload);
 
-    await getOrCreateUserStats(deviceId);
-    await incrementStats(deviceId, { messagesSent: 1 });
+    try {
+      await getOrCreateUserStats(deviceId);
+      await incrementStats(deviceId, { messagesSent: 1 });
+    } catch (statsError) {
+      console.error('[api/messages/create] Failed to update user stats', statsError);
+    }
 
     const message = serializeDoc({ id: docRef.id, ...messagePayload });
 
