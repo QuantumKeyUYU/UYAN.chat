@@ -159,8 +159,8 @@ export default function MyLightsPage() {
         const errorMessage = typeof payload?.error === 'string' ? payload.error : 'Ошибка загрузки';
         throw new Error(errorMessage);
       }
-      const data = payload ?? {};
-      const normalized = (data.messages ?? []).map((item: unknown) => normalizeMessageWithResponses(item));
+      const rawMessages = Array.isArray(payload?.messages) ? payload.messages : [];
+      const normalized = rawMessages.map((item: unknown) => normalizeMessageWithResponses(item));
       setMessages(normalized);
       syncFromMessages(normalized);
       setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
