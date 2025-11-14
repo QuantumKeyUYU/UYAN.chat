@@ -1,7 +1,7 @@
 'use client';
 
-const noopAsync = async () => {};
-const noopSync = () => {};
+const noopAsync = async (..._args: unknown[]) => {};
+const noopSync = (..._args: unknown[]) => {};
 
 export const useRepliesBadge = () => ({
   count: 0,
