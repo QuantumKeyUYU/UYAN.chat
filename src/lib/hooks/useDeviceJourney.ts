@@ -48,7 +48,7 @@ export const useDeviceJourney = ({ autoloadStats = true }: UseDeviceJourneyOptio
         }
 
         if (!deviceId) {
-          if (deviceStatus === 'error') {
+          if (deviceStatus === 'error' || deviceStatus === 'failed') {
             setError(deviceError ?? 'Не удалось подготовить устройство.');
             setLoading(false);
           } else if (!stats) {

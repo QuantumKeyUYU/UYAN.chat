@@ -11,6 +11,7 @@ import { checkRateLimit } from '@/lib/rateLimiter';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
 import type { ResponseType } from '@/types/firestore';
+import { serializeDoc } from '@/lib/serializers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,6 +105,8 @@ export async function POST(request: NextRequest) {
 
     let authorDeviceHash: string | null = null;
 
+    let responseDoc: Record<string, unknown> | null = null;
+
     await db.runTransaction(async (transaction) => {
       const messageSnap = await transaction.get(messageRef);
       if (!messageSnap.exists) {
@@ -144,13 +147,17 @@ export async function POST(request: NextRequest) {
         status: 'answered',
         answeredAt: now,
       });
+
+      responseDoc = { id: responseRef.id, ...responsePayload };
     });
+
+    const serializedResponse = responseDoc ? serializeDoc(responseDoc) : null;
 
     if (authorDeviceHash) {
       try {
         await incrementStatsByHash(authorDeviceHash, { lightsReceived: 1 });
       } catch (statsError) {
-        console.error('[api/responses/create] Failed to update author stats', statsError);
+        console.error('[api/responses/create] stats failed for author', statsError);
       }
     }
 
@@ -158,11 +165,12 @@ export async function POST(request: NextRequest) {
       try {
         await incrementStats(deviceId, { lightsGiven: 1 });
       } catch (statsError) {
-        console.error('[api/responses/create] Failed to update responder stats', statsError);
+        console.error('[api/responses/create] stats failed for responder', statsError);
       }
     }
 
-    const response = NextResponse.json({ ok: true }, { status: 201 });
+    const responseBody = serializedResponse ? { response: serializedResponse } : { ok: true };
+    const response = NextResponse.json(responseBody, { status: 201 });
     return deviceId ? attachDeviceCookie(response, deviceId) : response;
   } catch (error) {
     console.error('Failed to create response', error);

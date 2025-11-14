@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { useDeviceStore } from '@/store/device';
 
-type DeviceResolutionStatus = 'idle' | 'resolving' | 'ready' | 'error';
+type DeviceResolutionStatus = 'idle' | 'resolving' | 'ready' | 'error' | 'failed';
 
 interface UseResolvedDeviceIdResult {
   deviceId: string | null;
@@ -72,7 +72,7 @@ export const useResolvedDeviceId = (): UseResolvedDeviceIdResult => {
       return resolvedId;
     } catch (resolutionError) {
       console.error('[useResolvedDeviceId] Failed to resolve device id', resolutionError);
-      safeSetStatus('error');
+      safeSetStatus('failed');
       safeSetError('Не удалось подготовить устройство.');
       return null;
     } finally {

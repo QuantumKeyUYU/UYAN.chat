@@ -112,9 +112,12 @@ export default function MyLightsPage() {
   const router = useRouter();
   const { deviceId, status: deviceStatus, resolving: deviceResolving, error: deviceError, refresh: refreshDevice } =
     useResolvedDeviceId();
+  const deviceFailed = deviceStatus === 'error' || deviceStatus === 'failed';
   const isDevicePreparing = deviceResolving || deviceStatus === 'idle';
   const deviceUnavailableMessage =
     'Не удалось подготовить устройство, поэтому мы не можем показать предыдущие ответы. Попробуй открыть страницу позже или с этого же браузера.';
+  const deviceMissingInfoMessage =
+    'Не удалось найти это устройство. Ответы, оставленные с другого браузера или телефона, здесь не появятся.';
   const { vocabulary } = useVocabulary();
   const [activeTab, setActiveTab] = useState<TabKey>('received');
   const [messages, setMessages] = useState<MessageWithResponses[]>([]);
@@ -153,6 +156,7 @@ export default function MyLightsPage() {
       setMessages([]);
       syncFromMessages([]);
       setLoadingReceived(false);
+      setPageNotice({ variant: 'info', message: deviceMissingInfoMessage });
       return;
     }
     setLoadingReceived(true);
@@ -172,7 +176,13 @@ export default function MyLightsPage() {
       const normalized = rawMessages.map((item: unknown) => normalizeMessageWithResponses(item));
       setMessages(normalized);
       syncFromMessages(normalized);
-      setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
+      setPageNotice((prev) => {
+        if (!prev) return null;
+        if (prev.variant === 'success') {
+          return prev;
+        }
+        return null;
+      });
     } catch (error) {
       console.error('[my] Failed to load messages', error);
       const message = error instanceof Error ? error.message : null;
@@ -187,7 +197,7 @@ export default function MyLightsPage() {
     } finally {
       setLoadingReceived(false);
     }
-  }, [deviceId, syncFromMessages]);
+  }, [deviceId, deviceMissingInfoMessage, syncFromMessages]);
 
   const loadSent = useCallback(async () => {
     if (!deviceId) {
@@ -225,28 +235,46 @@ export default function MyLightsPage() {
     } finally {
       setLoadingSent(false);
     }
-  }, [deviceId]);
+  }, [deviceId, deviceUnavailableMessage]);
 
   useEffect(() => {
-    if (deviceStatus === 'error') {
+    if (!deviceId) {
+      if (deviceFailed) {
+        setPageNotice({ variant: 'error', message: deviceUnavailableMessage });
+      } else if (!deviceResolving && deviceStatus !== 'idle') {
+        setPageNotice({ variant: 'info', message: deviceMissingInfoMessage });
+      }
       setLoadingReceived(false);
       setLoadingSent(false);
-      setPageNotice(null);
       return;
     }
 
-    if (deviceStatus !== 'ready' || !deviceId) {
-      if (isDevicePreparing) {
-        setLoadingReceived(true);
-        setLoadingSent(true);
+    if (deviceFailed) {
+      setLoadingReceived(false);
+      setLoadingSent(false);
+      setPageNotice({ variant: 'error', message: deviceUnavailableMessage });
+      return;
+    }
+
+    setPageNotice((prev) => {
+      if (!prev) return null;
+      if (prev.variant === 'success') {
+        return prev;
       }
-      return;
-    }
-
-    setPageNotice((prev) => (prev?.variant === 'error' ? null : prev));
+      return null;
+    });
     void loadReceivedMessages();
     void loadSent();
-  }, [deviceStatus, deviceId, isDevicePreparing, loadReceivedMessages, loadSent]);
+  }, [
+    deviceFailed,
+    deviceId,
+    deviceMissingInfoMessage,
+    deviceResolving,
+    deviceStatus,
+    deviceUnavailableMessage,
+    loadReceivedMessages,
+    loadSent,
+  ]);
 
   const hasReplies = useMemo(() => messages.some((message) => message.responses.length > 0), [messages]);
 
@@ -468,7 +496,7 @@ export default function MyLightsPage() {
       {isDevicePreparing ? (
         <Notice variant="info">Готовим устройство… если здесь уже были ответы, они появятся через мгновение.</Notice>
       ) : null}
-      {!isDevicePreparing && deviceStatus === 'error' ? (
+      {!isDevicePreparing && deviceFailed ? (
         <Notice variant="warning">
           {deviceError ?? deviceUnavailableMessage}{' '}
           <button type="button" className="underline" onClick={() => { void refreshDevice(); }}>
