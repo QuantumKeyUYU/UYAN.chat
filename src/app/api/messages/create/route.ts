@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         await getOrCreateUserStats(deviceId);
         await incrementStats(deviceId, { messagesSent: 1 });
       } catch (statsError) {
-        console.error('[api/messages/create] Failed to update user stats', statsError);
+        console.error('[api/messages/create] stats failed', statsError);
       }
     }
 

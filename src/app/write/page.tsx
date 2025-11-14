@@ -31,6 +31,7 @@ export default function WritePage() {
   const router = useRouter();
   const { deviceId, status: deviceStatus, resolving: deviceResolving, error: deviceError, refresh: refreshDevice } =
     useResolvedDeviceId();
+  const deviceFailed = deviceStatus === 'error' || deviceStatus === 'failed';
   const { vocabulary } = useVocabulary();
   const { initial, animate, transition } = useSoftMotion();
   const form = useForm<ComposeFormFields>({
@@ -215,7 +216,7 @@ export default function WritePage() {
         {deviceResolving ? (
           <Notice variant="info">Готовим устройство… Ты всё равно можешь отправить мысль.</Notice>
         ) : null}
-        {!deviceResolving && deviceStatus === 'error' ? (
+        {!deviceResolving && deviceFailed ? (
           <Notice variant="warning">
             {deviceError ?? 'Не удалось подготовить устройство. Ты всё равно можешь отправить мысль.'}{' '}
             <button type="button" className="underline" onClick={() => { void refreshDevice(); }}>

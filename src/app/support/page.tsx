@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
@@ -47,6 +47,7 @@ const pluralizeMinutes = (minutes: number) => {
 export default function SupportPage() {
   const { deviceId, status: deviceStatus, resolving: deviceResolving, error: deviceError, refresh: refreshDevice } =
     useResolvedDeviceId();
+  const deviceFailed = deviceStatus === 'error' || deviceStatus === 'failed';
   const { vocabulary } = useVocabulary();
   const router = useRouter();
   const softMotion = useSoftMotion();
@@ -72,7 +73,7 @@ export default function SupportPage() {
     [vocabulary.supportPageLookingFor],
   );
 
-  const fetchRandomMessage = async () => {
+  const fetchRandomMessage = useCallback(async () => {
     setLoadingMessage(true);
     setError(null);
     setPhase('explore');
@@ -110,15 +111,25 @@ export default function SupportPage() {
     } finally {
       setLoadingMessage(false);
     }
-  };
+  }, [deviceId, reset]);
+
+  const initialFetchRef = useRef(false);
 
   useEffect(() => {
-    if (deviceStatus !== 'ready' || !deviceId) {
+    if (loadingMessage) {
       return;
     }
-    fetchRandomMessage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceStatus, deviceId]);
+
+    if (!initialFetchRef.current) {
+      initialFetchRef.current = true;
+      void fetchRandomMessage();
+      return;
+    }
+
+    if (!message && !submitting && phase === 'explore') {
+      void fetchRandomMessage();
+    }
+  }, [deviceId, fetchRandomMessage, loadingMessage, message, phase, submitting]);
 
   useEffect(() => {
     if (!cooldownSeconds || cooldownSeconds <= 0) return;
@@ -282,7 +293,7 @@ export default function SupportPage() {
         {deviceResolving ? (
           <Notice variant="info">Готовим устройство… ты всё равно можешь выбирать мысли и отправлять поддержку.</Notice>
         ) : null}
-        {!deviceResolving && deviceStatus === 'error' ? (
+        {!deviceResolving && deviceFailed ? (
           <Notice variant="warning">
             {deviceError ?? 'Не удалось подготовить устройство. Ты всё равно можешь попробовать поддержать кого-то.'}{' '}
             <button type="button" className="underline" onClick={() => { void refreshDevice(); }}>
