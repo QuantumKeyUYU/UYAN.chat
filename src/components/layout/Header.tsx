@@ -142,9 +142,15 @@ export const Header = () => {
                 <span className="relative z-10 inline-flex items-center gap-2">
                   <span>{link.label}</span>
                   {link.href === '/my' && hasUnseenReplies ? (
-                    <span className="inline-flex min-w-[18px] justify-center rounded-full bg-uyan-gold px-1 text-[11px] font-semibold text-slate-950">
-                      {repliesCount > 9 ? '9+' : repliesCount}
-                    </span>
+                    <>
+                      <span className="sr-only">Есть непрочитанные ответы</span>
+                      <span
+                        aria-hidden
+                        className="absolute -top-1 -right-3 min-h-[16px] min-w-[16px] rounded-full bg-uyan-gold px-1 text-[10px] font-semibold leading-tight text-slate-950 shadow-sm"
+                      >
+                        {repliesCount > 9 ? '9+' : repliesCount}
+                      </span>
+                    </>
                   ) : null}
                 </span>
               </Link>
