@@ -112,7 +112,11 @@ export default function WritePage() {
       form.reset({ text: '', honeypot: '' });
       setCooldownSeconds(null);
       setSubmitted(true);
-      triggerGlobalStatsRefresh();
+      try {
+        triggerGlobalStatsRefresh();
+      } catch (statsError) {
+        console.error('Failed to trigger global stats refresh after message submission', statsError);
+      }
     } catch (error) {
       console.error(error);
       setErrorMessage('Что-то пошло не так. Попробуй ещё раз чуть позже.');
@@ -208,9 +212,7 @@ export default function WritePage() {
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-6" initial={initial} animate={animate} transition={transition}>
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.writeTitle}</h1>
-          <p className="text-sm text-text-secondary sm:text-base">
-            Напиши пару честных предложений — отсюда начинается разговор.
-          </p>
+          <p className="text-sm text-text-secondary sm:text-base">{vocabulary.writeSubtitle}</p>
         </div>
         <Card className="border border-white/10 bg-bg-secondary/70 p-5 sm:p-6">
           <div className="space-y-2 text-sm leading-relaxed text-text-secondary sm:text-base">

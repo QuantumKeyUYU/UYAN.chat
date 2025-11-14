@@ -30,7 +30,7 @@ export const Header = () => {
   const stats = useStatsStore((state) => state.data);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
-  const { unreadCount } = useRepliesBadge();
+  const { count: repliesCount, hasUnseenReplies } = useRepliesBadge();
   const isHome = pathname === '/';
   const isSettings = pathname === '/settings';
   const [canGoBack, setCanGoBack] = useState(false);
@@ -141,9 +141,9 @@ export const Header = () => {
                 ) : null}
                 <span className="relative z-10 inline-flex items-center gap-2">
                   <span>{link.label}</span>
-                  {link.href === '/my' && unreadCount > 0 ? (
+                  {link.href === '/my' && hasUnseenReplies ? (
                     <span className="inline-flex min-w-[18px] justify-center rounded-full bg-uyan-gold px-1 text-[11px] font-semibold text-slate-950">
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                      {repliesCount > 9 ? '9+' : repliesCount}
                     </span>
                   ) : null}
                 </span>

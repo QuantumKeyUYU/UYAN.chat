@@ -182,7 +182,11 @@ export default function SupportPage() {
       reset({ text: '', honeypot: '' });
       setPhase('success');
       setCooldownSeconds(null);
-      triggerGlobalStatsRefresh();
+      try {
+        triggerGlobalStatsRefresh();
+      } catch (statsError) {
+        console.error('Failed to trigger global stats refresh after response submission', statsError);
+      }
     } catch (err) {
       console.error(err);
       setSubmissionError('Не получилось отправить ответ. Попробуй ещё раз.');

@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect } from 'react';
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
-import { getLastRepliesSeenAt, LAST_REPLIES_SEEN_EVENT, LAST_REPLIES_SEEN_KEY } from '@/lib/repliesBadge';
+import {
+  getLastRepliesSeenAt,
+  LAST_REPLIES_SEEN_EVENT,
+  LAST_REPLIES_SEEN_KEY,
+  setLastRepliesSeenNow,
+} from '@/lib/repliesBadge';
 import { useDeviceStore } from '@/store/device';
 import { useRepliesStore } from '@/store/replies';
 
@@ -37,9 +42,12 @@ const extractReplyDates = (data: unknown): number[] => {
   return dates;
 };
 
-export const computeUnreadCount = (replyDates: number[], lastSeen: number | null) => {
-  if (!lastSeen) return 0;
-  return replyDates.reduce((total, createdAt) => (createdAt > lastSeen ? total + 1 : total), 0);
+export const computeUnreadCount = (replyDates: number[], lastSeen: number | null | undefined) => {
+  const validDates = replyDates.filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0);
+  if (lastSeen == null) {
+    return validDates.length;
+  }
+  return validDates.reduce((total, createdAt) => (createdAt > lastSeen ? total + 1 : total), 0);
 };
 
 export const useRepliesBadge = () => {
@@ -47,9 +55,21 @@ export const useRepliesBadge = () => {
   const unreadCount = useRepliesStore((state) => state.unreadCount);
   const loading = useRepliesStore((state) => state.loading);
   const initialized = useRepliesStore((state) => state.initialized);
+  const lastSeenAt = useRepliesStore((state) => state.lastSeenAt);
   const setUnreadCount = useRepliesStore((state) => state.setUnreadCount);
   const setInitialized = useRepliesStore((state) => state.setInitialized);
   const setLoading = useRepliesStore((state) => state.setLoading);
+  const setLastSeenAt = useRepliesStore((state) => state.setLastSeenAt);
+
+  const applyReplyDates = useCallback(
+    (replyDates: number[]) => {
+      const storedLastSeen = getLastRepliesSeenAt();
+      setLastSeenAt(storedLastSeen);
+      const effectiveLastSeen = storedLastSeen ?? lastSeenAt ?? null;
+      setUnreadCount(computeUnreadCount(replyDates, effectiveLastSeen));
+    },
+    [lastSeenAt, setLastSeenAt, setUnreadCount],
+  );
 
   const refresh = useCallback(async () => {
     if (!deviceId) return;
@@ -64,35 +84,28 @@ export const useRepliesBadge = () => {
       }
       const data = await response.json();
       const replyDates = extractReplyDates(data);
-      const lastSeen = getLastRepliesSeenAt();
-      if (!lastSeen) {
-        setUnreadCount(0);
-        return;
-      }
-      setUnreadCount(computeUnreadCount(replyDates, lastSeen));
+      applyReplyDates(replyDates);
     } catch (error) {
       console.warn('[useRepliesBadge] Failed to refresh replies badge', error);
     } finally {
       setInitialized(true);
       setLoading(false);
     }
-  }, [deviceId, setInitialized, setLoading, setUnreadCount]);
+  }, [applyReplyDates, deviceId, setInitialized, setLoading]);
 
   const updateFromReplyDates = useCallback(
     (replyDates: number[]) => {
-      const lastSeen = getLastRepliesSeenAt();
-      if (!lastSeen) {
-        setUnreadCount(0);
-        setInitialized(true);
-        setLoading(false);
-        return;
-      }
-      setUnreadCount(computeUnreadCount(replyDates, lastSeen));
+      applyReplyDates(replyDates);
       setInitialized(true);
       setLoading(false);
     },
-    [setInitialized, setLoading, setUnreadCount],
+    [applyReplyDates, setInitialized, setLoading],
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setLastSeenAt(getLastRepliesSeenAt());
+  }, [setLastSeenAt]);
 
   useEffect(() => {
     if (!deviceId) return;
@@ -105,10 +118,17 @@ export const useRepliesBadge = () => {
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key === LAST_REPLIES_SEEN_KEY) {
+        setLastSeenAt(getLastRepliesSeenAt());
         void refresh();
       }
     };
-    const handleCustom = () => {
+    const handleCustom = (event: Event) => {
+      const detailValue = (event as CustomEvent<{ value?: unknown }>).detail?.value;
+      if (typeof detailValue === 'number' && Number.isFinite(detailValue)) {
+        setLastSeenAt(detailValue);
+      } else {
+        setLastSeenAt(getLastRepliesSeenAt());
+      }
       void refresh();
     };
     const handleFocus = () => {
@@ -131,11 +151,22 @@ export const useRepliesBadge = () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [refresh]);
+  }, [refresh, setLastSeenAt]);
 
-  const markAsSeen = useCallback(() => {
+  const markSeen = useCallback(() => {
+    const value = setLastRepliesSeenNow();
+    if (typeof value === 'number') {
+      setLastSeenAt(value);
+    }
     setUnreadCount(0);
-  }, [setUnreadCount]);
+  }, [setLastSeenAt, setUnreadCount]);
 
-  return { unreadCount, loading, refresh, markAsSeen, updateFromReplyDates };
+  return {
+    count: unreadCount,
+    hasUnseenReplies: unreadCount > 0,
+    loading,
+    refresh,
+    markSeen,
+    updateFromReplyDates,
+  };
 };

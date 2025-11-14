@@ -11,10 +11,11 @@ export function getLastRepliesSeenAt(): number | null {
   return Number.isFinite(ts) ? ts : null;
 }
 
-export function setLastRepliesSeenNow() {
-  if (typeof window === 'undefined') return;
+export function setLastRepliesSeenNow(): number | null {
+  if (typeof window === 'undefined') return null;
   const value = Date.now();
   window.localStorage.setItem(LAST_REPLIES_SEEN_KEY, String(value));
   const event = new CustomEvent(LAST_REPLIES_SEEN_EVENT, { detail: { value } });
   window.dispatchEvent(event);
+  return value;
 }
