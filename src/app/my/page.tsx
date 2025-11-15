@@ -655,8 +655,10 @@ export default function MyLightsPage() {
           {!loadingReceived && sortedMessages.length === 0 && !quotaExceeded ? (
             <Card className="space-y-5 text-center">
               <div className="text-3xl">💌</div>
-              <h3 className="text-xl font-semibold text-text-primary">Здесь пока тихо.</h3>
-              <p className="text-text-secondary">Как только ты поделишься мыслью и кто-то ответит, его слова появятся здесь.</p>
+              <h3 className="text-xl font-semibold text-text-primary">Здесь появятся слова поддержки, которые ты получишь.</h3>
+              <p className="text-text-secondary">
+                Как только кто-то ответит на твою мысль, его письмо останется здесь — к нему можно будет вернуться в любой момент.
+              </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/write')}>
                   {vocabulary.ctaWriteShort}
@@ -764,8 +766,10 @@ export default function MyLightsPage() {
           {!loadingSent && sentResponses.length === 0 && !quotaExceeded ? (
             <Card className="space-y-4 text-center">
               <div className="text-3xl">🤝</div>
-              <h3 className="text-xl font-semibold text-text-primary">Ты ещё не успел ответить никому.</h3>
-              <p className="text-text-secondary">Можно начать с одной тёплой фразы на странице «Поддержать».</p>
+              <h3 className="text-xl font-semibold text-text-primary">Здесь будут собираться ответы, которые ты написал другим.</h3>
+              <p className="text-text-secondary">
+                Полезно иногда перечитывать их и напоминать себе, как хорошо ты умеешь поддерживать.
+              </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/support')}>
                   {vocabulary.ctaSupport}

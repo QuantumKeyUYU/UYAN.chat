@@ -374,6 +374,11 @@ export default function SupportPage() {
       )}
 
       <Card className="space-y-6 bg-slate-900/70 shadow-xl shadow-black/40">
+        {(showSkeleton || message) && (
+          <p className="text-xs leading-relaxed text-slate-400">
+            Когда история загрузится, прочитай её полностью и сделай паузу на пару секунд — это помогает ответить бережнее.
+          </p>
+        )}
         {/* Скелетон */}
         {showSkeleton && (
           <div className="flex flex-col gap-4">
@@ -445,6 +450,9 @@ export default function SupportPage() {
                 />
                 <p className="text-xs text-slate-400">
                   20–200 символов тепла. Лучше один-два честных абзаца, чем большой монолог. Пиши так, как поддержал(а) бы друга.
+                </p>
+                <p className="text-xs text-slate-500">
+                  Например: «То, через что ты проходишь, правда непросто. Ты уже много выдержал, и это заметно».
                 </p>
                 {cooldownSeconds && cooldownSeconds > 0 && (
                   <p className="text-xs text-slate-400">

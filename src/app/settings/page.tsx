@@ -365,8 +365,12 @@ function SettingsPageContent() {
               Перенести архив
             </h2>
             <p className="text-sm text-text-secondary">
+              Здесь можно перенести архив «Ответов» и историю твоих ответов на другое устройство. Это удобно, если меняешь телеф
+он или хочешь открыть свои письма с другого места.
+            </p>
+            <p className="text-sm text-text-secondary">
               Ссылка переноса действует 24 часа и переносит «Ответы» и историю ответов на другое устройство. Никто, кроме тебя,
-              не увидит содержимое архива.
+              не увидит содержимое архива — доступ даёт только токен, который ты сам передашь.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -467,7 +471,7 @@ function SettingsPageContent() {
               <p className="text-sm font-medium text-text-primary">
                 {reducedMotion ? 'Уменьшить анимации' : 'Оставить анимации как сейчас'}
               </p>
-              <p className="text-xs text-text-tertiary">Анимации станут статичными, без переливов и смещений.</p>
+              <p className="text-xs text-text-tertiary">Иногда это помогает меньше уставать от экрана.</p>
             </div>
             <button
               type="button"
@@ -529,6 +533,9 @@ function SettingsPageContent() {
           <p className="text-xs text-text-tertiary">
             После удаления данных страница перезагрузится: мы создадим новый путь устройства, а «Ответы», «Мои ответы» и
             статистика начнутся заново.
+          </p>
+          <p className="text-xs text-text-tertiary">
+            Это влияет только на этот сервис и не затрагивает другие сайты и приложения.
           </p>
           <div aria-live="polite" aria-atomic="true" className="space-y-2">
             {gardenMessage ? <Notice variant="success">{gardenMessage}</Notice> : null}
