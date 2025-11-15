@@ -430,7 +430,7 @@ export default function SupportPage() {
 
             {submitError && <Notice variant="error">{submitError}</Notice>}
             {submitSuccess && (
-              <Notice variant="success">Спасибо. Твои слова уже рядом с человеком, которому сейчас нужна опора.</Notice>
+              <Notice variant="success">Спасибо. Твои слова уже рядом с человеком, которому сейчас особенно нужны тёплые строки.</Notice>
             )}
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -452,7 +452,7 @@ export default function SupportPage() {
                   20–200 символов тепла. Лучше один-два честных абзаца, чем большой монолог. Пиши так, как поддержал(а) бы друга.
                 </p>
                 <p className="text-xs text-slate-500">
-                  Например: «То, через что ты проходишь, правда непросто. Ты уже много выдержал, и это заметно».
+                  Например: «То, через что ты проходишь, правда непросто. Ты уже прошёл большой путь, и это заметно».
                 </p>
                 {cooldownSeconds && cooldownSeconds > 0 && (
                   <p className="text-xs text-slate-400">
