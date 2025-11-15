@@ -187,7 +187,7 @@ export default function HomePage() {
                 {vocabulary.ctaWriteHero}
               </Button>
               <p className="text-center text-xs text-text-tertiary sm:text-left">
-                Без регистрации и лайков. Только живые слова.
+                Без имён и лайков. Только анонимные слова поддержки.
               </p>
             </div>
           </div>
@@ -245,8 +245,8 @@ export default function HomePage() {
           transition={infoTransition}
         >
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Как всё устроено</p>
-            <h3 className="text-xl font-semibold text-text-primary">Три простых шага тепла</h3>
+            <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Как это работает</p>
+            <h3 className="text-xl font-semibold text-text-primary">Три шага взаимной поддержки</h3>
           </div>
           <ol className="grid gap-4 md:grid-cols-3 md:gap-6">
             {howItWorks.map((item, index) => (
@@ -272,20 +272,22 @@ export default function HomePage() {
           <div className="space-y-3">
             <h3 className="text-xl font-semibold text-text-primary">Зачем это нужно</h3>
             <p className="text-text-secondary">
-              UYAN.chat — тихое место без гонки за лайками. Здесь можно честно говорить о своём состоянии и получать поддержку.
+              UYAN.chat — тихое пространство взаимной поддержки. Здесь честно говорят о том, как выдержать день, и отвечают друг
+              другу теплом.
             </p>
             <p className="text-text-secondary">
-              Каждая мысль проходит модерацию, а ответы пишут живые люди, не алгоритмы. Так мы бережём безопасность и доверие.
+              Каждая история проходит модерацию, а ответы пишут живые люди, а не алгоритмы. Так мы бережём доверие и безопасность
+              для всех.
             </p>
           </div>
           <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
             <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">что почувствуешь внутри</p>
             <div className="mt-4 space-y-3 text-lg">
               <p className="text-text-secondary">
-                Бережное внимание, тишина без оценок и место, куда можно вернуться.
+                Бережное внимание, чувство связи и место, куда можно вернуться в сложные дни.
               </p>
               <p className="text-text-secondary">
-                «Ответы» хранит важные слова, чтобы ты мог(ла) перечитывать их позже и делиться этим теплом дальше.
+                «Ответы» хранит важные слова, чтобы вспоминать, что рядом всегда есть чья-то поддержка — и делиться ею дальше.
               </p>
             </div>
           </div>
