@@ -23,6 +23,7 @@ import {
   SHARE_CARD_HEIGHT,
 } from '@/lib/shareCard';
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
+import { useUserStats } from '@/lib/hooks/useUserStats';
 
 const tabs = [
   { key: 'received', label: 'Ответы для тебя' },
@@ -118,7 +119,10 @@ export default function MyLightsPage() {
     'Не удалось подготовить устройство, поэтому мы не можем показать предыдущие ответы. Попробуй открыть страницу позже или с этого же браузера.';
   const deviceMissingInfoMessage =
     'Не удалось найти это устройство. Ответы, оставленные с другого браузера или телефона, здесь не появятся.';
+  const quotaNoticeMessage =
+    'Не получилось загрузить твои мысли. Похоже, закончилась дневная квота. Попробуй зайти завтра — все сохранённые ответы никуда не денутся.';
   const { vocabulary } = useVocabulary();
+  const { state: statsState, refresh: refreshUserStats } = useUserStats();
   const [activeTab, setActiveTab] = useState<TabKey>('received');
   const [messages, setMessages] = useState<MessageWithResponses[]>([]);
   const [sentResponses, setSentResponses] = useState<SentResponse[]>([]);
@@ -141,6 +145,10 @@ export default function MyLightsPage() {
   const [previewScale, setPreviewScale] = useState(1);
   const { markAllSeen, syncFromMessages, count: unreadCount, hasUnseenReplies } = useRepliesBadge();
   const [hasMarkedSeen, setHasMarkedSeen] = useState(false);
+  const quotaExceeded = statsState.status === 'error' && statsState.quotaExceeded;
+  const receivedLoadedRef = useRef(false);
+  const sentLoadedRef = useRef(false);
+  const statsRefreshedOnMountRef = useRef(false);
 
   const refreshSaved = useCallback(() => {
     setSavedIds(new Set(loadGarden().map((item) => item.id)));
@@ -159,6 +167,10 @@ export default function MyLightsPage() {
       setPageNotice({ variant: 'info', message: deviceMissingInfoMessage });
       return;
     }
+    if (quotaExceeded) {
+      setLoadingReceived(false);
+      return;
+    }
     setLoadingReceived(true);
     try {
       const response = await fetch('/api/messages/my', {
@@ -167,8 +179,15 @@ export default function MyLightsPage() {
       });
       const payload = (await response.json().catch(() => null)) as
         | { messages?: unknown; error?: unknown }
+        | { code?: string; message?: string }
         | null;
       if (!response.ok) {
+        const quotaError = payload && typeof payload === 'object' && 'code' in payload && payload.code === 'FIRESTORE_QUOTA_EXCEEDED';
+        if (quotaError) {
+          setPageNotice({ variant: 'error', message: quotaNoticeMessage });
+          setLoadingReceived(false);
+          return;
+        }
         const errorMessage = typeof payload?.error === 'string' ? payload.error : 'Ошибка загрузки';
         throw new Error(errorMessage);
       }
@@ -197,11 +216,15 @@ export default function MyLightsPage() {
     } finally {
       setLoadingReceived(false);
     }
-  }, [deviceId, deviceMissingInfoMessage, syncFromMessages]);
+  }, [deviceId, deviceMissingInfoMessage, quotaExceeded, quotaNoticeMessage, syncFromMessages]);
 
   const loadSent = useCallback(async () => {
     if (!deviceId) {
       setSentResponses([]);
+      setLoadingSent(false);
+      return;
+    }
+    if (quotaExceeded) {
       setLoadingSent(false);
       return;
     }
@@ -213,6 +236,16 @@ export default function MyLightsPage() {
       });
       const payload = (await response.json().catch(() => null)) as { responses?: unknown; error?: unknown } | null;
       if (!response.ok) {
+        const quotaError = payload && typeof payload === 'object' && 'code' in payload && payload.code === 'FIRESTORE_QUOTA_EXCEEDED';
+        if (quotaError) {
+          setPageNotice((prev) =>
+            prev?.variant === 'error'
+              ? prev
+              : { variant: 'error', message: quotaNoticeMessage },
+          );
+          setLoadingSent(false);
+          return;
+        }
         const errorMessage = typeof payload?.error === 'string' ? payload.error : 'Ошибка загрузки ответов';
         if (errorMessage === DEVICE_UNIDENTIFIED_ERROR) {
           setPageNotice({ variant: 'error', message: deviceUnavailableMessage });
@@ -235,7 +268,7 @@ export default function MyLightsPage() {
     } finally {
       setLoadingSent(false);
     }
-  }, [deviceId, deviceUnavailableMessage]);
+  }, [deviceId, deviceUnavailableMessage, quotaExceeded, quotaNoticeMessage]);
 
   useEffect(() => {
     if (!deviceId) {
@@ -256,15 +289,15 @@ export default function MyLightsPage() {
       return;
     }
 
-    setPageNotice((prev) => {
-      if (!prev) return null;
-      if (prev.variant === 'success') {
-        return prev;
-      }
-      return null;
-    });
-    void loadReceivedMessages();
-    void loadSent();
+    if (!quotaExceeded) {
+      setPageNotice((prev) => {
+        if (!prev) return null;
+        if (prev.variant === 'success') {
+          return prev;
+        }
+        return null;
+      });
+    }
   }, [
     deviceFailed,
     deviceId,
@@ -272,8 +305,45 @@ export default function MyLightsPage() {
     deviceResolving,
     deviceStatus,
     deviceUnavailableMessage,
+    quotaExceeded,
+  ]);
+
+  useEffect(() => {
+    if (!quotaExceeded) return;
+    setPageNotice({ variant: 'error', message: quotaNoticeMessage });
+    setLoadingReceived(false);
+    setLoadingSent(false);
+  }, [quotaExceeded, quotaNoticeMessage]);
+
+  const statsResolved = statsState.status !== 'idle' && statsState.status !== 'loading';
+
+  useEffect(() => {
+    if (statsRefreshedOnMountRef.current) return;
+    if (!statsResolved) return;
+    if (statsState.status === 'error' && statsState.quotaExceeded) return;
+    statsRefreshedOnMountRef.current = true;
+    void refreshUserStats();
+  }, [refreshUserStats, statsResolved, statsState]);
+
+  useEffect(() => {
+    if (!deviceId || deviceFailed || !statsResolved || quotaExceeded) {
+      return;
+    }
+    if (!receivedLoadedRef.current) {
+      receivedLoadedRef.current = true;
+      void loadReceivedMessages();
+    }
+    if (!sentLoadedRef.current) {
+      sentLoadedRef.current = true;
+      void loadSent();
+    }
+  }, [
+    deviceFailed,
+    deviceId,
     loadReceivedMessages,
     loadSent,
+    quotaExceeded,
+    statsResolved,
   ]);
 
   const hasReplies = useMemo(() => messages.some((message) => message.responses.length > 0), [messages]);
@@ -512,20 +582,17 @@ export default function MyLightsPage() {
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-text-primary">Ответы для тебя</h2>
             <p className="text-text-secondary">
-              Здесь сохраняются письма поддержки на твои мысли. К ним можно возвращаться в любые тяжёлые дни.
+              Возвращайся к письмам поддержки, которые помогают держаться, — они всегда будут ждать тебя здесь.
             </p>
           </div>
           {loadingReceived ? <p className="text-text-secondary">Собираем письма поддержки…</p> : null}
 
-          {!loadingReceived && sortedMessages.length === 0 ? (
+          {!loadingReceived && sortedMessages.length === 0 && !quotaExceeded ? (
             <Card className="space-y-4 text-center">
-              <div className="text-3xl">🌿</div>
+              <div className="text-3xl">💌</div>
               <h3 className="text-xl font-semibold text-text-primary">Здесь пока тихо.</h3>
               <p className="text-text-secondary">
-                Как только ты поделишься мыслью и кто-то ответит, его слова появятся здесь.
-              </p>
-              <p className="text-text-secondary">
-                Пока можно написать первую историю или поддержать кого-то на странице «Поддержать».
+                Когда ты поделишься мыслью и кто-то ответит, его слова появятся здесь.
               </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/write')}>
@@ -631,11 +698,11 @@ export default function MyLightsPage() {
             </p>
           </div>
           {loadingSent ? <p className="text-text-secondary">Собираем твои слова поддержки…</p> : null}
-          {!loadingSent && sentResponses.length === 0 ? (
+          {!loadingSent && sentResponses.length === 0 && !quotaExceeded ? (
             <Card className="space-y-4 text-center">
-              <div className="text-3xl">💌</div>
-              <h3 className="text-xl font-semibold text-text-primary">Ты пока не оставлял ответов.</h3>
-              <p className="text-text-secondary">Можно начать с любой истории на странице «Поддержать».</p>
+              <div className="text-3xl">🤝</div>
+              <h3 className="text-xl font-semibold text-text-primary">Ты ещё не успел ответить никому.</h3>
+              <p className="text-text-secondary">Можно начать с одной тёплой фразы на странице «Поддержать».</p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/support')}>
                   {vocabulary.ctaSupport}

@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Sparkles, BarChart3, PenSquare } from 'lucide-react';
-import { useStatsStore } from '@/store/stats';
 import { useSettingsStore } from '@/store/settings';
 import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
+import { useUserStats } from '@/lib/hooks/useUserStats';
 
 type HeaderLink = { href: string; label: string };
 
@@ -27,7 +27,7 @@ export const Header = () => {
   const router = useRouter();
   const [statsOpen, setStatsOpen] = useState(false);
   const statsRef = useRef<HTMLDivElement | null>(null);
-  const stats = useStatsStore((state) => state.data);
+  const { state: statsState } = useUserStats();
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
   const { count: repliesCount, hasUnseenReplies } = useRepliesBadge();
@@ -55,7 +55,14 @@ export const Header = () => {
     }
   }, [pathname]);
 
-  const statsLabel = `${formatNumber(stats?.lightsGiven ?? 0)} / ${formatNumber(stats?.lightsReceived ?? 0)}`;
+  const statsLabel = (() => {
+    if (statsState.status === 'ready') {
+      const { responsesGiven, answersTotal } = statsState.data;
+      return `${formatNumber(responsesGiven)} / ${formatNumber(answersTotal)}`;
+    }
+    return '0 / 0';
+  })();
+  const statsDetails = statsState.status === 'ready' ? statsState.data : null;
   const motionProps = reducedMotion
     ? { animate: { rotate: 0 } }
     : { animate: { rotate: [0, 8, -6, 0] }, transition: { repeat: Infinity, duration: 8, ease: 'easeInOut' } };
@@ -175,8 +182,9 @@ export const Header = () => {
                 id="header-stats"
                 className="absolute right-0 top-[calc(100%+0.5rem)] w-64 rounded-2xl border border-white/10 bg-bg-primary/95 p-4 text-sm shadow-lg"
               >
-                <p className="text-text-primary">Мыслей отправлено: {formatNumber(stats?.lightsGiven ?? 0)}</p>
-                <p className="mt-1 text-text-primary">Получено ответов: {formatNumber(stats?.lightsReceived ?? 0)}</p>
+                <p className="text-text-primary">Написано мыслей: {formatNumber(statsDetails?.messagesWritten ?? 0)}</p>
+                <p className="mt-1 text-text-primary">Получено ответов: {formatNumber(statsDetails?.answersTotal ?? 0)}</p>
+                <p className="mt-1 text-text-primary">Поддержал других: {formatNumber(statsDetails?.responsesGiven ?? 0)}</p>
                 <p className="mt-3 text-xs text-text-tertiary">
                   Делись теплом и возвращайся в «Ответы», чтобы сохранять важные слова.
                 </p>

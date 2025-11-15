@@ -13,6 +13,7 @@ import { Notice } from '@/components/ui/Notice';
 import { useSoftMotion } from '@/lib/animation';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
+import { useUserStats } from '@/lib/hooks/useUserStats';
 import { DEVICE_ID_HEADER, DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { formatSeconds } from '@/lib/time';
 import type { MessageCategory } from '@/types/firestore';
@@ -56,6 +57,7 @@ function pluralizeMinutes(minutes: number): string {
 export default function SupportPage() {
   const { vocabulary } = useVocabulary();
   const softMotion = useSoftMotion();
+  const { refresh: refreshUserStats } = useUserStats();
 
   const {
     deviceId,
@@ -308,6 +310,7 @@ export default function SupportPage() {
 
       try {
         triggerGlobalStatsRefresh();
+        void refreshUserStats();
       } catch (statsError) {
         console.error('[support] Failed to trigger stats refresh', statsError);
       }

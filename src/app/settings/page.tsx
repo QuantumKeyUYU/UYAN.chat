@@ -13,7 +13,6 @@ import { clearHiddenResponses } from '@/lib/hiddenResponses';
 import { saveReducedMotion } from '@/lib/motion';
 import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
 import { useDeviceStore } from '@/store/device';
-import { useStatsStore } from '@/store/stats';
 import { useSettingsStore } from '@/store/settings';
 
 const buildMigrationUrl = (token: string): string | null => {
@@ -75,7 +74,6 @@ function SettingsPageContent() {
   const setDeviceId = useDeviceStore((state) => state.setId);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
-  const setStats = useStatsStore((state) => state.setData);
   const { refresh } = useDeviceJourney();
   const [queryToken, setQueryToken] = useState('');
   const [migrationToken, setMigrationToken] = useState('');
@@ -326,7 +324,6 @@ function SettingsPageContent() {
       clearHiddenResponses();
       clearDeviceId();
       setDeviceId(null);
-      setStats(null);
 
       setPurgeMessage('Данные очищены. При следующем визите мы создадим новую историю устройства.');
     } catch (error) {

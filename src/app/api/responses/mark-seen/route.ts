@@ -27,13 +27,10 @@ export async function POST(request: NextRequest) {
     const statsRef = db.collection('user_stats');
     const now = Timestamp.now();
 
-    await statsRef.doc(deviceHash).set({ lastRepliesSeenAt: now }, { merge: true });
-
-    const legacyRef = statsRef.doc(deviceId);
-    const legacySnap = await legacyRef.get();
-    if (legacySnap.exists) {
-      await legacyRef.set({ lastRepliesSeenAt: now }, { merge: true });
-    }
+    await statsRef.doc(deviceHash).set(
+      { lastRepliesSeenAt: now, repliesUnread: 0 },
+      { merge: true },
+    );
 
     return attachDeviceCookie(
       NextResponse.json({ ok: true, lastRepliesSeenAt: now.toMillis() }),

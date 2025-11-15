@@ -13,6 +13,7 @@ import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
 import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
+import { useUserStats } from '@/lib/hooks/useUserStats';
 
 const MIN_LENGTH = 10;
 const MAX_LENGTH = 280;
@@ -33,6 +34,7 @@ export default function WritePage() {
     useResolvedDeviceId();
   const deviceFailed = deviceStatus === 'error' || deviceStatus === 'failed';
   const { vocabulary } = useVocabulary();
+  const { refresh: refreshUserStats } = useUserStats();
   const { initial, animate, transition } = useSoftMotion();
   const form = useForm<ComposeFormFields>({
     defaultValues: { text: '', honeypot: '' },
@@ -120,6 +122,7 @@ export default function WritePage() {
       setSubmitted(true);
       try {
         triggerGlobalStatsRefresh();
+        void refreshUserStats();
       } catch (error) {
         console.error('[write] Failed to trigger stats refresh', error);
       }

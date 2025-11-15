@@ -6,8 +6,8 @@ import { DEVICE_ID_HEADER, DEVICE_STORAGE_KEY } from '@/lib/device/constants';
 import { readPersistedDeviceId } from '@/lib/device';
 import type { DeviceIdDebugInfo } from '@/lib/device/server';
 import { useDeviceStore } from '@/store/device';
-import { useStatsStore } from '@/store/stats';
 import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
+import { useUserStats } from '@/lib/hooks/useUserStats';
 
 const isDebugFlagEnabled = (): boolean => {
   const value = String(process.env.NEXT_PUBLIC_DEBUG_DEVICE ?? '').toLowerCase();
@@ -51,7 +51,7 @@ const DevicePathWidgetInner = () => {
   const mounted = useClientMounted();
 
   const deviceId = useDeviceStore((state) => state.id);
-  const stats = useStatsStore((state) => state.data);
+  const { state: statsState, refresh: refreshStats } = useUserStats();
   const { refresh } = useDeviceJourney({ autoloadStats: false });
 
   const [requestedStatsFor, setRequestedStatsFor] = useState<string | null>(null);
@@ -109,11 +109,12 @@ const DevicePathWidgetInner = () => {
   }, [mounted, refreshStorageSnapshot]);
 
   useEffect(() => {
-    if (!mounted || !deviceId || stats || requestedStatsFor === deviceId) return;
+    if (!mounted || !deviceId || requestedStatsFor === deviceId) return;
+    if (statsState.status === 'ready' || statsState.status === 'error') return;
 
     setRequestedStatsFor(deviceId);
-    void refresh();
-  }, [deviceId, mounted, refresh, requestedStatsFor, stats]);
+    void refreshStats();
+  }, [deviceId, mounted, refreshStats, requestedStatsFor, statsState.status]);
 
   useEffect(() => {
     if (!deviceId) {
@@ -194,8 +195,8 @@ const DevicePathWidgetInner = () => {
     };
   }, [deviceId, storageSnapshot]);
 
-  const statsSummary = stats
-    ? `${stats.messagesSent} sent / ${stats.lightsGiven} given / ${stats.lightsReceived} received`
+  const statsSummary = statsState.status === 'ready'
+    ? `${statsState.data.messagesWritten} sent / ${statsState.data.responsesGiven} given / ${statsState.data.answersTotal} received`
     : '—';
 
   const toggleExpanded = useCallback(() => {
