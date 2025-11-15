@@ -73,6 +73,7 @@ export default function HomePage() {
   );
 
   const heroTitleLines = useMemo(() => vocabulary.homeHeroTitle.split('\n'), [vocabulary.homeHeroTitle]);
+  const heroSubtitleLines = useMemo(() => vocabulary.homeHeroSubtitle.split('\n'), [vocabulary.homeHeroSubtitle]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -154,8 +155,8 @@ export default function HomePage() {
           transition={heroTransition}
         >
           <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-3">
                 <p className="text-sm text-uyan-light">
                   {vocabulary.homeHeroTaglineTitle}
                   {vocabulary.homeHeroTaglineSubtitle ? (
@@ -174,7 +175,14 @@ export default function HomePage() {
                   ))}
                 </h1>
               </div>
-              <p className="max-w-2xl text-lg text-text-secondary">{vocabulary.homeHeroSubtitle}</p>
+              <p className="max-w-2xl text-lg text-text-secondary">
+                {heroSubtitleLines.map((line, index) => (
+                  <span key={`${line}-${index}`}>
+                    {line}
+                    {index < heroSubtitleLines.length - 1 ? <br /> : null}
+                  </span>
+                ))}
+              </p>
             </div>
             <div className="flex flex-col gap-2 sm:w-auto">
               <Button
@@ -185,14 +193,14 @@ export default function HomePage() {
                 {vocabulary.ctaWriteHero}
               </Button>
               <p className="text-center text-xs text-text-tertiary sm:text-left">
-                Без имён и лайков. Только анонимные слова поддержки.
+                Без регистрации и профилей. Только живые слова.
               </p>
             </div>
           </div>
         </motion.section>
 
         <motion.section
-          className="grid gap-4 md:grid-cols-3"
+          className="grid gap-5 md:grid-cols-3"
           initial={initial}
           animate={animate}
           transition={actionsTransition}
@@ -206,7 +214,7 @@ export default function HomePage() {
                 className="group block h-full rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
               >
                 <motion.div
-                  className="flex h-full flex-col justify-between gap-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-4 text-left shadow-sm transition duration-200 ease-out group-hover:border-uyan-light/60 group-focus-visible:border-uyan-light/60 cursor-pointer select-none transition-transform transition-shadow hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:scale-[0.98] sm:p-6"
+                  className="flex h-full flex-col justify-between gap-7 rounded-3xl border border-white/5 bg-bg-secondary/70 p-4 text-left shadow-sm transition duration-200 ease-out group-hover:border-uyan-light/60 group-focus-visible:border-uyan-light/60 cursor-pointer select-none transition-transform transition-shadow hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:scale-[0.98] sm:p-6"
                   initial={initial}
                   animate={animate}
                   transition={
@@ -215,11 +223,11 @@ export default function HomePage() {
                       : { ...baseTransition, delay: (actionsTransition.delay ?? 0.15) + delay, duration: 0.45 }
                   }
                 >
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <span className="text-3xl" aria-hidden>
                       {action.accent}
                     </span>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <h2 className="text-2xl font-semibold text-text-primary transition-colors group-hover:text-uyan-light">
                         {action.title}
                       </h2>
@@ -237,22 +245,22 @@ export default function HomePage() {
         </motion.section>
 
         <motion.section
-          className="space-y-6 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6"
+          className="space-y-7 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6"
           initial={initial}
           animate={animate}
           transition={infoTransition}
         >
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Как это работает</p>
             <h3 className="text-xl font-semibold text-text-primary">Три шага взаимной поддержки</h3>
           </div>
           <ol className="grid gap-4 md:grid-cols-3 md:gap-6">
             {howItWorks.map((item, index) => (
-              <li key={item.title} className="flex gap-4 rounded-2xl bg-bg-secondary/60 p-4 md:flex-col md:gap-3">
+              <li key={item.title} className="flex gap-4 rounded-2xl bg-bg-secondary/60 p-4 md:flex-col md:gap-4">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-uyan-darkness/40 text-base font-semibold text-uyan-light">
                   {index + 1}
                 </span>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <p className="text-lg font-medium text-text-primary">{item.title}</p>
                   <p className="text-sm text-text-secondary">{item.description}</p>
                 </div>
@@ -262,30 +270,29 @@ export default function HomePage() {
         </motion.section>
 
         <motion.section
-          className="grid gap-6 rounded-3xl bg-bg-secondary/60 p-8 sm:grid-cols-2"
+          className="grid gap-8 rounded-3xl bg-bg-secondary/60 p-8 sm:grid-cols-2"
           initial={initial}
           animate={animate}
           transition={infoTransition}
         >
-          <div className="space-y-3">
+          <div className="space-y-4">
             <h3 className="text-xl font-semibold text-text-primary">Зачем это нужно</h3>
             <p className="text-text-secondary">
               UYAN.chat — тихое пространство взаимной поддержки. Здесь честно говорят о том, как выдержать день, и отвечают друг
               другу теплом.
             </p>
             <p className="text-text-secondary">
-              Каждая история проходит модерацию, а ответы пишут живые люди, а не алгоритмы. Так мы бережём доверие и безопасность
-              для всех.
+              Каждая история проходит модерацию, а ответы пишут живые люди, а не алгоритмы — так мы бережём доверие и безопасность.
             </p>
           </div>
           <div className="rounded-2xl border border-uyan-action/30 bg-uyan-darkness/20 p-6 text-text-secondary">
             <p className="text-sm uppercase tracking-[0.4em] text-uyan-light">что почувствуешь внутри</p>
-            <div className="mt-4 space-y-3 text-lg">
+            <div className="mt-4 space-y-4 text-lg">
               <p className="text-text-secondary">
-                Бережное внимание, чувство связи и место, куда можно вернуться в сложные дни.
+                Бережное внимание, чувство связи и место, куда можно возвращаться в сложные дни.
               </p>
               <p className="text-text-secondary">
-                «Ответы» хранит важные слова, чтобы вспоминать, что рядом всегда есть чья-то поддержка — и делиться ею дальше.
+                «Ответы» хранят важные слова, которые напоминают: ты не один, чья-то поддержка — уже рядом.
               </p>
             </div>
           </div>
@@ -368,7 +375,7 @@ export default function HomePage() {
           <div className="rounded-3xl border border-white/10 bg-bg-secondary/60 px-6 py-5 text-center text-lg text-text-primary shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)] sm:text-xl">
             {stats && !statsLoading ? (
               <p>
-                Сегодня {stats.messagesToday} человек поделились теплом. Один из них, может быть, ты.
+                Сегодня {stats.messagesToday} человек поделились теплом. Один из них — может быть, ты.
               </p>
             ) : (
               <p>Сегодня несколько человек поделились теплом. Один из них — может быть, ты.</p>
