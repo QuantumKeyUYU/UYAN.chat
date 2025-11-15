@@ -86,7 +86,7 @@ export default function WritePage() {
           const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
           const minutes = Math.max(1, Math.ceil(retryAfter / 60));
           setErrorMessage(
-            `Сегодня ты уже поделился многими мыслями. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+            `Сегодня ты уже поделился многими историями. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
           );
           setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
           return;
@@ -98,13 +98,12 @@ export default function WritePage() {
         }
 
         const reasonMessages: Record<string, string> = {
-          contact:
-            'Мы не публикуем контакты и личные данные — так пространство остаётся безопасным и анонимным.',
-          spam: 'Мысль похожа на случайный набор символов. Лучше напиши простыми словами, что происходит внутри.',
-          too_short: 'Добавь ещё пару фраз, чтобы люди лучше почувствовали твоё состояние.',
-          too_long: 'Сократи историю до 280 символов, чтобы её смогли дочитать внимательно.',
+          contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
+          spam: 'Мысль выглядит как набор повторяющихся символов. Попробуй описать своё состояние простыми словами.',
+          too_short: 'Добавь ещё немного конкретики, чтобы человеку было легче почувствовать твоё состояние.',
+          too_long: 'Сократи мысль до 280 символов — так её дочитают внимательно.',
           crisis:
-            'Похоже, текст касается сильной боли. Напиши короче и бережнее, а за срочной помощью обратись к тем, кто сможет поддержать прямо сейчас.',
+            'Если текст задевает кризисную тему, лучше написать короче и обратиться за поддержкой к тем, кто может помочь прямо сейчас.',
         };
 
         if (result?.reason && reasonMessages[result.reason]) {
@@ -184,10 +183,10 @@ export default function WritePage() {
       <motion.div className="mx-auto flex max-w-3xl flex-col gap-8 text-center" initial={initial} animate={animate} transition={transition}>
         <Card>
           <div className="space-y-4">
-            <h2 className="text-2xl font-semibold text-text-primary">Мысль сохранена</h2>
+            <h2 className="text-2xl font-semibold text-text-primary">История отправлена</h2>
             <p className="text-text-secondary">
-              Спасибо, что доверил нам эту мысль. Следующий шаг — {vocabulary.ctaSupport.toLowerCase()} кому-то ещё. После
-              этого заглядывай в «Мои ответы» — мы напомним, когда появятся новые слова поддержки.
+              Спасибо, что доверил нам эту историю. Следующий шаг — {vocabulary.ctaSupport.toLowerCase()}. После этого
+              заглядывай в «Мои ответы» — мы напомним, когда появятся новые слова поддержки.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button onClick={() => router.push('/support')} className="w-full sm:w-auto">
@@ -198,7 +197,7 @@ export default function WritePage() {
               </Button>
             </div>
             <p className="text-sm text-text-tertiary">
-              Ответы появятся в разделе «Мои ответы». Если захочется передохнуть, можно вернуться на главную в любой момент.
+              Ответы появятся в разделе «Мои ответы». Если захочется передохнуть, всегда можно вернуться на главную.
             </p>
           </div>
         </Card>
@@ -214,7 +213,7 @@ export default function WritePage() {
           <p className="text-sm text-text-secondary sm:text-base">{vocabulary.writeSubtitle}</p>
         </div>
         {deviceResolving ? (
-          <Notice variant="info">Готовим устройство… Ты всё равно можешь отправить мысль.</Notice>
+          <Notice variant="info">Готовим устройство… Можно уже писать — история всё равно сохранится.</Notice>
         ) : null}
         {!deviceResolving && deviceFailed ? (
           <Notice variant="warning">
@@ -232,14 +231,14 @@ export default function WritePage() {
               onSubmit={onSubmit}
               minLength={MIN_LENGTH}
               maxLength={MAX_LENGTH}
-              placeholder="Напиши, что у тебя внутри прямо сейчас…"
+              placeholder="Напиши честно, как тебе сейчас. Пара предложений — уже достаточно."
               submitLabel={vocabulary.ctaWriteShort}
               loadingLabel="Отправляем…"
               errorMessage={errorMessage}
               busy={loading}
               cooldownSeconds={cooldownSeconds}
               onChange={() => setErrorMessage(null)}
-              helperHint={<p>Несколько честных предложений достаточно, чтобы тебя услышали.</p>}
+              helperHint={<p>Лучше одно–два честных предложения, чем большое эссе.</p>}
               textareaWrapperClassName="space-y-3 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 sm:p-5"
               fieldLabel={vocabulary.writeFieldLabel}
               helperHintClassName="mt-2 text-xs leading-relaxed text-text-tertiary/80"

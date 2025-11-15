@@ -25,8 +25,8 @@ import {
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
 
 const tabs = [
-  { key: 'received', label: 'Мне ответили' },
-  { key: 'given', label: 'Мои ответы' },
+  { key: 'received', label: 'Ответы для тебя' },
+  { key: 'given', label: 'Кому ты уже помог' },
 ] as const;
 
 type TabKey = (typeof tabs)[number]['key'];
@@ -494,7 +494,7 @@ export default function MyLightsPage() {
       </div>
 
       {isDevicePreparing ? (
-        <Notice variant="info">Готовим устройство… если здесь уже были ответы, они появятся через мгновение.</Notice>
+        <Notice variant="info">Готовим устройство… если здесь уже есть письма поддержки, они появятся через мгновение.</Notice>
       ) : null}
       {!isDevicePreparing && deviceFailed ? (
         <Notice variant="warning">
@@ -509,14 +509,23 @@ export default function MyLightsPage() {
 
       {activeTab === 'received' ? (
         <div className="space-y-4">
-          {loadingReceived ? <p className="text-text-secondary">Загружаем ответы…</p> : null}
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-text-primary">Ответы для тебя</h2>
+            <p className="text-text-secondary">
+              Здесь сохраняются письма поддержки на твои мысли. К ним можно возвращаться в любые тяжёлые дни.
+            </p>
+          </div>
+          {loadingReceived ? <p className="text-text-secondary">Собираем письма поддержки…</p> : null}
 
           {!loadingReceived && sortedMessages.length === 0 ? (
             <Card className="space-y-4 text-center">
               <div className="text-3xl">🌿</div>
-              <h2 className="text-xl font-semibold text-text-primary">Пока здесь пусто.</h2>
+              <h3 className="text-xl font-semibold text-text-primary">Здесь пока тихо.</h3>
               <p className="text-text-secondary">
-                Когда кто-то ответит на твою мысль, тёплые слова появятся здесь.
+                Как только ты поделишься мыслью и кто-то ответит, его слова появятся здесь.
+              </p>
+              <p className="text-text-secondary">
+                Пока можно написать первую историю или поддержать кого-то на странице «Поддержать».
               </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/write')}>
@@ -615,17 +624,21 @@ export default function MyLightsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {loadingSent ? <p className="text-text-secondary">Загружаем ответы…</p> : null}
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-text-primary">Кому ты уже помог</h2>
+            <p className="text-text-secondary">
+              Здесь — тёплые ответы, которые ты оставил другим людям. Маленький архив того, как ты был рядом.
+            </p>
+          </div>
+          {loadingSent ? <p className="text-text-secondary">Собираем твои слова поддержки…</p> : null}
           {!loadingSent && sentResponses.length === 0 ? (
             <Card className="space-y-4 text-center">
               <div className="text-3xl">💌</div>
-              <h2 className="text-xl font-semibold text-text-primary">Ты ещё ни разу не отвечал.</h2>
-              <p className="text-text-secondary">
-                Когда поможешь кому-то словом, твои ответы появятся здесь.
-              </p>
+              <h3 className="text-xl font-semibold text-text-primary">Ты пока не оставлял ответов.</h3>
+              <p className="text-text-secondary">Можно начать с любой истории на странице «Поддержать».</p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/support')}>
-                  Поддержать
+                  {vocabulary.ctaSupport}
                 </Button>
               </div>
             </Card>

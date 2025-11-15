@@ -258,7 +258,7 @@ export default function SupportPage() {
           const minutes = Math.max(1, Math.ceil(retryAfter / 60));
 
           setSubmitError(
-            `Сегодня ты уже поддержал много мыслей. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(
+            `Сегодня ты уже поддержал много людей. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(
               minutes,
             )}.`,
           );
@@ -275,14 +275,12 @@ export default function SupportPage() {
         // маппинг reason → текст
         if (data.reason) {
           const reasonMessages: Record<string, string> = {
-            contact:
-              'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
-            spam: 'Ответ выглядит как повторяющийся набор символов. Попробуй описать поддержку своими словами.',
-            too_short:
-              'Добавь чуть больше тепла и конкретики, чтобы автор почувствовал твою поддержку.',
-            too_long: 'Сократи ответ до 200 символов, чтобы его легко было дочитать.',
+            contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
+            spam: 'Ответ выглядит как набор повторяющихся символов. Попробуй описать поддержку простыми словами.',
+            too_short: 'Добавь ещё немного тепла и конкретики, чтобы автор почувствовал твою поддержку.',
+            too_long: 'Сократи ответ — так его легче дочитать до конца.',
             crisis:
-              'Если текст задевает кризисную тему, лучше мягко направить автора к специалистам и избегать подробностей.',
+              'Если текст цепляет кризисные темы, лучше мягко направить автора к специалистам и избегать подробностей.',
           };
 
           const mapped = reasonMessages[data.reason];
@@ -340,6 +338,9 @@ export default function SupportPage() {
         <p className="max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
           {vocabulary.supportSubtitle}
         </p>
+        <p className="max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
+          {vocabulary.supportPageHelper}
+        </p>
         <p className="max-w-2xl text-xs text-slate-400 sm:text-sm">
           {vocabulary.supportPageAnonNote}
         </p>
@@ -388,16 +389,16 @@ export default function SupportPage() {
         {showEmptyState && (
           <div className="flex flex-col gap-4">
             <h2 className="text-xl font-semibold text-slate-50">
-              Сейчас нет мыслей, которые ждут внимания.
+              Сейчас нет историй, которые ждут ответа.
             </h2>
             <p className="text-sm text-slate-300">
-              Можно заглянуть позже или поделиться своей историей.
+              Можно вернуться чуть позже или поделиться своей историей в разделе «Поделиться».
             </p>
             <Link
               href="/write"
               className="inline-flex w-full items-center justify-center rounded-full bg-sky-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-md shadow-sky-500/30 hover:bg-sky-300 sm:w-auto"
             >
-              Написать мысль
+              {vocabulary.ctaWrite}
             </Link>
           </div>
         )}
@@ -411,23 +412,22 @@ export default function SupportPage() {
                   Категория: {String(message.category)}
                 </div>
               )}
-              <h2 className="text-lg font-semibold text-slate-50">Мысль для поддержки</h2>
+              <h2 className="text-lg font-semibold text-slate-50">История для поддержки</h2>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100">
                 {message.text}
               </p>
-              <p className="text-xs text-slate-400">Истекает через 24 часа.</p>
+              <p className="text-xs text-slate-400">История исчезнет через 24 часа.</p>
+              <p className="text-xs text-slate-400">{vocabulary.supportPageLookingFor}</p>
             </header>
 
             {submitError && <Notice variant="error">{submitError}</Notice>}
             {submitSuccess && (
-              <Notice variant="success">
-                Спасибо. Твои слова отправлены человеку, который сейчас в них нуждается.
-              </Notice>
+              <Notice variant="success">Спасибо. Твои слова уже рядом с человеком, которому сейчас нужна опора.</Notice>
             )}
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-slate-200">Твой тёплый ответ</label>
+                <label className="text-sm font-medium text-slate-200">Твой ответ поддержки</label>
                 <textarea
                   value={responseText}
                   onChange={(e) => {
@@ -436,13 +436,12 @@ export default function SupportPage() {
                   }}
                   rows={5}
                   maxLength={600}
-                  placeholder="Напиши несколько тёплых фраз. Как бы ты поддержал друга в такой ситуации?"
+                  placeholder="Напиши несколько тёплых фраз — как бы ты поддержал друга в такой ситуации?"
                   className="min-h-[140px] w-full resize-none rounded-2xl border border-slate-700 bg-slate-950/40 px-4 py-3 text-sm text-slate-50 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-400 focus:ring-2 focus:ring-sky-500/40"
                   disabled={submitting || !!deviceHardError || !deviceReady}
                 />
                 <p className="text-xs text-slate-400">
-                  20–200 символов тепла и поддержки. Лучше один-два честных абзаца, чем большое
-                  эссе.
+                  20–200 символов тепла и поддержки. Лучше один-два честных абзаца, чем большой монолог. Пиши так, как написал(а) бы другу.
                 </p>
                 {cooldownSeconds && cooldownSeconds > 0 && (
                   <p className="text-xs text-slate-400">
@@ -463,7 +462,7 @@ export default function SupportPage() {
                     (cooldownSeconds !== null && cooldownSeconds > 0)
                   }
                 >
-                  {submitting ? 'Отправляем…' : 'Отправить тёплый ответ'}
+                  {submitting ? 'Отправляем…' : 'Отправить слова поддержки'}
                 </Button>
                 <Button
                   type="button"
