@@ -5,13 +5,9 @@ import type { UserStats } from '@/types/firestore';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { attachDeviceCookie, resolveDeviceIdDebugInfo } from '@/lib/device/server';
+import { isFirestoreQuotaError } from '@/lib/firebase/errors';
 
-interface SerializedUserStats {
-  deviceId: string;
-  lightsGiven: number;
-  lightsReceived: number;
-  messagesSent: number;
-  karmaScore: number;
+interface SerializedTimestamps {
   createdAt: number | null;
   lastActiveAt: number | null;
   lastRepliesSeenAt: number | null;
@@ -27,12 +23,16 @@ const serializeTimestamp = (value?: Timestamp | null): number | null => {
   }
 };
 
-const emptyStats = (deviceId: string): SerializedUserStats => ({
-  deviceId,
-  lightsGiven: 0,
-  lightsReceived: 0,
-  messagesSent: 0,
-  karmaScore: 0,
+const buildEmptyStats = (): SerializedTimestamps & {
+  answersUnread: number;
+  answersTotal: number;
+  messagesWritten: number;
+  responsesGiven: number;
+} => ({
+  answersUnread: 0,
+  answersTotal: 0,
+  messagesWritten: 0,
+  responsesGiven: 0,
   createdAt: null,
   lastActiveAt: null,
   lastRepliesSeenAt: null,
@@ -58,31 +58,23 @@ export async function GET(request: NextRequest) {
   try {
     const db = getAdminDb();
     const deviceHash = hashDeviceId(deviceId);
-
-    const [hashSnapshot, legacySnapshot] = await Promise.all([
-      db.collection('user_stats').doc(deviceHash).get(),
-      db.collection('user_stats').doc(deviceId).get(),
-    ]);
+    const snapshot = await db.collection('user_stats').doc(deviceHash).get();
 
     console.info('[stats/user] Snapshot stats', {
       resolvedDeviceId: deviceId,
-      hashDocExists: hashSnapshot.exists,
-      legacyDocExists: legacySnapshot.exists,
+      hashDocExists: snapshot.exists,
     });
 
-    const snapshot = hashSnapshot.exists ? hashSnapshot : legacySnapshot;
-
     if (!snapshot.exists) {
-      return attachDeviceCookie(NextResponse.json({ stats: emptyStats(deviceId) }, { status: 200 }), deviceId);
+      return attachDeviceCookie(NextResponse.json({ stats: buildEmptyStats() }, { status: 200 }), deviceId);
     }
 
-    const data = snapshot.data() as UserStats | (UserStats & { deviceId?: string });
-    const stats: SerializedUserStats = {
-      deviceId,
-      lightsGiven: data.lightsGiven ?? 0,
-      lightsReceived: data.lightsReceived ?? 0,
-      messagesSent: data.messagesSent ?? 0,
-      karmaScore: data.karmaScore ?? 0,
+    const data = snapshot.data() as UserStats;
+    const stats = {
+      answersUnread: data.repliesUnread ?? 0,
+      answersTotal: data.lightsReceived ?? 0,
+      messagesWritten: data.messagesSent ?? 0,
+      responsesGiven: data.lightsGiven ?? 0,
       createdAt: serializeTimestamp(data.createdAt),
       lastActiveAt: serializeTimestamp(data.lastActiveAt),
       lastRepliesSeenAt: serializeTimestamp(data.lastRepliesSeenAt),
@@ -90,6 +82,12 @@ export async function GET(request: NextRequest) {
 
     return attachDeviceCookie(NextResponse.json({ stats }, { status: 200 }), deviceId);
   } catch (error) {
+    if (isFirestoreQuotaError(error)) {
+      return NextResponse.json(
+        { code: 'FIRESTORE_QUOTA_EXCEEDED', message: 'Quota exceeded' },
+        { status: 503 },
+      );
+    }
     console.error('[stats/user] Failed to load user stats', error);
     return NextResponse.json({ error: 'Не удалось загрузить статистику.' }, { status: 500 });
   }

@@ -55,6 +55,7 @@ export interface UserStats {
   karmaScore: number;
   bannedUntil?: Timestamp | null;
   lastRepliesSeenAt?: Timestamp | null;
+  repliesUnread?: number | null;
 }
 
 export interface Report {

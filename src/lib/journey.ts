@@ -390,7 +390,11 @@ export interface JourneyStatus {
 const hasMeaningfulStats = (stats: UserStats | null): boolean => {
   if (!stats) return false;
   return (
-    stats.messagesSent > 0 || stats.lightsGiven > 0 || stats.lightsReceived > 0 || (stats.karmaScore ?? 0) > 0
+    stats.messagesSent > 0 ||
+    stats.lightsGiven > 0 ||
+    stats.lightsReceived > 0 ||
+    (stats.karmaScore ?? 0) > 0 ||
+    (stats.repliesUnread ?? 0) > 0
   );
 };
 
@@ -533,6 +537,7 @@ export const mergeDevicePath = async (
         lightsReceived: FieldValue.increment(sourceStats.lightsReceived ?? 0),
         messagesSent: FieldValue.increment(sourceStats.messagesSent ?? 0),
         karmaScore: FieldValue.increment(sourceStats.karmaScore ?? 0),
+        repliesUnread: FieldValue.increment(sourceStats.repliesUnread ?? 0),
         createdAt,
         lastActiveAt,
         lastRepliesSeenAt,

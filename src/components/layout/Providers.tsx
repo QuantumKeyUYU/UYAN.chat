@@ -1,16 +1,17 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
-import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
 import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 import { useSettingsStore } from '@/store/settings';
+import { UserStatsProvider } from '@/lib/hooks/useUserStats';
+import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
 
 interface ProvidersProps {
   children: ReactNode;
 }
 
-const Providers = ({ children }: ProvidersProps) => {
-  useDeviceJourney();
+const InnerProviders = ({ children }: ProvidersProps) => {
+  useDeviceJourney({ autoloadStats: false });
   useRepliesBadge();
   const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
 
@@ -38,7 +39,15 @@ const Providers = ({ children }: ProvidersProps) => {
     };
   }, [setReducedMotion]);
 
-  return <>{children}</>;
+  return children;
+};
+
+const Providers = ({ children }: ProvidersProps) => {
+  return (
+    <UserStatsProvider>
+      <InnerProviders>{children}</InnerProviders>
+    </UserStatsProvider>
+  );
 };
 
 export default Providers;

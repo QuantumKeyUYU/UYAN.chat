@@ -12,11 +12,10 @@ import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { addGlobalStatsRefreshListener } from '@/lib/statsEvents';
 
 interface GlobalStats {
-  todayCount: number;
-  totalMessages: number;
-  totalReplies: number;
-  waitingCount: number;
-  waitingVisible?: number;
+  messagesToday: number;
+  messagesTotal: number;
+  responsesTotal: number;
+  waitingNow: number;
 }
 
 export default function HomePage() {
@@ -81,22 +80,21 @@ export default function HomePage() {
       setStatsError(null);
       const response = await fetch('/api/stats/global');
       if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { code?: string } | null;
+        const unavailable = payload?.code === 'GLOBAL_STATS_UNAVAILABLE';
+        if (unavailable) {
+          setStats(null);
+          setStatsError(null);
+          return;
+        }
         throw new Error('Failed to load stats');
       }
-      const data = (await response.json()) as Partial<GlobalStats> & { waitingTotal?: number };
+      const data = (await response.json()) as Partial<GlobalStats>;
       const normalized: GlobalStats = {
-        todayCount: data.todayCount ?? 0,
-        totalMessages: data.totalMessages ?? 0,
-        totalReplies: data.totalReplies ?? 0,
-        waitingCount:
-          typeof data.waitingCount === 'number'
-            ? data.waitingCount
-            : typeof data.waitingVisible === 'number'
-              ? data.waitingVisible
-              : typeof data.waitingTotal === 'number'
-                ? data.waitingTotal
-                : 0,
-        waitingVisible: data.waitingVisible,
+        messagesToday: data.messagesToday ?? 0,
+        messagesTotal: data.messagesTotal ?? 0,
+        responsesTotal: data.responsesTotal ?? 0,
+        waitingNow: data.waitingNow ?? 0,
       };
       setStats(normalized);
     } catch (error) {
@@ -143,7 +141,7 @@ export default function HomePage() {
     : { ...baseTransition, delay: 0.4, duration: 0.6 };
 
   const statsAreMeaningful = Boolean(
-    stats && (stats.totalMessages > 0 || stats.totalReplies > 0 || stats.todayCount > 0 || stats.waitingCount > 0),
+    stats && (stats.messagesTotal > 0 || stats.responsesTotal > 0 || stats.messagesToday > 0 || stats.waitingNow > 0),
   );
 
   return (
@@ -316,15 +314,15 @@ export default function HomePage() {
                 <>
                   <div className="space-y-1">
                     <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">{vocabulary.statsTodayTitle}</p>
-                    <p className="text-2xl font-semibold text-text-primary">{stats.todayCount}</p>
+                    <p className="text-2xl font-semibold text-text-primary">{stats.messagesToday}</p>
                     <p className="text-sm text-text-secondary">{vocabulary.statsTodaySubtitle}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">{vocabulary.statsTotalTitle}</p>
-                    <p className="text-2xl font-semibold text-text-primary">{stats.totalMessages}</p>
+                    <p className="text-2xl font-semibold text-text-primary">{stats.messagesTotal}</p>
                     <p className="text-sm text-text-secondary">{vocabulary.statsTotalSubtitle}</p>
                     <p className="text-xs text-text-tertiary">
-                      {vocabulary.statsTotalRepliesLabel}: {stats.totalReplies}
+                      {vocabulary.statsTotalRepliesLabel}: {stats.responsesTotal}
                     </p>
                   </div>
                   <Link
@@ -333,7 +331,7 @@ export default function HomePage() {
                   >
                     <p className="text-sm uppercase tracking-[0.3em] text-uyan-light">{vocabulary.statsWaitingTitle}</p>
                     <p className="text-2xl font-semibold text-text-primary transition group-hover:text-uyan-light">
-                      {stats.waitingCount}
+                      {stats.waitingNow}
                     </p>
                     <p className="text-sm text-text-secondary">{vocabulary.statsWaitingSubtitle}</p>
                   </Link>
@@ -359,6 +357,23 @@ export default function HomePage() {
                   ) : null}
                 </div>
               )}
+        </motion.section>
+
+        <motion.section
+          className="mx-auto w-full max-w-5xl"
+          initial={initial}
+          animate={animate}
+          transition={summaryTransition}
+        >
+          <div className="rounded-3xl border border-white/10 bg-bg-secondary/60 px-6 py-5 text-center text-lg text-text-primary shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)] sm:text-xl">
+            {stats && !statsLoading ? (
+              <p>
+                Сегодня {stats.messagesToday} человек поделились теплом. Один из них, может быть, ты.
+              </p>
+            ) : (
+              <p>Сегодня несколько человек поделились теплом. Один из них — может быть, ты.</p>
+            )}
+          </div>
         </motion.section>
       </div>
       <p className="mx-auto mt-10 max-w-5xl px-4 text-center text-xs text-text-tertiary sm:px-6 sm:text-sm sm:text-left">

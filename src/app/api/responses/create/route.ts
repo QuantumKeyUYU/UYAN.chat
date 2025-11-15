@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     if (authorDeviceHash) {
       try {
-        await incrementStatsByHash(authorDeviceHash, { lightsReceived: 1 });
+        await incrementStatsByHash(authorDeviceHash, { lightsReceived: 1, repliesUnread: 1 });
       } catch (statsError) {
         console.error('[api/responses/create] stats failed for author', statsError);
       }

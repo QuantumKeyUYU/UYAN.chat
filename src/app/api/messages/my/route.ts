@@ -9,6 +9,7 @@ import type { AdminMessageDoc } from '@/types/firestoreAdmin';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { attachDeviceCookie, resolveDeviceIdDebugInfo } from '@/lib/device/server';
+import { isFirestoreQuotaError } from '@/lib/firebase/errors';
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,22 +32,18 @@ export async function GET(request: NextRequest) {
     const deviceHash = hashDeviceId(deviceId);
 
     const collection = db.collection('messages');
-    const [hashSnapshot, legacySnapshot] = await Promise.all([
-      collection.where('deviceHash', '==', deviceHash).get(),
-      collection.where('deviceId', '==', deviceId).get(),
-    ]);
+    let primarySnapshot = await collection.where('deviceHash', '==', deviceHash).get();
+
+    let usedFallback = false;
+    if (primarySnapshot.empty && deviceId) {
+      usedFallback = true;
+      primarySnapshot = await collection.where('deviceId', '==', deviceId).get();
+    }
 
     console.info('[api/messages/my] Snapshot stats', {
       resolvedDeviceId: deviceId,
-      hashDocs: hashSnapshot.size,
-      legacyDocs: legacySnapshot.size,
-    });
-
-    const seen = new Set<string>();
-    const allDocs = [...hashSnapshot.docs, ...legacySnapshot.docs].filter((doc) => {
-      if (seen.has(doc.id)) return false;
-      seen.add(doc.id);
-      return true;
+      docs: primarySnapshot.size,
+      usedFallback,
     });
 
     const getCreatedAtValue = (doc: unknown): number => {
@@ -59,7 +56,7 @@ export async function GET(request: NextRequest) {
       return 0;
     };
 
-    const messages = allDocs.map((doc) => {
+    const messages = primarySnapshot.docs.map((doc) => {
       const data = doc.data() as AdminMessageDoc;
       return serializeDoc({ id: doc.id, ...data });
     });
@@ -71,21 +68,38 @@ export async function GET(request: NextRequest) {
     }
 
     const responsesCollection = db.collection('responses');
+    const messageIds = messages
+      .map((message) => message.id)
+      .filter((id): id is string => typeof id === 'string');
+
+    const chunkSize = 10;
     const responseSnapshots = await Promise.all(
-      messages.map((message) =>
-        responsesCollection.where('messageId', '==', message.id as string).get(),
-      ),
+      Array.from({ length: Math.ceil(messageIds.length / chunkSize) }, (_, index) => {
+        const start = index * chunkSize;
+        const ids = messageIds.slice(start, start + chunkSize);
+        if (ids.length === 0) {
+          return Promise.resolve(null);
+        }
+        return responsesCollection.where('messageId', 'in', ids).get();
+      }),
     );
 
     const responsesByMessageId = new Map<string, Record<string, unknown>[]>();
-    responseSnapshots.forEach((snapshot, index) => {
-      const messageId = messages[index].id as string;
-      const responses = snapshot.docs
-        .map((doc) =>
-          serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) }),
-        )
-        .sort((a, b) => getCreatedAtValue(a) - getCreatedAtValue(b));
-      responsesByMessageId.set(messageId, responses);
+    responseSnapshots.forEach((snapshot) => {
+      if (!snapshot) return;
+      snapshot.docs.forEach((doc) => {
+        const data = serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) });
+        const messageId = data.messageId as string | undefined;
+        if (!messageId) return;
+        const bucket = responsesByMessageId.get(messageId) ?? [];
+        bucket.push(data);
+        responsesByMessageId.set(messageId, bucket);
+      });
+    });
+
+    responsesByMessageId.forEach((bucket, key) => {
+      bucket.sort((a, b) => getCreatedAtValue(a) - getCreatedAtValue(b));
+      responsesByMessageId.set(key, bucket);
     });
 
     const messagesWithResponses = messages.map((message) => ({
@@ -98,6 +112,12 @@ export async function GET(request: NextRequest) {
       deviceId,
     );
   } catch (error) {
+    if (isFirestoreQuotaError(error)) {
+      return NextResponse.json(
+        { code: 'FIRESTORE_QUOTA_EXCEEDED', message: 'Quota exceeded' },
+        { status: 503 },
+      );
+    }
     console.error('Failed to fetch user messages', error);
     return NextResponse.json({ error: 'Не удалось получить сообщения.' }, { status: 500 });
   }

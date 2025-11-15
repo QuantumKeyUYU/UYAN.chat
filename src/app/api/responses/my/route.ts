@@ -8,6 +8,7 @@ import { serializeDoc } from '@/lib/serializers';
 import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { hashDeviceId } from '@/lib/deviceHash';
 import { attachDeviceCookie, resolveDeviceIdDebugInfo } from '@/lib/device/server';
+import { isFirestoreQuotaError } from '@/lib/firebase/errors';
 
 type SerializedFirestoreDoc = Record<string, unknown> & { id: string };
 
@@ -39,19 +40,21 @@ export async function GET(request: NextRequest) {
     const deviceHash = hashDeviceId(deviceId);
     const responsesCollection = db.collection('responses');
 
-    const [hashSnapshot, legacySnapshot] = await Promise.all([
-      responsesCollection.where('deviceHash', '==', deviceHash).get(),
-      responsesCollection.where('deviceId', '==', deviceId).get(),
-    ]);
+    let primarySnapshot = await responsesCollection.where('deviceHash', '==', deviceHash).get();
 
-    const seen = new Set<string>();
-    const responseDocs = [...hashSnapshot.docs, ...legacySnapshot.docs].filter((doc) => {
-      if (seen.has(doc.id)) return false;
-      seen.add(doc.id);
-      return true;
+    let usedFallback = false;
+    if (primarySnapshot.empty && deviceId) {
+      usedFallback = true;
+      primarySnapshot = await responsesCollection.where('deviceId', '==', deviceId).get();
+    }
+
+    console.info('[api/responses/my] Snapshot stats', {
+      resolvedDeviceId: deviceId,
+      docs: primarySnapshot.size,
+      usedFallback,
     });
 
-    const responses: SerializedFirestoreDoc[] = responseDocs.map((doc) => {
+    const responses: SerializedFirestoreDoc[] = primarySnapshot.docs.map((doc) => {
       const raw = serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) });
       const normalized: SerializedFirestoreDoc = { ...raw, id: doc.id };
       return normalized;
@@ -70,19 +73,29 @@ export async function GET(request: NextRequest) {
     );
 
     const messages = new Map<string, SerializedFirestoreDoc>();
-    await Promise.all(
-      messageIds.map(async (messageId) => {
-        const snap = await db.collection('messages').doc(messageId).get();
-        if (snap.exists) {
-          const serialized = serializeDoc({
-            id: snap.id,
-            ...(snap.data() as Record<string, unknown>),
-          });
-          const normalized: SerializedFirestoreDoc = { ...serialized, id: snap.id };
-          messages.set(messageId, normalized);
+    const chunkSize = 10;
+    const messageSnapshots = await Promise.all(
+      Array.from({ length: Math.ceil(messageIds.length / chunkSize) }, (_, index) => {
+        const start = index * chunkSize;
+        const ids = messageIds.slice(start, start + chunkSize);
+        if (ids.length === 0) {
+          return Promise.resolve(null);
         }
+        return db.collection('messages').where('__name__', 'in', ids).get();
       }),
     );
+
+    messageSnapshots.forEach((snapshot) => {
+      if (!snapshot) return;
+      snapshot.docs.forEach((doc) => {
+        const serialized = serializeDoc({
+          id: doc.id,
+          ...(doc.data() as Record<string, unknown>),
+        });
+        const normalized: SerializedFirestoreDoc = { ...serialized, id: doc.id };
+        messages.set(doc.id, normalized);
+      });
+    });
 
     const enriched: UserResponseSummary[] = responses
       .map((response) => {
@@ -99,6 +112,12 @@ export async function GET(request: NextRequest) {
 
     return attachDeviceCookie(NextResponse.json({ responses: enriched }), deviceId);
   } catch (error) {
+    if (isFirestoreQuotaError(error)) {
+      return NextResponse.json(
+        { code: 'FIRESTORE_QUOTA_EXCEEDED', message: 'Quota exceeded' },
+        { status: 503 },
+      );
+    }
     console.error('[api/responses/my] Failed to fetch user responses', error);
     return NextResponse.json({ error: 'Не удалось получить отправленные ответы.' }, { status: 500 });
   }
