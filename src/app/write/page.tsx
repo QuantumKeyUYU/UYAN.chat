@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { motion } from 'framer-motion';
@@ -34,6 +34,7 @@ export default function WritePage() {
     useResolvedDeviceId();
   const deviceFailed = deviceStatus === 'error' || deviceStatus === 'failed';
   const { vocabulary } = useVocabulary();
+  const infoLines = useMemo(() => vocabulary.writeInfoBlock.split('\n'), [vocabulary.writeInfoBlock]);
   const { refresh: refreshUserStats } = useUserStats();
   const { initial, animate, transition } = useSoftMotion();
   const form = useForm<ComposeFormFields>({
@@ -210,8 +211,8 @@ export default function WritePage() {
 
   return (
     <>
-      <motion.div className="mx-auto flex max-w-3xl flex-col gap-6" initial={initial} animate={animate} transition={transition}>
-        <div className="space-y-2">
+      <motion.div className="mx-auto flex max-w-3xl flex-col gap-7" initial={initial} animate={animate} transition={transition}>
+        <div className="space-y-3">
           <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.writeTitle}</h1>
           <p className="text-sm text-text-secondary sm:text-base">{vocabulary.writeSubtitle}</p>
         </div>
@@ -227,24 +228,28 @@ export default function WritePage() {
           </Notice>
         ) : null}
         <Card className="border border-white/10 bg-bg-secondary/70 p-5 sm:p-6">
-          <p className="text-sm leading-relaxed text-text-secondary sm:text-base">{vocabulary.writeInfoBlock}</p>
+          <div className="space-y-3 text-sm leading-relaxed text-text-secondary sm:text-base">
+            {infoLines.map((line, index) => (
+              <p key={`info-line-${index}`}>{line}</p>
+            ))}
+          </div>
           <div className="mt-6">
             <ComposeForm
               form={form}
               onSubmit={onSubmit}
               minLength={MIN_LENGTH}
               maxLength={MAX_LENGTH}
-              placeholder="Напиши честно, как тебе сейчас. Пара предложений — уже достаточно."
+              placeholder="Расскажи, что чувствуешь прямо сейчас…"
               submitLabel={vocabulary.ctaWriteShort}
               loadingLabel="Отправляем…"
               errorMessage={errorMessage}
               busy={loading}
               cooldownSeconds={cooldownSeconds}
               onChange={() => setErrorMessage(null)}
-              helperHint={<p>Лучше одно–два честных предложения, чем большое эссе.</p>}
-              textareaWrapperClassName="space-y-3 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 sm:p-5"
+              helperHint={<p>Лучше один-два честных абзаца, чем большое эссе.</p>}
+              textareaWrapperClassName="space-y-4 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 sm:p-5"
               fieldLabel={vocabulary.writeFieldLabel}
-              helperHintClassName="mt-2 text-xs leading-relaxed text-text-tertiary/80"
+              helperHintClassName="mt-3 text-sm leading-relaxed text-text-tertiary/80"
             />
           </div>
         </Card>

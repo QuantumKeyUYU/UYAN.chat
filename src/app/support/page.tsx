@@ -334,7 +334,7 @@ export default function SupportPage() {
       transition={softMotion.transition}
     >
       {/* Заголовок */}
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         <h1 className="text-3xl font-semibold tracking-tight text-slate-50 md:text-4xl">
           {vocabulary.supportTitle}
         </h1>
@@ -428,8 +428,8 @@ export default function SupportPage() {
               <Notice variant="success">Спасибо. Твои слова уже рядом с человеком, которому сейчас нужна опора.</Notice>
             )}
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              <div className="flex flex-col gap-3">
                 <label className="text-sm font-medium text-slate-200">Твой ответ поддержки</label>
                 <textarea
                   value={responseText}
@@ -439,12 +439,12 @@ export default function SupportPage() {
                   }}
                   rows={5}
                   maxLength={600}
-                  placeholder="Напиши несколько тёплых фраз — как бы ты поддержал друга в такой ситуации?"
+                  placeholder="Напиши несколько тёплых фраз — как поддержал(а) бы друга в такой ситуации?"
                   className="min-h-[140px] w-full resize-none rounded-2xl border border-slate-700 bg-slate-950/40 px-4 py-3 text-sm text-slate-50 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-400 focus:ring-2 focus:ring-sky-500/40"
                   disabled={submitting || !!deviceHardError || !deviceReady}
                 />
                 <p className="text-xs text-slate-400">
-                  20–200 символов тепла и поддержки. Лучше один-два честных абзаца, чем большой монолог. Пиши так, как написал(а) бы другу.
+                  20–200 символов тепла. Лучше один-два честных абзаца, чем большой монолог. Пиши так, как поддержал(а) бы друга.
                 </p>
                 {cooldownSeconds && cooldownSeconds > 0 && (
                   <p className="text-xs text-slate-400">

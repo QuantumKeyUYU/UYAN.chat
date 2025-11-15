@@ -192,7 +192,7 @@ export default function MyLightsPage() {
   const deviceMissingInfoMessage =
     'Не удалось найти это устройство. Ответы, оставленные с другого браузера или телефона, здесь не появятся.';
   const quotaNoticeMessage =
-    'Не получилось загрузить твои мысли. Похоже, закончилась дневная квота. Попробуй зайти завтра — все сохранённые ответы никуда не денутся.';
+    'Не получилось загрузить твои мысли. Похоже, сегодня мы выбрали дневной лимит запросов к базе. Попробуй зайти завтра — все сохранённые мысли и ответы никуда не денутся.';
   const { vocabulary } = useVocabulary();
   const { state: statsState, refresh: refreshUserStats } = useUserStats();
   const [activeTab, setActiveTab] = useState<TabKey>('received');
@@ -594,7 +594,7 @@ export default function MyLightsPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <div className="space-y-2">
+      <div className="space-y-3">
         <h1 className="text-3xl font-semibold text-text-primary">{vocabulary.answersPageTitle}</h1>
         <p className="text-text-secondary">{vocabulary.answersPageSubtitle}</p>
       </div>
@@ -645,22 +645,18 @@ export default function MyLightsPage() {
       {pageNotice ? <Notice variant={pageNotice.variant}>{pageNotice.message}</Notice> : null}
 
       {activeTab === 'received' ? (
-        <div className="space-y-4">
-          <div className="space-y-2">
+        <div className="space-y-5">
+          <div className="space-y-3">
             <h2 className="text-xl font-semibold text-text-primary">Ответы для тебя</h2>
-            <p className="text-text-secondary">
-              Возвращайся к письмам поддержки, которые помогают держаться, — они всегда будут ждать тебя здесь.
-            </p>
+            <p className="text-text-secondary">{vocabulary.answersPageSubtitle}</p>
           </div>
           {loadingReceived ? <p className="text-text-secondary">Собираем письма поддержки…</p> : null}
 
           {!loadingReceived && sortedMessages.length === 0 && !quotaExceeded ? (
-            <Card className="space-y-4 text-center">
+            <Card className="space-y-5 text-center">
               <div className="text-3xl">💌</div>
               <h3 className="text-xl font-semibold text-text-primary">Здесь пока тихо.</h3>
-              <p className="text-text-secondary">
-                Когда ты поделишься мыслью и кто-то ответит, его слова появятся здесь.
-              </p>
+              <p className="text-text-secondary">Как только ты поделишься мыслью и кто-то ответит, его слова появятся здесь.</p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/write')}>
                   {vocabulary.ctaWriteShort}
