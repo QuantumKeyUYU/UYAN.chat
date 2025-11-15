@@ -138,7 +138,10 @@ export async function getRandomMessageV2(): Promise<MessageV2 | null> {
     const result = await request<{ ok: true; message: MessageV2 }>('/api/v2/messages/random');
     return result.message;
   } catch (error) {
-    if (error instanceof ApiClientV2Error && error.code === 'NO_MESSAGES_AVAILABLE') {
+    if (
+      error instanceof ApiClientV2Error &&
+      (error.code === 'NO_MESSAGES_AVAILABLE' || error.status === 404)
+    ) {
       return null;
     }
     throw error;
