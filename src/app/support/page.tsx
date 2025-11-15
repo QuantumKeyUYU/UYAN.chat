@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
 import { ApiClientV2Error, getRandomMessageV2, postResponseV2 } from '@/lib/apiClientV2';
+import type { MessageV2 } from '@/lib/apiClientV2';
 import { useSoftMotion } from '@/lib/animation';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
@@ -21,13 +22,15 @@ import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
 
 type DeviceStatus = 'idle' | 'resolving' | 'ready' | 'failed' | 'error';
 
-interface SupportMessage {
-  id: string;
-  body: string;
+type SupportMessage = MessageV2 & {
   category?: MessageCategory | null;
-  createdAt?: number | string;
-  hasResponse?: boolean;
-}
+};
+
+type SupportState =
+  | { status: 'loading' }
+  | { status: 'ready'; message: SupportMessage }
+  | { status: 'empty' }
+  | { status: 'error'; errorMessage: string };
 
 const MIN_LENGTH = 20;
 const MAX_LENGTH = 200;
@@ -50,9 +53,7 @@ export default function SupportPage() {
   } = useResolvedDeviceId();
   const deviceStatus = (rawStatus ?? 'idle') as DeviceStatus;
 
-  const [message, setMessage] = useState<SupportMessage | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [state, setState] = useState<SupportState>({ status: 'loading' });
   const [deviceHardError, setDeviceHardError] = useState<string | null>(null);
 
   const [responseText, setResponseText] = useState('');
@@ -61,12 +62,10 @@ export default function SupportPage() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
 
+  const message = state.status === 'ready' ? state.message : null;
   const deviceReady = deviceStatus === 'ready' && !!deviceId;
-  const isBusy = loadingMessage || submitting;
-
-  const showSkeleton = !message && loadingMessage && !loadError && !deviceHardError;
-  const showEmptyState =
-    !message && !loadingMessage && !loadError && !deviceHardError && !deviceHookError;
+  const isLoadingMessage = state.status === 'loading';
+  const isBusy = isLoadingMessage || submitting;
 
   const deviceStatusLabel = useMemo(() => {
     if (deviceHardError) return deviceHardError;
@@ -82,69 +81,50 @@ export default function SupportPage() {
     return null;
   }, [deviceHardError, deviceHookError, deviceStatus]);
 
-  const fetchRandomMessage = useCallback(async () => {
+  const loadMessage = useCallback(async () => {
     if (!deviceReady) return;
 
-    setLoadingMessage(true);
-    setLoadError(null);
+    setState({ status: 'loading' });
     setSubmitError(null);
     setSubmitSuccess(false);
-
-    // Legacy Firestore API call (kept for reference during migration):
-    /*
-    const headers: HeadersInit = {};
-    if (deviceId) {
-      headers[DEVICE_ID_HEADER] = deviceId;
-    }
-    const res = await fetch('/api/messages/random', {
-      method: 'GET',
-      headers,
-    });
-    */
+    setDeviceHardError(null);
 
     try {
       const randomMessage = await getRandomMessageV2();
 
       if (!randomMessage) {
-        setMessage(null);
-        setLoadError(null);
+        setState({ status: 'empty' });
         return;
       }
 
-      setMessage({
-        id: randomMessage.id,
-        body: randomMessage.body,
-        createdAt: randomMessage.createdAt,
-        hasResponse: randomMessage.hasResponse,
-      });
-      setLoadError(null);
+      const normalizedMessage: SupportMessage = {
+        ...randomMessage,
+        category: (randomMessage as { category?: MessageCategory | null }).category ?? null,
+      };
+
+      setState({ status: 'ready', message: normalizedMessage });
     } catch (error) {
-      console.error('[support] Failed to load message', error);
+      console.error('[support] failed to load message', error);
 
       if (error instanceof ApiClientV2Error) {
         if (error.code === 'MISSING_DEVICE_ID') {
-          setDeviceHardError(
-            'Не получилось настроить это устройство. Попробуй обновить страницу или зайти позже.',
-          );
-          setMessage(null);
+          const hardErrorMessage =
+            'Не получилось настроить это устройство. Попробуй обновить страницу или зайти позже.';
+          setDeviceHardError(hardErrorMessage);
+          setState({ status: 'error', errorMessage: hardErrorMessage });
           return;
         }
 
-        if (error.code === 'NO_MESSAGES_AVAILABLE') {
-          setMessage(null);
-          setLoadError(null);
+        if (error.code === 'NO_MESSAGES_AVAILABLE' || error.status === 404) {
+          setState({ status: 'empty' });
           return;
         }
-
-        setLoadError(
-          error.message || 'Не удалось загрузить мысль. Проверь интернет и попробуй ещё раз.',
-        );
-      } else {
-        setLoadError('Не удалось загрузить мысль. Проверь интернет и попробуй ещё раз.');
       }
-      setMessage(null);
-    } finally {
-      setLoadingMessage(false);
+
+      setState({
+        status: 'error',
+        errorMessage: 'Сейчас не получается загрузить истории. Попробуй чуть позже.',
+      });
     }
   }, [deviceReady]);
 
@@ -152,11 +132,9 @@ export default function SupportPage() {
   useEffect(() => {
     if (!deviceReady) return;
     if (deviceHardError) return;
-    if (loadingMessage) return;
-    if (message) return;
 
-    void fetchRandomMessage();
-  }, [deviceReady, deviceHardError, loadingMessage, message, fetchRandomMessage]);
+    void loadMessage();
+  }, [deviceReady, deviceHardError, loadMessage]);
 
   // тикаем кулдаун
   useEffect(() => {
@@ -238,8 +216,7 @@ export default function SupportPage() {
         console.error('[support] Failed to trigger stats refresh', statsError);
       }
 
-      setMessage(null);
-      void fetchRandomMessage();
+      void loadMessage();
     } catch (error) {
       console.error('[support] Failed to send response', error);
 
@@ -299,8 +276,7 @@ export default function SupportPage() {
         if (error.code && codeMessages[error.code]) {
           setSubmitError(codeMessages[error.code]);
           if (error.code !== 'CANNOT_ANSWER_OWN_MESSAGE') {
-            setMessage(null);
-            void fetchRandomMessage();
+            void loadMessage();
           }
           return;
         }
@@ -341,35 +317,14 @@ export default function SupportPage() {
       {/* Статус устройства */}
       {deviceStatusLabel && <Notice variant="info">{deviceStatusLabel}</Notice>}
 
-      {/* Ошибка загрузки мысли */}
-      {loadError && !deviceHardError && (
-        <Notice variant="error">
-          <div className="flex flex-col gap-2">
-            <span>{loadError}</span>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setLoadError(null);
-                void fetchRandomMessage();
-              }}
-              className="w-full sm:w-auto"
-              disabled={loadingMessage}
-            >
-              {loadingMessage ? 'Обновляем…' : 'Попробовать ещё раз'}
-            </Button>
-          </div>
-        </Notice>
-      )}
-
       <Card className="space-y-6 bg-slate-900/70 shadow-xl shadow-black/40">
-        {(showSkeleton || message) && (
+        {(isLoadingMessage || message) && (
           <p className="text-xs leading-relaxed text-slate-400">
             Когда история загрузится, прочитай её полностью и сделай паузу на пару секунд — это помогает ответить бережнее.
           </p>
         )}
         {/* Скелетон */}
-        {showSkeleton && (
+        {isLoadingMessage && (
           <div className="flex flex-col gap-4">
             <div className="h-4 w-24 rounded-full bg-slate-700/60" />
             <div className="h-5 w-48 rounded-full bg-slate-700/60" />
@@ -383,13 +338,13 @@ export default function SupportPage() {
         )}
 
         {/* Пустое состояние */}
-        {showEmptyState && (
+        {state.status === 'empty' && (
           <div className="flex flex-col gap-4">
             <h2 className="text-xl font-semibold text-slate-50">
-              Сейчас нет историй, которые ждут ответа.
+              Сейчас нет историй для поддержки.
             </h2>
             <p className="text-sm text-slate-300">
-              Можно вернуться чуть позже или поделиться своей историей в разделе «Поделиться».
+              Можно вернуться позже или сначала поделиться своей мыслью.
             </p>
             <Link
               href="/write"
@@ -471,8 +426,7 @@ export default function SupportPage() {
                     setResponseText('');
                     setSubmitError(null);
                     setSubmitSuccess(false);
-                    setMessage(null);
-                    void fetchRandomMessage();
+                    void loadMessage();
                   }}
                   className="w-full sm:w-auto"
                   disabled={isBusy || !!deviceHardError}
@@ -481,6 +435,23 @@ export default function SupportPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        )}
+
+        {state.status === 'error' && (
+          <div className="flex flex-col gap-4">
+            <Notice variant="error">{state.errorMessage}</Notice>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                void loadMessage();
+              }}
+              className="w-full sm:w-auto"
+              disabled={isLoadingMessage || !deviceReady}
+            >
+              {isLoadingMessage ? 'Обновляем…' : 'Попробовать ещё раз'}
+            </Button>
           </div>
         )}
       </Card>
