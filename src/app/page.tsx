@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { UserParticipationCard } from '@/components/UserParticipationCard';
 import { isOnboardingDone } from '@/lib/onboarding';
 import { useSoftMotion } from '@/lib/animation';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
@@ -270,6 +271,10 @@ export default function HomePage() {
               </li>
             ))}
           </ol>
+        </motion.section>
+
+        <motion.section initial={initial} animate={animate} transition={infoTransition} className="w-full">
+          <UserParticipationCard />
         </motion.section>
 
         <motion.section
