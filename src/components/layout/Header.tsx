@@ -133,6 +133,7 @@ export const Header = () => {
         <nav className="hidden flex-1 items-center justify-center gap-3 text-sm text-text-secondary sm:flex">
           {links.map((link) => {
             const isActive = pathname === link.href;
+            const linkTitle = link.href === '/my' ? 'Архив важных слов, к которым можно возвращаться.' : undefined;
             return (
               <Link
                 key={link.href}
@@ -142,6 +143,7 @@ export const Header = () => {
                   isActive ? 'text-text-primary' : 'hover:text-text-primary'
                 }`}
                 aria-current={isActive ? 'page' : undefined}
+                title={linkTitle}
               >
                 {isActive ? (
                   <span className="absolute inset-0 rounded-xl bg-white/5" aria-hidden />
@@ -173,6 +175,7 @@ export const Header = () => {
               aria-expanded={statsOpen}
               aria-controls="header-stats"
               onClick={() => setStatsOpen((prev) => !prev)}
+              title="Слева — сколько мыслей ты отправил, справа — сколько ответов ты получил."
             >
               <BarChart3 className="h-4 w-4" aria-hidden />
               <span className="tabular-nums text-sm text-text-primary">{statsLabel}</span>

@@ -35,6 +35,7 @@ export default function HomePage() {
         description: vocabulary.homeTileWriteBody,
         href: '/write',
         accent: '✍️',
+        cta: 'Написать мысль →',
       },
       {
         id: 'reply',
@@ -42,6 +43,7 @@ export default function HomePage() {
         description: vocabulary.homeTileSupportBody,
         href: '/support',
         accent: '🤝',
+        cta: 'Перейти →',
       },
       {
         id: 'saved',
@@ -49,6 +51,7 @@ export default function HomePage() {
         description: vocabulary.homeTileAnswersBody,
         href: '/my',
         accent: '💬',
+        cta: 'Перейти →',
       },
     ],
     [vocabulary],
@@ -235,7 +238,7 @@ export default function HomePage() {
                     </div>
                   </div>
                   <span className="inline-flex items-center gap-2 text-sm font-medium text-uyan-light transition group-hover:text-uyan-light/80">
-                    Перейти →
+                    {action.cta}
                     <span className="sr-only">к разделу {action.title}</span>
                   </span>
                 </motion.div>
@@ -278,8 +281,8 @@ export default function HomePage() {
           <div className="space-y-4">
             <h3 className="text-xl font-semibold text-text-primary">Зачем это нужно</h3>
             <p className="text-text-secondary">
-              UYAN.chat — тихое пространство взаимной поддержки. Здесь честно говорят о том, как выдержать день, и отвечают друг
-              другу теплом.
+              UYAN.chat — тихое пространство взаимной поддержки. Сюда приходят, когда нужно выдержать день, но рядом нет того,
+              кому можно написать.
             </p>
             <p className="text-text-secondary">
               Каждая история проходит модерацию, а ответы пишут живые люди, а не алгоритмы — так мы бережём доверие и безопасность.
@@ -292,7 +295,7 @@ export default function HomePage() {
                 Бережное внимание, чувство связи и место, куда можно возвращаться в сложные дни.
               </p>
               <p className="text-text-secondary">
-                «Ответы» хранят важные слова, которые напоминают: ты не один, чья-то поддержка — уже рядом.
+                «Ответы» хранят важные слова, которые напоминают: ты не один, чья-то поддержка уже рядом.
               </p>
             </div>
           </div>
@@ -344,11 +347,11 @@ export default function HomePage() {
                   </Link>
                 </>
               )
-              : (
-                <div className="sm:col-span-3 flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-bg-secondary/50 px-4 py-6 text-center text-sm text-text-secondary">
-                  <p className="max-w-md">
-                    {statsError ?? 'Сегодня несколько человек поделились теплом. Один из них — может быть, ты.'}
-                  </p>
+                : (
+                  <div className="sm:col-span-3 flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-bg-secondary/50 px-4 py-6 text-center text-sm text-text-secondary">
+                    <p className="max-w-md">
+                      {statsError ?? 'Сейчас не получается показать статистику. Попробуй обновить страницу чуть позже.'}
+                    </p>
                   {statsError ? (
                     <Button
                       type="button"
@@ -372,15 +375,9 @@ export default function HomePage() {
           animate={animate}
           transition={summaryTransition}
         >
-          <div className="rounded-3xl border border-white/10 bg-bg-secondary/60 px-6 py-5 text-center text-lg text-text-primary shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)] sm:text-xl">
-            {stats && !statsLoading ? (
-              <p>
-                Сегодня {stats.messagesToday} человек поделились теплом. Один из них — может быть, ты.
-              </p>
-            ) : (
+            <div className="rounded-3xl border border-white/10 bg-bg-secondary/60 px-6 py-5 text-center text-lg text-text-primary shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)] sm:text-xl">
               <p>Сегодня несколько человек поделились теплом. Один из них — может быть, ты.</p>
-            )}
-          </div>
+            </div>
         </motion.section>
       </div>
       <p className="mx-auto mt-10 max-w-5xl px-4 text-center text-xs text-text-tertiary sm:px-6 sm:text-sm sm:text-left">
