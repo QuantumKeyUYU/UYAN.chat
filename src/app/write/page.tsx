@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
 import { useSoftMotion } from '@/lib/animation';
-import { DEVICE_ID_HEADER } from '@/lib/device/constants';
+import { ApiClientV2Error, postMessageV2 } from '@/lib/apiClientV2';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
 import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
@@ -63,61 +63,24 @@ export default function WritePage() {
   const onSubmit: SubmitHandler<ComposeFormFields> = async (values) => {
     setLoading(true);
     setErrorMessage(null);
+    // Legacy Firestore API call (kept for reference during migration):
+    /*
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (deviceId) {
+      headers[DEVICE_ID_HEADER] = deviceId;
+    }
+    const response = await fetch('/api/messages/create', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        text: values.text,
+        honeypot: values.honeypot,
+        deviceId: deviceId ?? null,
+      }),
+    });
+    */
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (deviceId) {
-        headers[DEVICE_ID_HEADER] = deviceId;
-      }
-      const response = await fetch('/api/messages/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          text: values.text,
-          honeypot: values.honeypot,
-          deviceId: deviceId ?? null,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result?.crisis) {
-        setShowCrisisScreen(true);
-        return;
-      }
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          const retryAfter = typeof result?.retryAfter === 'number' ? result.retryAfter : 0;
-          const minutes = Math.max(1, Math.ceil(retryAfter / 60));
-          setErrorMessage(
-            `Сегодня ты уже поделился многими историями. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
-          );
-          setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
-          return;
-        }
-
-        if (result?.suggestion) {
-          setErrorMessage(result.suggestion);
-          return;
-        }
-
-        const reasonMessages: Record<string, string> = {
-          contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
-          spam: 'Мысль выглядит как набор повторяющихся символов. Попробуй описать своё состояние простыми словами.',
-          too_short: 'Добавь ещё немного конкретики, чтобы человеку было легче почувствовать твоё состояние.',
-          too_long: 'Сократи мысль до 280 символов — так её дочитают внимательно.',
-          crisis:
-            'Если текст задевает кризисную тему, лучше написать короче и обратиться за поддержкой к тем, кто может помочь прямо сейчас.',
-        };
-
-        if (result?.reason && reasonMessages[result.reason]) {
-          setErrorMessage(reasonMessages[result.reason]);
-          return;
-        }
-
-        setErrorMessage(result?.error ?? 'Не удалось сохранить сообщение. Попробуй ещё раз чуть позже.');
-        return;
-      }
+      await postMessageV2(values.text);
 
       form.reset({ text: '', honeypot: '' });
       setCooldownSeconds(null);
@@ -130,6 +93,47 @@ export default function WritePage() {
       }
     } catch (error) {
       console.error(error);
+
+      if (error instanceof ApiClientV2Error) {
+        if (error.code === 'CRISIS') {
+          setShowCrisisScreen(true);
+          return;
+        }
+
+        if (error.status === 429) {
+          const retryAfter =
+            typeof (error.details as { retryAfter?: unknown } | null | undefined)?.retryAfter === 'number'
+              ? (error.details as { retryAfter: number }).retryAfter
+              : 0;
+          const minutes = Math.max(1, Math.ceil(retryAfter / 60));
+          setErrorMessage(
+            `Сегодня ты уже поделился многими историями. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+          );
+          setCooldownSeconds(retryAfter > 0 ? retryAfter : 60);
+          return;
+        }
+
+        const reasonMessages: Record<string, string> = {
+          contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
+          spam: 'Мысль выглядит как набор повторяющихся символов. Попробуй описать своё состояние простыми словами.',
+          too_short: 'Добавь ещё немного конкретики, чтобы человеку было легче почувствовать твоё состояние.',
+          too_long: 'Сократи мысль до 280 символов — так её дочитают внимательно.',
+          crisis:
+            'Если текст задевает кризисную тему, лучше написать короче и обратиться за поддержкой к тем, кто может помочь прямо сейчас.',
+          TOO_SHORT: 'Добавь ещё немного конкретики, чтобы человеку было легче почувствовать твоё состояние.',
+          TOO_LONG: 'Сократи мысль до 280 символов — так её дочитают внимательно.',
+          EMPTY_BODY: 'Добавь ещё немного конкретики, чтобы человеку было легче почувствовать твоё состояние.',
+        };
+
+        if (error.code && reasonMessages[error.code]) {
+          setErrorMessage(reasonMessages[error.code]);
+          return;
+        }
+
+        setErrorMessage(error.message || 'Не удалось сохранить сообщение. Попробуй ещё раз чуть позже.');
+        return;
+      }
+
       setErrorMessage('Что-то пошло не так. Попробуй ещё раз чуть позже.');
     } finally {
       setLoading(false);

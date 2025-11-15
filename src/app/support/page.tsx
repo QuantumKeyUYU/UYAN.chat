@@ -10,11 +10,11 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
+import { ApiClientV2Error, getRandomMessageV2, postResponseV2 } from '@/lib/apiClientV2';
 import { useSoftMotion } from '@/lib/animation';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
 import { useUserStats } from '@/lib/hooks/useUserStats';
-import { DEVICE_ID_HEADER, DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
 import { formatSeconds } from '@/lib/time';
 import type { MessageCategory } from '@/types/firestore';
 import { triggerGlobalStatsRefresh } from '@/lib/statsEvents';
@@ -23,26 +23,10 @@ type DeviceStatus = 'idle' | 'resolving' | 'ready' | 'failed' | 'error';
 
 interface SupportMessage {
   id: string;
-  text: string;
+  body: string;
   category?: MessageCategory | null;
   createdAt?: number | string;
-  expiresAt?: number | string;
-  status?: string;
-}
-
-interface RandomMessageResponse {
-  message?: unknown;
-  code?: string;
-  messageText?: string;
-  error?: string;
-}
-
-interface CreateResponseResult {
-  error?: string;
-  message?: string;
-  suggestion?: string;
-  reason?: string;
-  retryAfter?: number;
+  hasResponse?: boolean;
 }
 
 const MIN_LENGTH = 20;
@@ -106,24 +90,39 @@ export default function SupportPage() {
     setSubmitError(null);
     setSubmitSuccess(false);
 
+    // Legacy Firestore API call (kept for reference during migration):
+    /*
+    const headers: HeadersInit = {};
+    if (deviceId) {
+      headers[DEVICE_ID_HEADER] = deviceId;
+    }
+    const res = await fetch('/api/messages/random', {
+      method: 'GET',
+      headers,
+    });
+    */
+
     try {
-      const headers: HeadersInit = {};
-      if (deviceId) {
-        headers[DEVICE_ID_HEADER] = deviceId;
+      const randomMessage = await getRandomMessageV2();
+
+      if (!randomMessage) {
+        setMessage(null);
+        setLoadError(null);
+        return;
       }
 
-      const res = await fetch('/api/messages/random', {
-        method: 'GET',
-        headers,
+      setMessage({
+        id: randomMessage.id,
+        body: randomMessage.body,
+        createdAt: randomMessage.createdAt,
+        hasResponse: randomMessage.hasResponse,
       });
+      setLoadError(null);
+    } catch (error) {
+      console.error('[support] Failed to load message', error);
 
-      const data = (await res.json().catch(() => ({}))) as RandomMessageResponse;
-
-      if (!res.ok) {
-        const code = data.code;
-
-        // спец-ошибка: девайс не распознан — прекращаем попытки
-        if (code === DEVICE_UNIDENTIFIED_ERROR) {
+      if (error instanceof ApiClientV2Error) {
+        if (error.code === 'MISSING_DEVICE_ID') {
           setDeviceHardError(
             'Не получилось настроить это устройство. Попробуй обновить страницу или зайти позже.',
           );
@@ -131,43 +130,23 @@ export default function SupportPage() {
           return;
         }
 
-        // нормальное пустое состояние — мыслей сейчас нет
-        if (code === 'NO_MESSAGES') {
+        if (error.code === 'NO_MESSAGES_AVAILABLE') {
           setMessage(null);
           setLoadError(null);
           return;
         }
 
-        const text =
-          typeof data.messageText === 'string'
-            ? data.messageText
-            : typeof data.error === 'string'
-              ? data.error
-              : 'Не удалось загрузить мысль. Проверь интернет и попробуй ещё раз.';
-
-        setLoadError(text);
-        setMessage(null);
-        return;
+        setLoadError(
+          error.message || 'Не удалось загрузить мысль. Проверь интернет и попробуй ещё раз.',
+        );
+      } else {
+        setLoadError('Не удалось загрузить мысль. Проверь интернет и попробуй ещё раз.');
       }
-
-      const raw = data.message;
-
-      if (!raw || typeof raw !== 'object') {
-        setMessage(null);
-        setLoadError(null);
-        return;
-      }
-
-      setMessage(raw as SupportMessage);
-      setLoadError(null);
-    } catch (error) {
-      console.error('[support] Failed to load message', error);
       setMessage(null);
-      setLoadError('Не удалось загрузить мысль. Проверь интернет и попробуй ещё раз.');
     } finally {
       setLoadingMessage(false);
     }
-  }, [deviceReady, deviceId]);
+  }, [deviceReady]);
 
   // авто-загрузка первой мысли
   useEffect(() => {
@@ -228,82 +207,26 @@ export default function SupportPage() {
     setSubmitError(null);
     setSubmitSuccess(false);
 
+    // Legacy Firestore API call (kept for reference during migration):
+    /*
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (deviceId) {
+      headers[DEVICE_ID_HEADER] = deviceId;
+    }
+    const res = await fetch('/api/responses/create', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        messageId: message.id,
+        text,
+        type: 'custom',
+      }),
+    });
+    */
+
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (deviceId) {
-        headers[DEVICE_ID_HEADER] = deviceId;
-      }
+      await postResponseV2(message.id, text);
 
-      const res = await fetch('/api/responses/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          messageId: message.id,
-          text,
-          type: 'custom',
-        }),
-      });
-
-      const data = (await res.json().catch(() => ({}))) as CreateResponseResult;
-
-      if (res.status === 403) {
-        setSubmitError(
-          'Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.',
-        );
-        return;
-      }
-
-      if (!res.ok) {
-        // слишком много ответов за день
-        if (res.status === 429) {
-          const retryAfter = typeof data.retryAfter === 'number' ? data.retryAfter : 60;
-          const minutes = Math.max(1, Math.ceil(retryAfter / 60));
-
-          setSubmitError(
-            `Сегодня ты уже поддержал много людей. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(
-              minutes,
-            )}.`,
-          );
-          setCooldownSeconds(retryAfter);
-          return;
-        }
-
-        // если бэкенд прислал подсказку
-        if (data.suggestion && typeof data.suggestion === 'string') {
-          setSubmitError(data.suggestion);
-          return;
-        }
-
-        // маппинг reason → текст
-        if (data.reason) {
-          const reasonMessages: Record<string, string> = {
-            contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
-            spam: 'Ответ выглядит как набор повторяющихся символов. Попробуй описать поддержку простыми словами.',
-            too_short: 'Добавь ещё немного тепла и конкретики, чтобы автор почувствовал твою поддержку.',
-            too_long: 'Сократи ответ — так его легче дочитать до конца.',
-            crisis:
-              'Если текст цепляет кризисные темы, лучше мягко направить автора к специалистам и избегать подробностей.',
-          };
-
-          const mapped = reasonMessages[data.reason];
-          if (mapped) {
-            setSubmitError(mapped);
-            return;
-          }
-        }
-
-        const textError =
-          typeof data.message === 'string'
-            ? data.message
-            : typeof data.error === 'string'
-              ? data.error
-              : 'Не удалось отправить ответ. Попробуй ещё раз.';
-
-        setSubmitError(textError);
-        return;
-      }
-
-      // успех
       setSubmitSuccess(true);
       setResponseText('');
       setCooldownSeconds(null);
@@ -315,11 +238,77 @@ export default function SupportPage() {
         console.error('[support] Failed to trigger stats refresh', statsError);
       }
 
-      // сразу загружаем следующую мысль
       setMessage(null);
       void fetchRandomMessage();
     } catch (error) {
       console.error('[support] Failed to send response', error);
+
+      if (error instanceof ApiClientV2Error) {
+        if (error.status === 403) {
+          setSubmitError(
+            'Доступ к ответам сейчас приостановлен. Мы дадим знать, когда его получится вернуть.',
+          );
+          return;
+        }
+
+        if (error.status === 429) {
+          const retryAfter =
+            typeof (error.details as { retryAfter?: unknown } | null | undefined)?.retryAfter === 'number'
+              ? (error.details as { retryAfter: number }).retryAfter
+              : 60;
+          const minutes = Math.max(1, Math.ceil(retryAfter / 60));
+
+          setSubmitError(
+            `Сегодня ты уже поддержал много людей. Давай сделаем паузу и вернёмся через ${minutes} ${pluralizeMinutes(minutes)}.`,
+          );
+          setCooldownSeconds(retryAfter);
+          return;
+        }
+
+        const suggestion =
+          typeof (error.details as { suggestion?: unknown } | null | undefined)?.suggestion === 'string'
+            ? (error.details as { suggestion: string }).suggestion
+            : null;
+        if (suggestion) {
+          setSubmitError(suggestion);
+          return;
+        }
+
+        const reasonMessages: Record<string, string> = {
+          contact: 'Мы не публикуем контакты и ссылки — так пространство остаётся безопасным для всех.',
+          spam: 'Ответ выглядит как набор повторяющихся символов. Попробуй описать поддержку простыми словами.',
+          too_short: 'Добавь ещё немного тепла и конкретики, чтобы автор почувствовал твою поддержку.',
+          too_long: 'Сократи ответ — так его легче дочитать до конца.',
+          crisis:
+            'Если текст цепляет кризисные темы, лучше мягко направить автора к специалистам и избегать подробностей.',
+          TOO_SHORT: 'Добавь ещё немного тепла и конкретики, чтобы автор почувствовал твою поддержку.',
+          TOO_LONG: 'Сократи ответ — так его легче дочитать до конца.',
+        };
+
+        if (error.code && reasonMessages[error.code]) {
+          setSubmitError(reasonMessages[error.code]);
+          return;
+        }
+
+        const codeMessages: Record<string, string> = {
+          CANNOT_ANSWER_OWN_MESSAGE: 'Нельзя отвечать на собственную историю — выбери другую.',
+          MESSAGE_ALREADY_ANSWERED: 'Кто-то уже поддержал эту историю. Давай найдём следующую.',
+          MESSAGE_NOT_FOUND: 'История больше недоступна. Попробуй загрузить новую.',
+        };
+
+        if (error.code && codeMessages[error.code]) {
+          setSubmitError(codeMessages[error.code]);
+          if (error.code !== 'CANNOT_ANSWER_OWN_MESSAGE') {
+            setMessage(null);
+            void fetchRandomMessage();
+          }
+          return;
+        }
+
+        setSubmitError(error.message || 'Не удалось отправить ответ. Попробуй ещё раз.');
+        return;
+      }
+
       setSubmitError('Не удалось отправить ответ. Проверь интернет и попробуй ещё раз.');
     } finally {
       setSubmitting(false);
@@ -422,7 +411,7 @@ export default function SupportPage() {
               )}
               <h2 className="text-lg font-semibold text-slate-50">История для поддержки</h2>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100">
-                {message.text}
+                {message.body}
               </p>
               <p className="text-xs text-slate-400">История исчезнет через 24 часа.</p>
               <p className="text-xs text-slate-400">{vocabulary.supportPageLookingFor}</p>
