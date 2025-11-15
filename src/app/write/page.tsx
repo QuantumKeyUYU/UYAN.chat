@@ -45,6 +45,7 @@ export default function WritePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showCrisisScreen, setShowCrisisScreen] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
+  const textValue = form.watch('text') ?? '';
 
   useEffect(() => {
     if (!cooldownSeconds || cooldownSeconds <= 0) return;
@@ -134,6 +135,12 @@ export default function WritePage() {
       setLoading(false);
     }
   };
+
+  const handleMobileSubmit = useMemo(() => form.handleSubmit(onSubmit), [form, onSubmit]);
+  const trimmedLength = textValue.trim().length;
+  const isCooldownActive = typeof cooldownSeconds === 'number' && cooldownSeconds > 0;
+  const isMobileButtonDisabled = loading || trimmedLength < MIN_LENGTH || isCooldownActive;
+  const mobileButtonLabel = loading ? 'Отправляем…' : vocabulary.ctaWriteShort;
 
   if (showCrisisScreen) {
     const crisisResources = [
@@ -254,6 +261,22 @@ export default function WritePage() {
           </div>
         </Card>
       </motion.div>
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+4.75rem)] z-40 px-4 md:hidden">
+        <div className="mx-auto w-full max-w-3xl">
+          <div className="pointer-events-auto rounded-2xl border border-white/10 bg-bg-primary/95 p-3 shadow-lg shadow-uyan-action/20 backdrop-blur">
+            <Button
+              type="button"
+              disabled={isMobileButtonDisabled}
+              className="w-full active:scale-[0.98]"
+              onClick={() => {
+                void handleMobileSubmit();
+              }}
+            >
+              {mobileButtonLabel}
+            </Button>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
