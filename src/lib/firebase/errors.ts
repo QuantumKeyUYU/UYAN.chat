@@ -1,39 +1,36 @@
-import { Status } from '@google-cloud/firestore';
+const FIREBASE_QUOTA_CODE = 8; // RESOURCE_EXHAUSTED
 
-const RESOURCE_EXHAUSTED_CODE = Status.RESOURCE_EXHAUSTED ?? 8;
-
-const normalizeErrorCode = (error: unknown): number | string | null => {
-  if (!error || typeof error !== 'object') {
-    return null;
-  }
-
-  const code = (error as { code?: unknown }).code;
-  if (typeof code === 'number' || typeof code === 'string') {
-    return code;
-  }
-
-  return null;
+type FirestoreLikeError = {
+  code?: number | string;
+  message?: unknown;
+  details?: unknown;
 };
 
-const normalizeErrorMessage = (error: unknown): string | null => {
-  if (!error || typeof error !== 'object') {
-    return null;
+const extractMessage = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return value;
   }
-
-  const message = (error as { message?: unknown }).message;
-  return typeof message === 'string' ? message : null;
+  if (value == null) {
+    return '';
+  }
+  return String(value);
 };
 
 export const isFirestoreQuotaError = (error: unknown): boolean => {
-  const code = normalizeErrorCode(error);
-  if (typeof code === 'number' && code === RESOURCE_EXHAUSTED_CODE) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const { code, message, details } = error as FirestoreLikeError;
+
+  if (code === FIREBASE_QUOTA_CODE || code === 'RESOURCE_EXHAUSTED' || code === '8') {
     return true;
   }
 
-  if (typeof code === 'string' && (code === 'RESOURCE_EXHAUSTED' || code === '8')) {
-    return true;
+  const combinedMessage = `${extractMessage(message)} ${extractMessage(details)}`.trim();
+  if (!combinedMessage) {
+    return false;
   }
 
-  const message = normalizeErrorMessage(error);
-  return message ? message.includes('RESOURCE_EXHAUSTED') : false;
+  return combinedMessage.includes('Quota exceeded') || combinedMessage.includes('RESOURCE_EXHAUSTED');
 };

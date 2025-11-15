@@ -41,6 +41,48 @@ const shareStyleLabels: Record<string, string> = {
 
 type MessageStatus = 'waiting' | 'answered' | 'expired';
 
+type ApiResponseDetail = {
+  id: string;
+  text: string;
+  createdAt: number;
+  reportCount?: number;
+  hidden?: boolean;
+  moderationNote?: string | null;
+};
+
+type ApiMessageWithResponses = {
+  id: string;
+  text: string;
+  category: string;
+  status: MessageStatus;
+  createdAt: number;
+  answeredAt?: number | null;
+  responses?: ApiResponseDetail[];
+};
+
+type ApiSentResponseMessage = {
+  id: string;
+  text?: string;
+  category?: string | null;
+};
+
+type ApiSentResponse = {
+  id: string;
+  text: string;
+  createdAt: number;
+  messageId?: string;
+  message?: ApiSentResponseMessage | null;
+};
+
+type ApiErrorResponse = { error: string; code?: string };
+type ApiQuotaExceededResponse = { code: 'FIRESTORE_QUOTA_EXCEEDED'; message: string };
+
+type MyMessagesSuccess = { messages: ApiMessageWithResponses[] };
+type MyMessagesResult = MyMessagesSuccess | ApiErrorResponse | ApiQuotaExceededResponse;
+
+type MyResponsesSuccess = { responses: ApiSentResponse[] };
+type MyResponsesResult = MyResponsesSuccess | ApiErrorResponse | ApiQuotaExceededResponse;
+
 type ResponseDetail = {
   id: string;
   text: string;
@@ -77,7 +119,7 @@ const statusLabels: Record<MessageStatus, string> = {
   expired: 'Мысль закрыта',
 };
 
-const normalizeResponse = (raw: any): ResponseDetail => ({
+const normalizeResponse = (raw: ApiResponseDetail): ResponseDetail => ({
   id: raw.id,
   text: raw.text,
   createdAt: raw.createdAt,
@@ -86,28 +128,58 @@ const normalizeResponse = (raw: any): ResponseDetail => ({
   moderationNote: raw.moderationNote ?? null,
 });
 
-const normalizeMessageWithResponses = (raw: any): MessageWithResponses => ({
-  id: raw.id,
-  text: raw.text,
-  category: raw.category,
-  status: raw.status,
-  createdAt: raw.createdAt,
-  answeredAt: raw.answeredAt ?? null,
-  responses: Array.isArray(raw.responses) ? raw.responses.map((item: any) => normalizeResponse(item)) : [],
-});
+const normalizeMessageWithResponses = (raw: ApiMessageWithResponses): MessageWithResponses => {
+  const responseItems = Array.isArray(raw.responses) ? raw.responses : [];
+  return {
+    id: raw.id,
+    text: raw.text,
+    category: raw.category,
+    status: raw.status,
+    createdAt: raw.createdAt,
+    answeredAt: raw.answeredAt ?? null,
+    responses: responseItems.map((item) => normalizeResponse(item)),
+  };
+};
 
-const normalizeSentResponse = (raw: any): SentResponse => ({
+const normalizeSentResponse = (raw: ApiSentResponse): SentResponse => ({
   id: raw.id,
   text: raw.text,
   createdAt: raw.createdAt,
   message: raw.message
     ? {
         id: raw.message.id,
-        text: raw.message.text,
-        category: raw.message.category,
+        text: raw.message.text ?? '',
+        category: raw.message.category ?? undefined,
       }
     : null,
 });
+
+const isQuotaExceededResponse = (payload: unknown): payload is ApiQuotaExceededResponse =>
+  Boolean(
+    payload &&
+      typeof payload === 'object' &&
+      'code' in payload &&
+      (payload as { code?: unknown }).code === 'FIRESTORE_QUOTA_EXCEEDED',
+  );
+
+const isErrorResponse = (payload: unknown): payload is ApiErrorResponse =>
+  Boolean(payload && typeof payload === 'object' && 'error' in payload && typeof (payload as { error?: unknown }).error === 'string');
+
+const isMessagesSuccess = (payload: unknown): payload is MyMessagesSuccess =>
+  Boolean(
+    payload &&
+      typeof payload === 'object' &&
+      'messages' in payload &&
+      Array.isArray((payload as { messages?: unknown }).messages),
+  );
+
+const isResponsesSuccess = (payload: unknown): payload is MyResponsesSuccess =>
+  Boolean(
+    payload &&
+      typeof payload === 'object' &&
+      'responses' in payload &&
+      Array.isArray((payload as { responses?: unknown }).responses),
+  );
 
 export default function MyLightsPage() {
   const router = useRouter();
@@ -177,22 +249,18 @@ export default function MyLightsPage() {
         headers: { [DEVICE_ID_HEADER]: deviceId },
         cache: 'no-store',
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { messages?: unknown; error?: unknown }
-        | { code?: string; message?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as unknown;
       if (!response.ok) {
-        const quotaError = payload && typeof payload === 'object' && 'code' in payload && payload.code === 'FIRESTORE_QUOTA_EXCEEDED';
-        if (quotaError) {
+        if (isQuotaExceededResponse(payload)) {
           setPageNotice({ variant: 'error', message: quotaNoticeMessage });
           setLoadingReceived(false);
           return;
         }
-        const errorMessage = typeof payload?.error === 'string' ? payload.error : 'Ошибка загрузки';
+        const errorMessage = isErrorResponse(payload) ? payload.error : 'Ошибка загрузки';
         throw new Error(errorMessage);
       }
-      const rawMessages = Array.isArray(payload?.messages) ? payload.messages : [];
-      const normalized = rawMessages.map((item: unknown) => normalizeMessageWithResponses(item));
+      const rawMessages = isMessagesSuccess(payload) ? payload.messages : [];
+      const normalized = rawMessages.map((item) => normalizeMessageWithResponses(item));
       setMessages(normalized);
       syncFromMessages(normalized);
       setPageNotice((prev) => {
@@ -234,10 +302,9 @@ export default function MyLightsPage() {
         headers: { [DEVICE_ID_HEADER]: deviceId },
         cache: 'no-store',
       });
-      const payload = (await response.json().catch(() => null)) as { responses?: unknown; error?: unknown } | null;
+      const payload = (await response.json().catch(() => null)) as unknown;
       if (!response.ok) {
-        const quotaError = payload && typeof payload === 'object' && 'code' in payload && payload.code === 'FIRESTORE_QUOTA_EXCEEDED';
-        if (quotaError) {
+        if (isQuotaExceededResponse(payload)) {
           setPageNotice((prev) =>
             prev?.variant === 'error'
               ? prev
@@ -246,15 +313,15 @@ export default function MyLightsPage() {
           setLoadingSent(false);
           return;
         }
-        const errorMessage = typeof payload?.error === 'string' ? payload.error : 'Ошибка загрузки ответов';
+        const errorMessage = isErrorResponse(payload) ? payload.error : 'Ошибка загрузки ответов';
         if (errorMessage === DEVICE_UNIDENTIFIED_ERROR) {
           setPageNotice({ variant: 'error', message: deviceUnavailableMessage });
           return;
         }
         throw new Error(errorMessage);
       }
-      const rawResponses = Array.isArray(payload?.responses) ? payload.responses : [];
-      const normalized = rawResponses.map((item: unknown) => normalizeSentResponse(item));
+      const rawResponses = isResponsesSuccess(payload) ? payload.responses : [];
+      const normalized = rawResponses.map((item) => normalizeSentResponse(item));
       normalized.sort((a: SentResponse, b: SentResponse) => b.createdAt - a.createdAt);
       setSentResponses(normalized);
     } catch (error) {

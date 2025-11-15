@@ -44,6 +44,17 @@ export const useRepliesBadge = () => {
     }
   }, [deviceId, hasUnseenReplies, markRepliesSeenLocal, refresh, state.status]);
 
+  const syncFromMessages = useCallback(
+    (_messages?: unknown) => {
+      // This hook relies on the shared stats context for state management.
+      // The method exists to satisfy callers that optionally pass message data
+      // when syncing badge state, but no extra handling is currently required
+      // here because the provider already tracks unread counts.
+      return;
+    },
+    [],
+  );
+
   const value = useMemo(
     () => ({
       count,
@@ -51,9 +62,9 @@ export const useRepliesBadge = () => {
       loading: loading || marking,
       refresh,
       markAllSeen,
-      syncFromMessages: () => {},
+      syncFromMessages,
     }),
-    [count, hasUnseenReplies, loading, marking, markAllSeen, refresh],
+    [count, hasUnseenReplies, loading, marking, markAllSeen, refresh, syncFromMessages],
   );
 
   return value;
