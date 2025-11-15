@@ -61,6 +61,14 @@ npm run dev
 
 Приложение поднимется на [http://localhost:3000](http://localhost:3000).
 
+### Postgres / Prisma v2 backend
+
+```bash
+npm install
+npx prisma generate
+npx prisma migrate dev
+```
+
 ### Скрипты качества
 
 * `npm run lint` — ESLint (Next.js правила).
