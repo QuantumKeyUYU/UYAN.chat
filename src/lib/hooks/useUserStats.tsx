@@ -35,6 +35,15 @@ interface UserStatsContextValue {
 
 const UserStatsContext = createContext<UserStatsContextValue | undefined>(undefined);
 
+const defaultContextState: UserStatsState = { status: 'idle', data: null, error: null };
+
+const defaultContext: UserStatsContextValue = {
+  state: defaultContextState,
+  refresh: async () => {},
+  applyPatch: () => {},
+  markRepliesSeenLocal: () => {},
+};
+
 interface ProviderProps {
   children: ReactNode;
 }
@@ -218,7 +227,10 @@ export const UserStatsProvider = ({ children }: ProviderProps) => {
 export const useUserStats = () => {
   const context = useContext(UserStatsContext);
   if (!context) {
-    throw new Error('useUserStats must be used within a UserStatsProvider');
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('useUserStats called outside of UserStatsProvider; returning default context');
+    }
+    return defaultContext;
   }
   return context;
 };

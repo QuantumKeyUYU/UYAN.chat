@@ -10,7 +10,7 @@ interface ProvidersProps {
   children: ReactNode;
 }
 
-const Providers = ({ children }: ProvidersProps) => {
+const InnerProviders = ({ children }: ProvidersProps) => {
   useDeviceJourney({ autoloadStats: false });
   useRepliesBadge();
   const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
@@ -39,7 +39,15 @@ const Providers = ({ children }: ProvidersProps) => {
     };
   }, [setReducedMotion]);
 
-  return <UserStatsProvider>{children}</UserStatsProvider>;
+  return children;
+};
+
+const Providers = ({ children }: ProvidersProps) => {
+  return (
+    <UserStatsProvider>
+      <InnerProviders>{children}</InnerProviders>
+    </UserStatsProvider>
+  );
 };
 
 export default Providers;
