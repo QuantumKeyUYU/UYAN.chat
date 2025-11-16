@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import type { FirebaseStatus } from '@/config/firebase';
+import type { FirebaseStatus } from '@config/firebase';
 import { clearPersistedDeviceId, persistDeviceId } from '@/lib/device';
 
 export interface DeviceState {

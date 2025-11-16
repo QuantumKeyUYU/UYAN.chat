@@ -37,6 +37,9 @@
       ],
       "@/types/*": [
         "src/types/*"
+      ],
+      "@config/*": [
+        "src/config/*"
       ]
     },
     "plugins": [

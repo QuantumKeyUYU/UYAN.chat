@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import type { FirebaseApp } from 'firebase/app';
 import Providers from '@/components/layout/Providers';
-import { getFirebaseEnvReport, initializeFirebaseClient, type FirebaseEnvReportEntry, type FirebaseStatus } from '@/config/firebase';
+import { getFirebaseEnvReport, initializeFirebaseClient, type FirebaseEnvReportEntry, type FirebaseStatus } from '@config/firebase';
 import { useDeviceStore } from '@/store/device';
 
 interface FirebaseContextValue {
