@@ -3,9 +3,10 @@ import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { MobileNavBar } from '@/components/layout/MobileNavBar';
-import Providers from '@/components/layout/Providers';
 import DevicePathWidget from '@/components/debug/DevicePathWidget';
 import PageTransition from '@/components/layout/PageTransition';
+import ClientProviders from '@/components/providers/client-providers';
+import ErrorBoundary from '@/components/shared/error-boundary';
 
 export const metadata: Metadata = {
   title: 'UYAN.chat — пространство тёплых мыслей',
@@ -21,19 +22,21 @@ export default function RootLayout({
   return (
     <html lang="ru" className="dark h-full">
       <body className="min-h-dvh bg-bg-primary text-text-primary">
-        <Providers>
+        <ClientProviders>
           <div className="flex min-h-dvh flex-col">
             <Header />
             <main
               className="flex-1 min-h-screen px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 sm:px-6 lg:px-8"
               style={{ paddingTop: 'var(--header-h)' }}
             >
-              <PageTransition>{children}</PageTransition>
+              <ErrorBoundary>
+                <PageTransition>{children}</PageTransition>
+              </ErrorBoundary>
             </main>
             <Footer />
             <MobileNavBar />
           </div>
-        </Providers>
+        </ClientProviders>
         <DevicePathWidget />
       </body>
     </html>
