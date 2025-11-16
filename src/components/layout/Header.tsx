@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Sparkles, BarChart3, PenSquare } from 'lucide-react';
 import { useSettingsStore } from '@/store/settings';
+import { useDeviceStore } from '@/store/device';
 import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useUserStats } from '@/lib/hooks/useUserStats';
@@ -14,6 +15,8 @@ type HeaderLink = { href: string; label: string };
 
 const baseLinks: HeaderLink[] = [
   { href: '/', label: 'Главная' },
+  { href: '/explore', label: 'Исследовать' },
+  { href: '/circle', label: 'Круг' },
   { href: '/support', label: 'Поддержать' },
   { href: '/my', label: 'Ответы' },
   { href: '/settings', label: 'Настройки' },
@@ -31,6 +34,8 @@ export const Header = () => {
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
   const { count: repliesCount, hasUnseenReplies } = useRepliesBadge();
+  const demoMode = useDeviceStore((state) => state.demoMode);
+  const firebaseStatus = useDeviceStore((state) => state.firebaseStatus);
   const isHome = pathname === '/';
   const isSettings = pathname === '/settings';
   const [canGoBack, setCanGoBack] = useState(false);
@@ -168,6 +173,15 @@ export const Header = () => {
         </nav>
 
         <div className="flex flex-1 items-center justify-end gap-2">
+          {demoMode ? (
+            <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-uyan-gold sm:inline-flex">
+              Demo · Firebase offline
+            </span>
+          ) : (
+            <span className="hidden rounded-full border border-white/5 px-3 py-1 text-xs font-medium text-text-tertiary sm:inline-flex" title="Firebase успешно инициализирован">
+              Firebase: {firebaseStatus}
+            </span>
+          )}
           <div className="relative" ref={statsRef}>
             <button
               type="button"
