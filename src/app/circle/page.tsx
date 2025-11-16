@@ -1,9 +1,9 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { useFirebaseContext } from '@/components/providers/client-providers';
 import { useDeviceStore } from '@/store/device';
 import { useWeekCrewStore, type CircleHabit, type CircleMember, type CircleReflection } from '@/store/weekcrew';
+import { useBackendStore } from '@/store/backend';
 
 const statusColors: Record<CircleMember['checkIn'], string> = {
   ready: 'bg-emerald-500/20 text-emerald-200',
@@ -34,7 +34,8 @@ const HabitToggle = ({ habit, onToggle }: { habit: CircleHabit; onToggle: (id: s
 );
 
 export default function CirclePage() {
-  const { demoMode, status } = useFirebaseContext();
+  const backendStatus = useBackendStore((state) => state.status);
+  const isDemo = backendStatus === 'demo';
   const circle = useWeekCrewStore((state) =>
     state.circles.find((candidate) => candidate.id === state.activeCircleId) ?? state.circles[0],
   );
@@ -79,8 +80,8 @@ export default function CirclePage() {
             <p className="text-text-secondary">{circle.focus}</p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-text-tertiary">
-            <span className="rounded-full border border-white/10 px-3 py-1">Firebase: {status}</span>
-            {demoMode ? (
+            <span className="rounded-full border border-white/10 px-3 py-1">Состояние: {backendStatus}</span>
+            {isDemo ? (
               <span className="rounded-full border border-uyan-gold/60 bg-uyan-gold/10 px-3 py-1 text-uyan-gold">Demo mode</span>
             ) : null}
             <span className="rounded-full border border-white/10 px-3 py-1">Следующая встреча: {circle.nextSession}</span>

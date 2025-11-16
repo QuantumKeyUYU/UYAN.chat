@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Sparkles, BarChart3, PenSquare } from 'lucide-react';
 import { useSettingsStore } from '@/store/settings';
-import { useDeviceStore } from '@/store/device';
+import { useBackendStore, type BackendStatus } from '@/store/backend';
 import { useRepliesBadge } from '@/hooks/useRepliesBadge';
 import { useVocabulary } from '@/lib/hooks/useVocabulary';
 import { useUserStats } from '@/lib/hooks/useUserStats';
@@ -24,6 +24,35 @@ const baseLinks: HeaderLink[] = [
 
 const formatNumber = (value: number) => new Intl.NumberFormat('ru-RU').format(value);
 
+const BackendBadge = ({ status }: { status: BackendStatus }) => {
+  if (status === 'demo') {
+    return (
+      <span className="hidden rounded-full border border-uyan-gold/60 bg-uyan-gold/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-uyan-gold sm:inline-flex">
+        DEMO · данные только на этом устройстве
+      </span>
+    );
+  }
+  if (status === 'offline') {
+    return (
+      <span className="hidden rounded-full border border-rose-500/40 bg-rose-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-rose-200 sm:inline-flex">
+        OFFLINE · попробуй обновить позже
+      </span>
+    );
+  }
+  if (status === 'degraded') {
+    return (
+      <span className="hidden rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-amber-200 sm:inline-flex">
+        DEGRADED · ответы приходят с задержкой
+      </span>
+    );
+  }
+  return (
+    <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-text-tertiary sm:inline-flex">
+      ONLINE · анонимные письма
+    </span>
+  );
+};
+
 export const Header = () => {
   const headerRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
@@ -34,8 +63,7 @@ export const Header = () => {
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const { vocabulary } = useVocabulary();
   const { count: repliesCount, hasUnseenReplies } = useRepliesBadge();
-  const demoMode = useDeviceStore((state) => state.demoMode);
-  const firebaseStatus = useDeviceStore((state) => state.firebaseStatus);
+  const backendStatus = useBackendStore((state) => state.status);
   const isHome = pathname === '/';
   const isSettings = pathname === '/settings';
   const [canGoBack, setCanGoBack] = useState(false);
@@ -173,15 +201,7 @@ export const Header = () => {
         </nav>
 
         <div className="flex flex-1 items-center justify-end gap-2">
-          {demoMode ? (
-            <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-uyan-gold sm:inline-flex">
-              Demo · Firebase offline
-            </span>
-          ) : (
-            <span className="hidden rounded-full border border-white/5 px-3 py-1 text-xs font-medium text-text-tertiary sm:inline-flex" title="Firebase успешно инициализирован">
-              Firebase: {firebaseStatus}
-            </span>
-          )}
+          <BackendBadge status={backendStatus} />
           <div className="relative" ref={statsRef}>
             <button
               type="button"

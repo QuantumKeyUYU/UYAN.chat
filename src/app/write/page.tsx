@@ -257,7 +257,7 @@ export default function WritePage() {
               busy={loading}
               cooldownSeconds={cooldownSeconds}
               onChange={() => setErrorMessage(null)}
-              helperHint={<p>Лучше один-два честных абзаца, чем большое эссе.</p>}
+              helperHint={<p>Лучше один-два честных абзаца, чем большое эссе. Пиши так, как написал бы другу.</p>}
               textareaWrapperClassName="space-y-4 rounded-2xl border border-white/10 bg-bg-secondary/60 p-4 sm:p-5"
               fieldLabel={vocabulary.writeFieldLabel}
               helperHintClassName="mt-3 text-sm leading-relaxed text-text-tertiary/80"

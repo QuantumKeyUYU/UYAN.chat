@@ -657,7 +657,7 @@ export default function MyLightsPage() {
               <div className="text-3xl">💌</div>
               <h3 className="text-xl font-semibold text-text-primary">Здесь появятся слова поддержки, которые ты получишь.</h3>
               <p className="text-text-secondary">
-                Как только кто-то ответит на твою мысль, его письмо останется здесь — к нему можно будет вернуться в любой момент.
+                Как только кто-то ответит на твою мысль, его письмо останется здесь — как в коробке с любимыми письмами.
               </p>
               <div className="flex justify-center">
                 <Button variant="secondary" onClick={() => router.push('/write')}>

@@ -97,14 +97,15 @@ const request = async <T>(input: RequestInfo | URL, init?: RequestInit): Promise
   });
 
   const payload = await parsePayload(response);
-  const ok = typeof payload === 'object' && payload !== null ? (payload as { ok?: unknown }).ok : undefined;
-  const code = typeof payload === 'object' && payload !== null ? ((payload as { code?: unknown }).code as string | undefined) : undefined;
+  const code =
+    typeof payload === 'object' && payload !== null ? ((payload as { code?: unknown }).code as string | undefined) : undefined;
   const message =
     typeof payload === 'object' && payload !== null
-      ? ((payload as { message?: unknown }).message as string | undefined)
+      ? ((payload as { error?: unknown; message?: unknown }).error as string | undefined) ||
+        ((payload as { message?: unknown }).message as string | undefined)
       : undefined;
 
-  if (!response.ok || ok === false) {
+  if (!response.ok) {
     const errorMessage =
       message ||
       (code ? `Запрос завершился с ошибкой: ${code}` : `Запрос завершился с ошибкой (${response.status}).`);
@@ -115,33 +116,44 @@ const request = async <T>(input: RequestInfo | URL, init?: RequestInit): Promise
     });
   }
 
-  if (ok !== true) {
-    throw new ApiClientV2Error('Некорректный ответ от сервера.', {
-      status: response.status,
-      details: payload ?? undefined,
-    });
-  }
-
-  return payload as T;
+  return (payload as T) ?? ({} as T);
 };
 
+const serializeMessage = (raw: any): MessageV2 => ({
+  id: String(raw?.id ?? ''),
+  body: typeof raw?.text === 'string' ? raw.text : String(raw?.body ?? ''),
+  createdAt: typeof raw?.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+});
+
+const serializeResponse = (raw: any): ResponseV2 => ({
+  id: String(raw?.id ?? ''),
+  body: typeof raw?.text === 'string' ? raw.text : String(raw?.body ?? ''),
+  createdAt: typeof raw?.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+  message: raw?.message
+    ? {
+        id: String(raw.message.id ?? ''),
+        body: typeof raw.message.text === 'string' ? raw.message.text : String(raw.message.body ?? ''),
+      }
+    : undefined,
+});
+
 export async function postMessageV2(body: string): Promise<MessageV2> {
-  const result = await request<{ ok: true; message: MessageV2 }>('/api/v2/messages', {
+  const result = await request<{ message?: unknown }>('/api/messages/create', {
     method: 'POST',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ text: body }),
   });
-  return result.message;
+  return serializeMessage((result as { message?: unknown })?.message);
 }
 
 export async function getRandomMessageV2(): Promise<MessageV2 | null> {
   try {
-    const result = await request<{ ok: true; message: MessageV2 }>('/api/v2/messages/random');
-    return result.message;
+    const result = await request<{ message?: unknown; status?: string }>('/api/messages/random');
+    if ((result as { status?: string }).status === 'empty') {
+      return null;
+    }
+    return serializeMessage((result as { message?: unknown })?.message);
   } catch (error) {
-    if (
-      error instanceof ApiClientV2Error &&
-      (error.code === 'NO_MESSAGES_AVAILABLE' || error.status === 404)
-    ) {
+    if (error instanceof ApiClientV2Error && error.status === 404) {
       return null;
     }
     throw error;
@@ -149,14 +161,20 @@ export async function getRandomMessageV2(): Promise<MessageV2 | null> {
 }
 
 export async function postResponseV2(messageId: string, body: string): Promise<ResponseV2> {
-  const result = await request<{ ok: true; response: ResponseV2 }>(`/api/v2/messages/${encodeURIComponent(messageId)}/response`, {
+  const result = await request<{ response?: unknown }>('/api/responses/create', {
     method: 'POST',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ messageId, text: body }),
   });
-  return result.response;
+  return serializeResponse((result as { response?: unknown })?.response);
 }
 
 export async function getUserStatsV2(): Promise<UserStatsV2> {
-  const result = await request<{ ok: true; stats: UserStatsV2 }>('/api/v2/stats/user');
-  return result.stats;
+  const result = await request<{ stats?: unknown }>('/api/stats/user');
+  const stats = (result as { stats?: Record<string, unknown> }).stats ?? {};
+  return {
+    messagesSent: Number(stats.messagesWritten ?? 0),
+    responsesSent: Number(stats.responsesGiven ?? 0),
+    responsesReceived: Number(stats.answersTotal ?? 0),
+    lastResponseReceivedAt: typeof stats.lastResponseReceivedAt === 'string' ? stats.lastResponseReceivedAt : null,
+  };
 }

@@ -3,14 +3,11 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase/admin';
+
 import { moderateMessage } from '@/lib/moderation';
-import { getOrCreateUserStats, incrementStats } from '@/lib/stats';
-import { serializeDoc } from '@/lib/serializers';
-import { checkRateLimit } from '@/lib/rateLimiter';
-import { hashDeviceId } from '@/lib/deviceHash';
-import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
+import { getDeviceContext, DeviceContextError } from '@/server/device/context';
+import { createMessage } from '@/server/db/messages';
+import { checkRateLimit } from '@/server/rate-limit';
 
 const CRISIS_RESPONSE = {
   crisis: true,
@@ -18,47 +15,49 @@ const CRISIS_RESPONSE = {
     'Кажется, тебе сейчас очень тяжело. Мы рядом сердцем, но лучше всего могут поддержать живые специалисты.',
 };
 
+const serializeMessage = (message: { id: string; body: string; createdAt: Date; status: string }) => ({
+  id: message.id,
+  body: message.body,
+  text: message.body,
+  status: message.status,
+  createdAt: message.createdAt.toISOString(),
+});
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { text, deviceId: deviceIdFromBody, honeypot } = body as {
+    const payload = (await request.json().catch(() => null)) as {
       text?: string;
-      deviceId?: string;
       honeypot?: string;
-    };
+    } | null;
 
-    let deviceId: string | null = null;
-    try {
-      deviceId = await resolveDeviceId(request, deviceIdFromBody);
-    } catch (resolutionError) {
-      console.error('[api/messages/create] Failed to resolve device id', resolutionError);
+    const text = typeof payload?.text === 'string' ? payload.text : '';
+    const honeypot = typeof payload?.honeypot === 'string' ? payload?.honeypot : '';
+
+    if (honeypot.trim().length > 0) {
+      return NextResponse.json({ ok: true });
     }
 
-    if (!text || typeof text !== 'string' || text.trim().length < 10 || text.trim().length > 280) {
-      return NextResponse.json({ error: 'Сообщение должно быть от 10 до 280 символов.' }, { status: 400 });
+    if (text.trim().length < 10 || text.trim().length > 280) {
+      return NextResponse.json(
+        { error: 'Сообщение должно быть от 10 до 280 символов.' },
+        { status: 400 },
+      );
     }
 
-    if (typeof honeypot === 'string' && honeypot.trim().length > 0) {
-      return NextResponse.json({ ok: true }, { status: 200 });
-    }
+    const { deviceHash } = getDeviceContext(request);
 
-    if (deviceId) {
-      const rateLimit = await checkRateLimit({ deviceId, action: 'message' });
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          {
-            error: 'Ты сегодня уже много поделился. Давай дадим себе паузу и вернёмся чуть позже.',
-            retryAfter: rateLimit.retryAfterSeconds ?? 0,
-          },
-          { status: 429 },
-        );
-      }
+    const rateLimit = await checkRateLimit('message', deviceHash);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { code: 'RATE_LIMIT', retryAfterSeconds: rateLimit.retryAfterSeconds },
+        { status: 429 },
+      );
     }
 
     const moderation = moderateMessage(text);
     if (!moderation.passed) {
       if (moderation.reason === 'crisis') {
-        return NextResponse.json(CRISIS_RESPONSE, { status: 200 });
+        return NextResponse.json(CRISIS_RESPONSE);
       }
 
       return NextResponse.json(
@@ -72,38 +71,14 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanedText = moderation.cleanedText ?? text.trim();
-    const category = 'other';
-    const deviceHash = deviceId ? hashDeviceId(deviceId) : null;
+    const message = await createMessage({ deviceHash, body: cleanedText });
 
-    const db = getAdminDb();
-    const now = Timestamp.now();
-    const expiresAt = Timestamp.fromMillis(now.toMillis() + 24 * 60 * 60 * 1000);
-    const messagePayload = {
-      text: cleanedText,
-      category,
-      createdAt: now,
-      status: 'waiting' as const,
-      deviceHash,
-      moderationPassed: true,
-      expiresAt,
-    };
-    const docRef = await db.collection('messages').add(messagePayload);
-
-    if (deviceId) {
-      try {
-        await getOrCreateUserStats(deviceId);
-        await incrementStats(deviceId, { messagesSent: 1 });
-      } catch (statsError) {
-        console.error('[api/messages/create] stats failed', statsError);
-      }
-    }
-
-    const message = serializeDoc({ id: docRef.id, ...messagePayload });
-
-    const response = NextResponse.json({ message }, { status: 201 });
-    return deviceId ? attachDeviceCookie(response, deviceId) : response;
+    return NextResponse.json({ message: serializeMessage(message) }, { status: 201 });
   } catch (error) {
-    console.error('Failed to create message', error);
+    if (error instanceof DeviceContextError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+    console.error('[api/messages/create] Failed to create message', error);
     return NextResponse.json({ error: 'Не удалось создать сообщение.' }, { status: 500 });
   }
 }

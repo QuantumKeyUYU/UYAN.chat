@@ -197,7 +197,7 @@ export default function HomePage() {
                 {vocabulary.ctaWriteHero}
               </Button>
               <p className="text-center text-xs text-text-tertiary sm:text-left">
-                Без регистрации и профилей. Только живые слова.
+                Напиши короткую мысль о том, как тебе сейчас. Её прочитает живой человек.
               </p>
             </div>
           </div>

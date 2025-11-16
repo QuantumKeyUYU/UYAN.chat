@@ -15,6 +15,7 @@ import { saveReducedMotion } from '@/lib/motion';
 import { useDeviceJourney } from '@/lib/hooks/useDeviceJourney';
 import { useDeviceStore } from '@/store/device';
 import { useSettingsStore } from '@/store/settings';
+import { useBackendStore } from '@/store/backend';
 
 const buildMigrationUrl = (token: string): string | null => {
   if (typeof window === 'undefined') return null;
@@ -72,9 +73,10 @@ const getMigrationApplyErrorMessage = (code: string, fallback: string): string =
 
 function SettingsPageContent() {
   const deviceId = useDeviceStore((state) => state.id);
-  const firebaseStatus = useDeviceStore((state) => state.firebaseStatus);
-  const firebaseError = useDeviceStore((state) => state.firebaseError);
-  const demoMode = useDeviceStore((state) => state.demoMode);
+  const backendStatus = useBackendStore((state) => state.status);
+  const backendDb = useBackendStore((state) => state.db);
+  const backendError = useBackendStore((state) => state.error);
+  const setBackendState = useBackendStore((state) => state.setState);
   const setDeviceId = useDeviceStore((state) => state.setId);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
@@ -96,9 +98,38 @@ function SettingsPageContent() {
   const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   const prefersReducedMotion = useReducedMotion();
   const disableScrollAnimation = prefersReducedMotion || reducedMotion;
+
+  const refreshBackendStatus = useCallback(async () => {
+    setHealthLoading(true);
+    try {
+      const response = await fetch('/api/health', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Health check failed');
+      const payload = (await response.json().catch(() => null)) as { db?: 'ok' | 'error'; moderation?: 'ok' | 'error' } | null;
+      const db = payload?.db === 'ok' ? 'ok' : 'error';
+      const moderation = payload?.moderation === 'ok' ? 'ok' : 'error';
+      setBackendState({
+        status: db === 'ok' && moderation === 'ok' ? 'online' : 'degraded',
+        db,
+        moderation,
+        error: null,
+        lastCheckedAt: Date.now(),
+      });
+    } catch (error) {
+      setBackendState({
+        status: 'offline',
+        db: null,
+        moderation: null,
+        error: error instanceof Error ? error.message : 'Health check failed',
+        lastCheckedAt: Date.now(),
+      });
+    } finally {
+      setHealthLoading(false);
+    }
+  }, [setBackendState]);
 
   useEffect(() => {
     setHydrated(true);
@@ -360,35 +391,39 @@ function SettingsPageContent() {
       <section className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]">
         <Card className="space-y-4 rounded-3xl bg-bg-secondary/90 shadow-none hover:scale-100">
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-text-primary">Firebase · debug</h2>
-            <p className="text-sm text-text-secondary">
-              Если сеть нестабильная, сервис переключается в demo-режим. Статус видно здесь и в шапке.
+            <h2 className="text-xl font-semibold text-text-primary">Статус сервиса</h2>
+            <p className="text-sm text-text-secondary">Показываем, как чувствует себя бэкенд прямо сейчас.</p>
+          </div>
+          <div className="space-y-2 text-sm text-text-secondary">
+            <p>
+              Подключение к базе данных:{' '}
+              <span className={backendDb === 'ok' ? 'text-emerald-300' : 'text-rose-300'}>
+                {backendDb === 'ok' ? 'ок' : 'ошибка'}
+              </span>
+            </p>
+            <p>
+              Режим сейчас: <span className="font-semibold text-text-primary">{backendStatus}</span>
+            </p>
+            <p>
+              Device ID: <span className="font-mono text-xs text-text-primary">{deviceId ?? 'не определено'}</span>
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
-            <span className="rounded-full border border-white/10 px-3 py-1">
-              Firebase: <span className="font-semibold text-text-primary">{firebaseStatus}</span>
-            </span>
-            <span className="rounded-full border border-white/10 px-3 py-1">
-              Режим: {demoMode ? 'demo (in-memory)' : 'live'}
-            </span>
-            <span className="rounded-full border border-white/10 px-3 py-1">
-              Device ID: <span className="font-mono text-xs">{deviceId ?? 'не определено'}</span>
-            </span>
-          </div>
-          {firebaseError ? <Notice variant="error">{firebaseError}</Notice> : null}
+          {backendError ? <Notice variant="error">{backendError}</Notice> : null}
           <div className="flex flex-wrap gap-3 text-sm">
+            <Button
+              onClick={refreshBackendStatus}
+              disabled={healthLoading}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              {healthLoading ? <ButtonSpinner /> : null}
+              Обновить статус
+            </Button>
             <Link
               href="/debug"
               className="rounded-full border border-white/15 px-4 py-2 text-text-primary transition hover:border-white/40"
             >
               Открыть /debug
-            </Link>
-            <Link
-              href="/healthz"
-              className="rounded-full border border-white/15 px-4 py-2 text-text-secondary transition hover:border-white/40"
-            >
-              /healthz
             </Link>
           </div>
         </Card>
@@ -503,8 +538,7 @@ function SettingsPageContent() {
               Анимации
             </h2>
             <p className="text-sm text-text-secondary">
-              Включи этот режим, если хочешь сделать переходы более спокойными. Анимации станут статичными, без переливов и
-              смещений.
+              Выключи этот режим, если хочешь сделать пространство более спокойным. Анимации станут мягче, без рывков и эффектов.
             </p>
           </div>
           <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-bg-secondary/60 p-4">
@@ -546,8 +580,8 @@ function SettingsPageContent() {
               Данные устройства
             </h2>
             <p className="text-sm text-text-secondary">
-              Мы используем технический идентификатор устройства, чтобы анонимно узнавать тебя в сервисе. Ни имени, ни телефона
-              — только путь устройства.
+              Мы используем технический идентификатор устройства, чтобы анонимно хранить твой путь в сервисе. Не имя, не телефон
+              — только ID устройства.
             </p>
             <p className="text-sm text-text-secondary">
               Здесь можно очистить сохранённые ответы, вернуть скрытые ответы или удалить все свои данные.
@@ -572,11 +606,7 @@ function SettingsPageContent() {
             </Button>
           </div>
           <p className="text-xs text-text-tertiary">
-            После удаления данных страница перезагрузится: мы создадим новый путь устройства, а «Ответы», «Мои ответы» и
-            статистика начнутся заново.
-          </p>
-          <p className="text-xs text-text-tertiary">
-            Это влияет только на этот сервис и не затрагивает другие сайты и приложения.
+            Это повлияет только на данные, связанные с этим устройством. Удаление нельзя отменить.
           </p>
           <div aria-live="polite" aria-atomic="true" className="space-y-2">
             {gardenMessage ? <Notice variant="success">{gardenMessage}</Notice> : null}

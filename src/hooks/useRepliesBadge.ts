@@ -1,13 +1,10 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useUserStats } from '@/lib/hooks/useUserStats';
-import { useResolvedDeviceId } from '@/lib/hooks/useResolvedDeviceId';
 
 export const useRepliesBadge = () => {
   const { state, refresh, markRepliesSeenLocal } = useUserStats();
-  const { deviceId } = useResolvedDeviceId();
   const [marking, setMarking] = useState(false);
 
   const count = state.status === 'ready' ? state.data.answersUnread : 0;
@@ -24,25 +21,14 @@ export const useRepliesBadge = () => {
 
     setMarking(true);
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (deviceId) {
-        headers[DEVICE_ID_HEADER] = deviceId;
-      }
-      const response = await fetch('/api/responses/mark-seen', {
-        method: 'POST',
-        headers,
-      });
-      if (!response.ok) {
-        throw new Error('Failed to mark replies as seen');
-      }
       markRepliesSeenLocal();
       await refresh();
     } catch (error) {
-      console.warn('[useRepliesBadge] Failed to mark replies as seen', error);
+      console.warn('[useRepliesBadge] Failed to refresh replies badge state', error);
     } finally {
       setMarking(false);
     }
-  }, [deviceId, hasUnseenReplies, markRepliesSeenLocal, refresh, state.status]);
+  }, [hasUnseenReplies, markRepliesSeenLocal, refresh, state.status]);
 
   const syncFromMessages = useCallback(
     (_messages?: unknown) => {

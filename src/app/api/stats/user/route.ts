@@ -1,94 +1,38 @@
-import { NextResponse, NextRequest } from 'next/server';
-import type { Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase/admin';
-import type { UserStats } from '@/types/firestore';
-import { hashDeviceId } from '@/lib/deviceHash';
-import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
-import { attachDeviceCookie, resolveDeviceIdDebugInfo } from '@/lib/device/server';
-import { isFirestoreQuotaError } from '@/lib/firebase/errors';
+import { NextRequest, NextResponse } from 'next/server';
 
-interface SerializedTimestamps {
-  createdAt: number | null;
-  lastActiveAt: number | null;
-  lastRepliesSeenAt: number | null;
-}
-
-const serializeTimestamp = (value?: Timestamp | null): number | null => {
-  if (!value) return null;
-  try {
-    return value.toMillis();
-  } catch (error) {
-    console.warn('[stats/user] Failed to serialize timestamp', error);
-    return null;
-  }
-};
-
-const buildEmptyStats = (): SerializedTimestamps & {
-  answersUnread: number;
-  answersTotal: number;
-  messagesWritten: number;
-  responsesGiven: number;
-} => ({
-  answersUnread: 0,
-  answersTotal: 0,
-  messagesWritten: 0,
-  responsesGiven: 0,
-  createdAt: null,
-  lastActiveAt: null,
-  lastRepliesSeenAt: null,
-});
+import { getDeviceContext, DeviceContextError } from '@/server/device/context';
+import { prisma } from '@/server/db/client';
 
 export async function GET(request: NextRequest) {
-  const debugInfo = await resolveDeviceIdDebugInfo(request);
-  const deviceId = debugInfo.effectiveDeviceId ?? debugInfo.resolvedDeviceId;
-
-  if (!deviceId) {
-    console.warn('[stats/user] Unable to resolve deviceId', debugInfo);
-    return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
-  }
-
-  console.info('[stats/user] Device resolution', {
-    resolvedDeviceId: deviceId,
-    resolvedFrom: debugInfo.resolvedFrom,
-    conflicts: debugInfo.conflicts,
-    journeyId: debugInfo.journeyId,
-    journeyIsAlias: debugInfo.journeyIsAlias,
-  });
-
   try {
-    const db = getAdminDb();
-    const deviceHash = hashDeviceId(deviceId);
-    const snapshot = await db.collection('user_stats').doc(deviceHash).get();
+    const { deviceHash } = getDeviceContext(request);
 
-    console.info('[stats/user] Snapshot stats', {
-      resolvedDeviceId: deviceId,
-      hashDocExists: snapshot.exists,
+    const [messagesWritten, responsesGiven, responsesReceived, latestResponse] = await Promise.all([
+      prisma.message.count({ where: { deviceHash } }),
+      prisma.response.count({ where: { deviceHash } }),
+      prisma.response.count({ where: { message: { deviceHash } } }),
+      prisma.response.findFirst({
+        where: { message: { deviceHash } },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    return NextResponse.json({
+      stats: {
+        answersUnread: responsesReceived,
+        answersTotal: responsesReceived,
+        messagesWritten,
+        responsesGiven,
+        lastRepliesSeenAt: null,
+        lastResponseReceivedAt: latestResponse?.createdAt?.toISOString() ?? null,
+      },
     });
-
-    if (!snapshot.exists) {
-      return attachDeviceCookie(NextResponse.json({ stats: buildEmptyStats() }, { status: 200 }), deviceId);
-    }
-
-    const data = snapshot.data() as UserStats;
-    const stats = {
-      answersUnread: data.repliesUnread ?? 0,
-      answersTotal: data.lightsReceived ?? 0,
-      messagesWritten: data.messagesSent ?? 0,
-      responsesGiven: data.lightsGiven ?? 0,
-      createdAt: serializeTimestamp(data.createdAt),
-      lastActiveAt: serializeTimestamp(data.lastActiveAt),
-      lastRepliesSeenAt: serializeTimestamp(data.lastRepliesSeenAt),
-    };
-
-    return attachDeviceCookie(NextResponse.json({ stats }, { status: 200 }), deviceId);
   } catch (error) {
-    if (isFirestoreQuotaError(error)) {
-      return NextResponse.json(
-        { code: 'FIRESTORE_QUOTA_EXCEEDED', message: 'Quota exceeded' },
-        { status: 503 },
-      );
+    if (error instanceof DeviceContextError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
     }
-    console.error('[stats/user] Failed to load user stats', error);
+    console.error('[stats/user] Failed to load stats', error);
     return NextResponse.json({ error: 'Не удалось загрузить статистику.' }, { status: 500 });
   }
 }

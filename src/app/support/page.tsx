@@ -123,7 +123,8 @@ export default function SupportPage() {
 
       setState({
         status: 'error',
-        errorMessage: 'Сейчас не получается загрузить истории. Попробуй чуть позже.',
+        errorMessage:
+          'Пока не удаётся подгрузить истории. Возможно, сервер немного устал. Попробуй ещё раз через минуту.',
       });
     }
   }, [deviceReady]);

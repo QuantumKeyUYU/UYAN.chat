@@ -12,8 +12,9 @@
 * Next.js 14 (App Router, TypeScript)
 * Tailwind CSS + Framer Motion
 * React Hook Form, Zustand
-* Firebase (Firestore, анонимная Auth через deviceId, Storage — на будущее)
+* Postgres + Prisma — основной бэкенд для сообщений, ответов и жалоб
 * OpenAI Moderation API (серверная AI-модерация)
+* Firebase (legacy-слой для отдельных админ-инструментов, можно отключить)
 * Деплой: Vercel
 
 ---
@@ -50,8 +51,8 @@
 * `/settings` — настройки анимаций и данных устройства
 * `/explore` — демо-подборка практик и ритуалов, работает даже без Firebase
 * `/circle` — живая страница круга поддержки с in-memory данными
-* `/debug` — детальный статус Firebase, ENV и Zustand-сторов
-* `/healthz` — простой текстовый health-check (`ok`), удобно для мониторинга
+* `/debug` — статус бэкенда, ENV и Zustand-сторов
+* `/healthz` — простой текстовый health-check (`ok`)
 
 ---
 
@@ -60,18 +61,15 @@
 ```bash
 npm install
 cp .env.example .env.local # заполните значения
+
+# поднимите Postgres (локально или в Docker) и обновите DATABASE_URL
+
+npx prisma generate
+npx prisma migrate dev
 npm run dev
 ```
 
-Приложение поднимется на [http://localhost:3000](http://localhost:3000).
-
-### Postgres / Prisma v2 backend
-
-```bash
-npm install
-npx prisma generate
-npx prisma migrate dev
-```
+Приложение поднимется на [http://localhost:3000](http://localhost:3000). Prisma использует `DATABASE_URL` как единую точку подключения к Postgres.
 
 ### Скрипты качества
 
@@ -88,20 +86,24 @@ npx prisma migrate dev
 
 Минимальный набор для разработки и продакшена:
 
-* **Firebase web config** (`NEXT_PUBLIC_FIREBASE_*`) — можно взять в [Firebase Console → Project settings → General](https://console.firebase.google.com/).
-* **Firebase Admin** (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`) — сервисный аккаунт с правами на Firestore.
-* **OpenAI** (`OPENAI_API_KEY`, опционально `OPENAI_ASSIST_MODEL` / `OPENAI_SUGGESTION_MODEL`).
-* **Секреты приложения**: `DEVICE_ID_SALT`, `ADMIN_DASHBOARD_TOKEN`, `CRON_SECRET`.
-* (Опционально) `NEXT_PUBLIC_DEBUG_DEVICE` — включает виджет отладки идентификатора устройства.
+* **DATABASE_URL** — строка подключения Postgres (используется Prisma).
+* **DEVICE_ID_SALT** — соль для хеширования deviceId.
+* **OPENAI_API_KEY** — серверная AI-модерация.
+
+Дополнительно:
+
+* `ADMIN_DASHBOARD_TOKEN`, `CRON_SECRET` — доступ к служебным роутам.
+* `RATE_LIMIT_*` — настройка антиспама без релиза.
+* Firebase (`NEXT_PUBLIC_FIREBASE_*`, `FIREBASE_*`) — legacy-слой. Можно не задавать, если используете только Prisma-бэкенд.
+* `NEXT_PUBLIC_DEBUG_DEVICE` — включает виджет отладки идентификатора устройства.
 
 ### Отладка и demo-режим
 
-* Если `NEXT_PUBLIC_FIREBASE_*` не заданы или инициализация падает, клиент автоматически переходит в **demo mode**. Все данные
-  для `/`, `/explore`, `/circle`, `/settings` и `/debug` берутся из in-memory стора — страницы гарантированно что-то отображают.
-* `src/components/providers/client-providers.tsx` следит за статусом Firebase (`idle / initializing / ready / error`) и пишет
-  результат в Zustand. В шапке и в настройках виден текущий режим.
-* `/debug` показывает наличие переменных окружения, статус стора и даёт быстрые ссылки на `/healthz` и повторную инициализацию.
-* `/healthz` всегда отвечает `ok` — можно использовать для внешнего мониторинга, даже если UI в demo.
+* Клиент один раз обращается к `/api/health`. Если ответ приходит — статус `online` и все страницы работают с Postgres/Prisma.
+* Если бэкенд недоступен, UI переключается в **demo**: `/`, `/explore`, `/circle`, `/settings` и `/debug` продолжают работать на локальных данных.
+* `src/components/providers/client-providers.tsx` хранит `backendStatus` (`online / demo / degraded / offline`) в Zustand. Бейдж в шапке и блок «Статус сервиса» в настройках используют эти данные.
+* `/debug` показывает наличие переменных окружения, результат health-check и даёт ссылку на `/healthz`.
+* `/healthz` возвращает `ok`; `/api/health` дополнительно выполняет `SELECT 1` через Prisma.
 
 Для мягкого антиспама лимиты можно настраивать через ENV, без деплоя:
 
@@ -142,7 +144,7 @@ OPENAI_API_KEY=...
 * `GET /api/messages/[id]` — одно сообщение по id
 * `POST /api/responses/create` — создать ответ («свет»)
 * `POST /api/reports/create` — пожаловаться на сообщение/ответ
-* `GET /api/health` — служебный health-check (Firebase, OpenAI, cron-секрет)
+* `GET /api/health` — служебный health-check (Postgres SELECT 1, OpenAI, cron-секрет)
 
 ---
 

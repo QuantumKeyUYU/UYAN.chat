@@ -1,70 +1,50 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
 import { NextRequest, NextResponse } from 'next/server';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase/admin';
-import { checkRateLimit } from '@/lib/rateLimiter';
-import { hashDeviceId } from '@/lib/deviceHash';
-import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
-import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
+
+import { createReport } from '@/server/db/messages';
+import { getDeviceContext, DeviceContextError } from '@/server/device/context';
+import { checkRateLimit } from '@/server/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { responseId, reason, description, deviceId: deviceIdFromBody } = body as {
+    const payload = (await request.json().catch(() => null)) as {
+      messageId?: string;
       responseId?: string;
       reason?: string;
-      description?: string;
-      deviceId?: string;
-    };
+    } | null;
 
-    const deviceId = await resolveDeviceId(request, deviceIdFromBody);
+    const messageId = typeof payload?.messageId === 'string' ? payload?.messageId : undefined;
+    const responseId = typeof payload?.responseId === 'string' ? payload?.responseId : undefined;
+    const reason = typeof payload?.reason === 'string' ? payload?.reason.trim() : '';
 
-    if (!deviceId) {
-      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
+    if (!reason) {
+      return NextResponse.json({ error: 'Нужно указать причину' }, { status: 400 });
     }
 
-    if (!responseId || !reason) {
+    if (!messageId && !responseId) {
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
     }
 
-    const rateLimit = await checkRateLimit({ deviceId, action: 'report' });
+    const { deviceHash } = getDeviceContext(request);
+
+    const rateLimit = await checkRateLimit('report', deviceHash);
     if (!rateLimit.allowed) {
       return NextResponse.json(
-        {
-          error: 'Ты уже оставил несколько жалоб. Давай передохнём и вернёмся позже.',
-          retryAfter: rateLimit.retryAfterSeconds ?? 0,
-        },
+        { code: 'RATE_LIMIT', retryAfterSeconds: rateLimit.retryAfterSeconds },
         { status: 429 },
       );
     }
 
-    const db = getAdminDb();
-    const now = Timestamp.now();
-
-    const deviceHash = hashDeviceId(deviceId);
-    const reportPayload = {
-      responseId,
-      reason,
-      description: description ?? null,
-      reportedAt: now,
-      status: 'pending' as const,
-      deviceHash,
-    };
-
-    await db.collection('reports').add(reportPayload);
-
-    await db
-      .collection('responses')
-      .doc(responseId)
-      .set(
-        {
-          reportCount: FieldValue.increment(1),
-        },
-        { merge: true },
-      );
-
-    return attachDeviceCookie(NextResponse.json({ ok: true }, { status: 201 }), deviceId);
+    await createReport({ messageId, responseId, deviceHash, reason });
+    return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
-    console.error('Failed to create report', error);
+    if (error instanceof DeviceContextError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+    console.error('[api/reports/create] Failed to create report', error);
     return NextResponse.json({ error: 'Не удалось отправить жалобу.' }, { status: 500 });
   }
 }

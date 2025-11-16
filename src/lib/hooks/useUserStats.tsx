@@ -13,6 +13,30 @@ import {
 import { DEVICE_ID_HEADER } from '@/lib/device/constants';
 import { useResolvedDeviceId } from './useResolvedDeviceId';
 
+const REPLIES_SEEN_TOTAL_KEY = 'uyan_replies_seen_total';
+
+const readSeenRepliesTotal = (): number => {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const value = window.localStorage.getItem(REPLIES_SEEN_TOTAL_KEY);
+    if (!value) return 0;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch (error) {
+    console.warn('[useUserStats] Failed to read seen replies total', error);
+    return 0;
+  }
+};
+
+const writeSeenRepliesTotal = (value: number) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(REPLIES_SEEN_TOTAL_KEY, String(value));
+  } catch (error) {
+    console.warn('[useUserStats] Failed to persist seen replies total', error);
+  }
+};
+
 export type UserStats = {
   answersUnread: number;
   answersTotal: number;
@@ -86,6 +110,7 @@ export const UserStatsProvider = ({ children }: ProviderProps) => {
   const pendingRef = useRef<Promise<void> | null>(null);
   const fetchedForRef = useRef<string | null>(null);
   const hasFetchedRef = useRef(false);
+  const seenRepliesRef = useRef<number>(readSeenRepliesTotal());
 
   const fetchStats = useCallback(
     async (force = false) => {
@@ -150,7 +175,8 @@ export const UserStatsProvider = ({ children }: ProviderProps) => {
           }
 
           const stats = normalizeStats(payload?.stats);
-          setState({ status: 'ready', data: stats, error: null });
+          const answersUnread = Math.max(0, stats.answersTotal - seenRepliesRef.current);
+          setState({ status: 'ready', data: { ...stats, answersUnread }, error: null });
         } catch (error) {
           console.warn('[useUserStats] Failed to fetch stats', error);
           setState({
@@ -204,6 +230,8 @@ export const UserStatsProvider = ({ children }: ProviderProps) => {
       if (prev.status !== 'ready' || !prev.data) {
         return prev;
       }
+      seenRepliesRef.current = prev.data.answersTotal;
+      writeSeenRepliesTotal(prev.data.answersTotal);
       return {
         ...prev,
         data: { ...prev.data, answersUnread: 0, lastRepliesSeenAt: Date.now() },

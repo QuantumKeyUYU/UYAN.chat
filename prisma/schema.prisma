@@ -1,4 +1,7 @@
- datasource db {
+// Prisma schema for UYAN.chat Postgres backend
+// Generated per new requirements: Message, Response, Report
+
+datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
@@ -7,61 +10,49 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Device {
-  id         String    @id @default(cuid())
-  deviceHash String    @unique
-  createdAt  DateTime  @default(now())
-  lastSeenAt DateTime  @updatedAt
-
-  messages   Message[]
-  responses  Response[] @relation("ResponseAuthor")
-  stats      UserStats?
-}
-
 model Message {
-  id          String         @id @default(cuid())
-  device      Device         @relation(fields: [deviceId], references: [id])
-  deviceId    String
-  body        String
-  status      MessageStatus  @default(PUBLISHED)
-  hasResponse Boolean        @default(false)
-  createdAt   DateTime       @default(now())
+  id         String     @id @default(uuid())
+  deviceHash String
+  body       String
+  status     MessageStatus @default(PENDING)
+  createdAt  DateTime   @default(now())
 
-  response    Response?
+  responses  Response[]
+  reports    Report[]   @relation("MessageReports")
+
+  @@index([status, createdAt])
+  @@index([deviceHash])
 }
 
 model Response {
-  id             String    @id @default(cuid())
-  message        Message   @relation(fields: [messageId], references: [id])
-  messageId      String    @unique
+  id         String    @id @default(uuid())
+  messageId  String
+  deviceHash String
+  body       String
+  createdAt  DateTime  @default(now())
+  isReported Boolean   @default(false)
 
-  author         Device    @relation("ResponseAuthor", fields: [authorDeviceId], references: [id])
-  authorDeviceId String
+  message    Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reports    Report[]  @relation("ResponseReports")
 
-  body           String
-  createdAt      DateTime  @default(now())
+  @@index([messageId])
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  messageId  String?
+  responseId String?
+  deviceHash String
+  reason     String
+  createdAt  DateTime @default(now())
+
+  message    Message? @relation("MessageReports", fields: [messageId], references: [id])
+  response   Response? @relation("ResponseReports", fields: [responseId], references: [id])
 }
 
 enum MessageStatus {
   PENDING
-  PUBLISHED
+  ANSWERED
   BLOCKED
-}
-
-model UserStats {
-  device                 Device   @relation(fields: [deviceId], references: [id])
-  deviceId               String   @id
-  messagesSent           Int      @default(0)
-  responsesSent          Int      @default(0)
-  responsesReceived      Int      @default(0)
-  lastResponseReceivedAt DateTime?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-}
-
-model GlobalStats {
-  id             Int      @id @default(1)
-  messagesTotal  Int      @default(0)
-  responsesTotal Int      @default(0)
-  devicesTotal   Int      @default(0)
+  DELETED
 }

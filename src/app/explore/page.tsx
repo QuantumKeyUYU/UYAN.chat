@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useFirebaseContext } from '@/components/providers/client-providers';
 import { useWeekCrewStore, type ExploreResource } from '@/store/weekcrew';
+import { useBackendStore } from '@/store/backend';
 
 const badgeColors: Record<ExploreResource['category'], string> = {
   ritual: 'bg-emerald-500/20 text-emerald-200',
@@ -35,7 +35,8 @@ const ResourceCard = ({ resource }: { resource: ExploreResource }) => (
 export default function ExplorePage() {
   const resources = useWeekCrewStore((state) => state.resources);
   const insights = useWeekCrewStore((state) => state.insights);
-  const { demoMode, status } = useFirebaseContext();
+  const backendStatus = useBackendStore((state) => state.status);
+  const isDemo = backendStatus === 'demo';
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-10 py-12">
@@ -43,11 +44,11 @@ export default function ExplorePage() {
         <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">explore</p>
         <h1 className="text-3xl font-semibold text-text-primary">Что помогает команде оставаться в ресурсе</h1>
         <p className="text-text-secondary">
-          Здесь собраны практики и короткие статьи, которые держат WeekCrew живым, даже если Firebase недоступен. Все данные сейчас
-          {demoMode ? ' прогружаются в demo-режиме — можно экспериментировать и ничего не сломать.' : ' приходят из live-среды.'}
+          Здесь собраны практики и короткие статьи, которые держат WeekCrew живым, даже если сервер делает паузу. Все данные сейчас
+          {isDemo ? ' прогружаются в demo-режиме — можно экспериментировать и ничего не сломать.' : ' приходят из live-среды.'}
         </p>
         <div className="flex flex-wrap gap-3 text-xs text-text-tertiary">
-          <span className="rounded-full border border-white/10 px-3 py-1">Firebase: {status}</span>
+          <span className="rounded-full border border-white/10 px-3 py-1">Состояние: {backendStatus}</span>
           <span className="rounded-full border border-white/10 px-3 py-1">Ресурсов: {resources.length}</span>
           <Link href="/debug" className="rounded-full border border-white/10 px-3 py-1 text-uyan-gold transition hover:border-uyan-gold">
             /debug →
