@@ -175,11 +175,11 @@ export const Header = () => {
         <div className="flex flex-1 items-center justify-end gap-2">
           {demoMode ? (
             <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-uyan-gold sm:inline-flex">
-              Demo · Firebase offline
+              Demo · сервис offline
             </span>
           ) : (
-            <span className="hidden rounded-full border border-white/5 px-3 py-1 text-xs font-medium text-text-tertiary sm:inline-flex" title="Firebase успешно инициализирован">
-              Firebase: {firebaseStatus}
+            <span className="hidden rounded-full border border-white/5 px-3 py-1 text-xs font-medium text-text-tertiary sm:inline-flex" title="Подключение к базе данных активно">
+              Сервис: {firebaseStatus}
             </span>
           )}
           <div className="relative" ref={statsRef}>

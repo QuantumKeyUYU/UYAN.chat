@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { prisma } from '@/lib/prismaClient';
-import { resolveDeviceV2 } from '@/lib/deviceV2';
 import { validateMessageBody } from '@/lib/validationV2';
+import { DeviceHeaderMissingError, getDeviceFromRequest } from '@/server/device/context';
+import { createMessage } from '@/server/db/messages';
+import { RateLimitError, checkMessageRateLimit } from '@/server/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -10,11 +11,6 @@ export const fetchCache = 'force-no-store';
 
 export async function POST(request: NextRequest) {
   try {
-    const rawDeviceId = request.headers.get('x-device-id')?.trim();
-    if (!rawDeviceId) {
-      return NextResponse.json({ ok: false, code: 'MISSING_DEVICE_ID' }, { status: 400 });
-    }
-
     let payload: unknown;
     try {
       payload = await request.json();
@@ -29,43 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, code: validation.reason }, { status: 400 });
     }
 
-    const device = await resolveDeviceV2(rawDeviceId);
+    const { deviceHash } = getDeviceFromRequest(request);
+    await checkMessageRateLimit(deviceHash);
 
     const sanitizedBody = body.trim();
 
-    const message = await prisma.message.create({
-      data: {
-        body: sanitizedBody,
-        deviceId: device.id,
-        status: 'PUBLISHED',
-      },
-    });
-
-    try {
-      await prisma.userStats.upsert({
-        where: { deviceId: device.id },
-        update: {
-          messagesSent: { increment: 1 },
-        },
-        create: {
-          deviceId: device.id,
-          messagesSent: 1,
-        },
-      });
-
-      await prisma.globalStats.upsert({
-        where: { id: 1 },
-        update: {
-          messagesTotal: { increment: 1 },
-        },
-        create: {
-          id: 1,
-          messagesTotal: 1,
-        },
-      });
-    } catch (error) {
-      console.error('[api/v2/messages] Failed to update statistics', error);
-    }
+    const message = await createMessage({ deviceHash, body: sanitizedBody });
 
     return NextResponse.json({
       ok: true,
@@ -73,10 +38,27 @@ export async function POST(request: NextRequest) {
         id: message.id,
         body: message.body,
         createdAt: message.createdAt.toISOString(),
+        hasResponse: false,
       },
     });
   } catch (error) {
     console.error('[api/v2/messages] Unexpected error', error);
+
+    if (error instanceof DeviceHeaderMissingError) {
+      return NextResponse.json({ ok: false, code: 'MISSING_DEVICE_ID' }, { status: 400 });
+    }
+
+    if (error instanceof RateLimitError) {
+      return NextResponse.json(
+        { ok: false, code: 'RATE_LIMIT', retryAfter: error.retryAfterSeconds },
+        { status: 429 },
+      );
+    }
+
+    if (error instanceof Error && error.message === 'DEVICE_ID_SALT is not configured') {
+      return NextResponse.json({ ok: false, code: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
     return NextResponse.json({ ok: false, code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

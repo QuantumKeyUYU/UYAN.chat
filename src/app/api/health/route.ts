@@ -3,49 +3,30 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
 
-interface CheckResult {
-  status: 'ok' | 'error';
-  details?: string;
-}
-
-const createResponse = (checks: Record<string, CheckResult>) => {
-  const ok = Object.values(checks).every((check) => check.status === 'ok');
-  return NextResponse.json({ ok, checks }, { status: ok ? 200 : 503 });
-};
+import { prisma } from '@/server/db/client';
 
 export async function GET() {
-  const checks: Record<string, CheckResult> = {
-    firestore: { status: 'ok' },
-    openai: { status: 'ok' },
-    cron: { status: 'ok' },
-  };
+  let dbStatus: 'ok' | 'error' = 'ok';
 
   try {
-    const db = getAdminDb();
-    await db.collection('messages').limit(1).get();
+    await prisma.$queryRaw`SELECT 1`;
   } catch (error) {
-    console.error('Health check: firestore unavailable', error);
-    checks.firestore = {
-      status: 'error',
-      details: 'Firebase Admin недоступен или не настроен',
-    };
+    dbStatus = 'error';
+    console.error('[api/health] Database check failed', error);
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    checks.openai = {
-      status: 'error',
-      details: 'Отсутствует OPENAI_API_KEY',
-    };
-  }
+  const moderationStatus = process.env.OPENAI_API_KEY ? 'ok' : 'missing';
 
-  if (!process.env.CRON_SECRET) {
-    checks.cron = {
-      status: 'error',
-      details: 'Отсутствует CRON_SECRET для служебных задач',
-    };
-  }
+  const ok = dbStatus === 'ok';
 
-  return createResponse(checks);
+  return NextResponse.json(
+    {
+      ok,
+      db: dbStatus,
+      moderation: moderationStatus,
+      legacyFirebase: 'unused',
+    },
+    { status: ok ? 200 : 503 },
+  );
 }

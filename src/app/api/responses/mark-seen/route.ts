@@ -3,41 +3,38 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase/admin';
-import { hashDeviceId } from '@/lib/deviceHash';
-import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
-import { attachDeviceCookie, resolveDeviceIdDebugInfo } from '@/lib/device/server';
-import { getOrCreateUserStatsByHash } from '@/lib/stats';
+
+import { DeviceHeaderMissingError, getDeviceFromRequest } from '@/server/device/context';
+import { prisma } from '@/server/db/client';
 
 export async function POST(request: NextRequest) {
   try {
-    const debugInfo = await resolveDeviceIdDebugInfo(request);
-    const deviceId = debugInfo.effectiveDeviceId ?? debugInfo.resolvedDeviceId;
+    const { deviceHash } = getDeviceFromRequest(request);
+    const now = new Date();
 
-    if (!deviceId) {
-      console.warn('[responses/mark-seen] Unable to resolve deviceId', debugInfo);
-      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
-    }
+    await prisma.response.updateMany({
+      where: { message: { deviceHash }, seenAt: null },
+      data: { seenAt: now },
+    });
 
-    const deviceHash = hashDeviceId(deviceId);
-    await getOrCreateUserStatsByHash(deviceHash);
+    const latest = await prisma.response.findFirst({
+      where: { message: { deviceHash }, seenAt: { not: null } },
+      orderBy: { seenAt: 'desc' },
+      select: { seenAt: true },
+    });
 
-    const db = getAdminDb();
-    const statsRef = db.collection('user_stats');
-    const now = Timestamp.now();
-
-    await statsRef.doc(deviceHash).set(
-      { lastRepliesSeenAt: now, repliesUnread: 0 },
-      { merge: true },
-    );
-
-    return attachDeviceCookie(
-      NextResponse.json({ ok: true, lastRepliesSeenAt: now.toMillis() }),
-      deviceId,
-    );
+    return NextResponse.json({
+      ok: true,
+      lastRepliesSeenAt: latest?.seenAt ? latest.seenAt.getTime() : now.getTime(),
+    });
   } catch (error) {
     console.error('[responses/mark-seen] Failed to update lastRepliesSeenAt', error);
+    if (error instanceof DeviceHeaderMissingError) {
+      return NextResponse.json({ error: 'Не удалось определить устройство.' }, { status: 400 });
+    }
+    if (error instanceof Error && error.message === 'DEVICE_ID_SALT is not configured') {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
     return NextResponse.json({ error: 'Не удалось обновить статус ответов.' }, { status: 500 });
   }
 }

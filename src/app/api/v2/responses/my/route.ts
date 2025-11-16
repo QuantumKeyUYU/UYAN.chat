@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { prisma } from '@/lib/prismaClient';
-import { resolveDeviceV2 } from '@/lib/deviceV2';
+import { prisma } from '@/server/db/client';
+import { DeviceHeaderMissingError, getDeviceFromRequest } from '@/server/device/context';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -9,15 +9,10 @@ export const fetchCache = 'force-no-store';
 
 export async function GET(request: NextRequest) {
   try {
-    const rawDeviceId = request.headers.get('x-device-id')?.trim();
-    if (!rawDeviceId) {
-      return NextResponse.json({ ok: false, code: 'MISSING_DEVICE_ID' }, { status: 400 });
-    }
-
-    const device = await resolveDeviceV2(rawDeviceId);
+    const { deviceHash } = getDeviceFromRequest(request);
 
     const responses = await prisma.response.findMany({
-      where: { authorDeviceId: device.id },
+      where: { deviceHash },
       include: {
         message: {
           select: {
@@ -32,12 +27,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      responses: responses.map((response: {
-        id: string;
-        body: string;
-        createdAt: Date;
-        message: { id: string; body: string } | null;
-      }) => ({
+      responses: responses.map((response) => ({
         id: response.id,
         body: response.body,
         createdAt: response.createdAt.toISOString(),
@@ -51,6 +41,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[api/v2/responses/my] Unexpected error', error);
+    if (error instanceof DeviceHeaderMissingError) {
+      return NextResponse.json({ ok: false, code: 'MISSING_DEVICE_ID' }, { status: 400 });
+    }
     return NextResponse.json({ ok: false, code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

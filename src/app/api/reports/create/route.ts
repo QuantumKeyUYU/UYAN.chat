@@ -1,70 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase/admin';
-import { checkRateLimit } from '@/lib/rateLimiter';
-import { hashDeviceId } from '@/lib/deviceHash';
-import { DEVICE_UNIDENTIFIED_ERROR } from '@/lib/device/constants';
-import { attachDeviceCookie, resolveDeviceId } from '@/lib/device/server';
+
+import { DeviceHeaderMissingError, getDeviceFromRequest } from '@/server/device/context';
+import { createReport } from '@/server/db/messages';
+import { RateLimitError, checkReportRateLimit } from '@/server/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { responseId, reason, description, deviceId: deviceIdFromBody } = body as {
+    const { deviceHash } = getDeviceFromRequest(request);
+    const payload = (await request.json().catch(() => null)) as {
       responseId?: string;
+      messageId?: string;
       reason?: string;
       description?: string;
-      deviceId?: string;
-    };
+    } | null;
 
-    const deviceId = await resolveDeviceId(request, deviceIdFromBody);
+    const reason = typeof payload?.reason === 'string' ? payload.reason : '';
+    const responseId = typeof payload?.responseId === 'string' ? payload.responseId : undefined;
+    const messageId = typeof payload?.messageId === 'string' ? payload.messageId : undefined;
+    const description = typeof payload?.description === 'string' ? payload.description : undefined;
 
-    if (!deviceId) {
-      return NextResponse.json({ error: DEVICE_UNIDENTIFIED_ERROR }, { status: 400 });
-    }
-
-    if (!responseId || !reason) {
+    if (!reason || (!responseId && !messageId)) {
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
     }
 
-    const rateLimit = await checkRateLimit({ deviceId, action: 'report' });
-    if (!rateLimit.allowed) {
+    await checkReportRateLimit(deviceHash);
+
+    await createReport({
+      deviceHash,
+      reason,
+      responseId,
+      messageId,
+      description,
+    });
+
+    return NextResponse.json({ ok: true }, { status: 201 });
+  } catch (error: unknown) {
+    console.error('[api/reports/create] Failed to create report', error);
+
+    if (error instanceof DeviceHeaderMissingError) {
+      return NextResponse.json({ error: 'Не удалось определить устройство.' }, { status: 400 });
+    }
+
+    if (error instanceof RateLimitError) {
       return NextResponse.json(
-        {
-          error: 'Ты уже оставил несколько жалоб. Давай передохнём и вернёмся позже.',
-          retryAfter: rateLimit.retryAfterSeconds ?? 0,
-        },
+        { error: error.message, retryAfter: error.retryAfterSeconds },
         { status: 429 },
       );
     }
 
-    const db = getAdminDb();
-    const now = Timestamp.now();
+    if (error instanceof Error && error.message === 'REPORT_TARGET_REQUIRED') {
+      return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
+    }
 
-    const deviceHash = hashDeviceId(deviceId);
-    const reportPayload = {
-      responseId,
-      reason,
-      description: description ?? null,
-      reportedAt: now,
-      status: 'pending' as const,
-      deviceHash,
-    };
-
-    await db.collection('reports').add(reportPayload);
-
-    await db
-      .collection('responses')
-      .doc(responseId)
-      .set(
-        {
-          reportCount: FieldValue.increment(1),
-        },
-        { merge: true },
-      );
-
-    return attachDeviceCookie(NextResponse.json({ ok: true }, { status: 201 }), deviceId);
-  } catch (error) {
-    console.error('Failed to create report', error);
-    return NextResponse.json({ error: 'Не удалось отправить жалобу.' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
