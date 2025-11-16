@@ -360,14 +360,14 @@ function SettingsPageContent() {
       <section className="rounded-3xl border border-white/10 bg-bg-secondary/60 shadow-[0_1.5rem_3.5rem_rgba(6,6,10,0.32)]">
         <Card className="space-y-4 rounded-3xl bg-bg-secondary/90 shadow-none hover:scale-100">
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-text-primary">Firebase · debug</h2>
+            <h2 className="text-xl font-semibold text-text-primary">Статус сервиса</h2>
             <p className="text-sm text-text-secondary">
-              Если сеть нестабильная, сервис переключается в demo-режим. Статус видно здесь и в шапке.
+              Если база данных временно недоступна, интерфейс переходит в demo-режим. Текущий статус виден здесь и в шапке.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
             <span className="rounded-full border border-white/10 px-3 py-1">
-              Firebase: <span className="font-semibold text-text-primary">{firebaseStatus}</span>
+              Сервис: <span className="font-semibold text-text-primary">{firebaseStatus}</span>
             </span>
             <span className="rounded-full border border-white/10 px-3 py-1">
               Режим: {demoMode ? 'demo (in-memory)' : 'live'}

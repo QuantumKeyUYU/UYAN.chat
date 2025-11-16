@@ -2,13 +2,27 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
+import { MessageStatus } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
-import { serializeDoc } from '@/lib/serializers';
+
+import { getMessageById } from '@/server/db/messages';
 
 interface Params {
   params: { id: string };
 }
+
+const mapStatus = (status: MessageStatus) => {
+  switch (status) {
+    case MessageStatus.ANSWERED:
+      return 'answered';
+    case MessageStatus.BLOCKED:
+    case MessageStatus.DELETED:
+      return 'expired';
+    case MessageStatus.PENDING:
+    default:
+      return 'waiting';
+  }
+};
 
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
@@ -17,29 +31,34 @@ export async function GET(_request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Не найдено' }, { status: 404 });
     }
 
-    const db = getAdminDb();
-    const messageDoc = await db.collection('messages').doc(id).get();
-
-    if (!messageDoc.exists) {
+    const message = await getMessageById(id);
+    if (!message) {
       return NextResponse.json({ error: 'Сообщение не найдено' }, { status: 404 });
     }
 
-    const responseSnapshot = await db
-      .collection('responses')
-      .where('messageId', '==', id)
-      .orderBy('createdAt', 'asc')
-      .get();
-
-    const responses = responseSnapshot.docs.map((doc) =>
-      serializeDoc({ id: doc.id, ...(doc.data() as Record<string, unknown>) }),
-    );
+    const responses = message.responses.map((response) => ({
+      id: response.id,
+      text: response.body,
+      createdAt: response.createdAt.getTime(),
+      reportCount: 0,
+      hidden: false,
+      moderationNote: null,
+    }));
 
     return NextResponse.json({
-      message: serializeDoc({ id: messageDoc.id, ...(messageDoc.data() as Record<string, unknown>) }),
+      message: {
+        id: message.id,
+        text: message.body,
+        category: 'other',
+        status: mapStatus(message.status),
+        createdAt: message.createdAt.getTime(),
+        answeredAt: responses.length > 0 ? responses[0].createdAt : null,
+      },
       responses,
     });
-  } catch (error) {
-    console.error('Failed to fetch message detail', error);
-    return NextResponse.json({ error: 'Не удалось получить данные сообщения.' }, { status: 500 });
+  } catch (error: unknown) {
+    console.error('[api/messages/[id]] Failed to fetch message detail', error);
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

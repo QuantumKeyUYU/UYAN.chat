@@ -12,7 +12,8 @@
 * Next.js 14 (App Router, TypeScript)
 * Tailwind CSS + Framer Motion
 * React Hook Form, Zustand
-* Firebase (Firestore, анонимная Auth через deviceId, Storage — на будущее)
+* PostgreSQL + Prisma (основное хранилище)
+* Firebase (legacy-режим, только для дополнительных демо-страниц)
 * OpenAI Moderation API (серверная AI-модерация)
 * Деплой: Vercel
 
@@ -88,10 +89,14 @@ npx prisma migrate dev
 
 Минимальный набор для разработки и продакшена:
 
-* **Firebase web config** (`NEXT_PUBLIC_FIREBASE_*`) — можно взять в [Firebase Console → Project settings → General](https://console.firebase.google.com/).
-* **Firebase Admin** (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`) — сервисный аккаунт с правами на Firestore.
-* **OpenAI** (`OPENAI_API_KEY`, опционально `OPENAI_ASSIST_MODEL` / `OPENAI_SUGGESTION_MODEL`).
-* **Секреты приложения**: `DEVICE_ID_SALT`, `ADMIN_DASHBOARD_TOKEN`, `CRON_SECRET`.
+* **DATABASE_URL** — строка подключения к PostgreSQL.
+* **DEVICE_ID_SALT** — соль для хеширования deviceId.
+* **OPENAI_API_KEY** — используется для модерации.
+
+Рекомендуемые дополнительные переменные:
+
+* **Firebase web config** (`NEXT_PUBLIC_FIREBASE_*`) и **Firebase Admin** (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`) — опциональные legacy-провайдеры для демо-страниц.
+* **Секреты приложения**: `ADMIN_DASHBOARD_TOKEN`, `CRON_SECRET`.
 * (Опционально) `NEXT_PUBLIC_DEBUG_DEVICE` — включает виджет отладки идентификатора устройства.
 
 ### Отладка и demo-режим

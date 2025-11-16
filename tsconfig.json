@@ -38,6 +38,9 @@
       "@/types/*": [
         "src/types/*"
       ],
+      "@/server/*": [
+        "src/server/*"
+      ],
       "@config/*": [
         "src/config/*"
       ]
