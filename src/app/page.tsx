@@ -196,6 +196,12 @@ export default function HomePage() {
               >
                 {vocabulary.ctaWriteHero}
               </Button>
+              <Link
+                href="#how-it-works"
+                className="text-center text-sm font-medium text-uyan-light transition hover:text-uyan-light/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uyan-light/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary sm:text-left"
+              >
+                {vocabulary.landingMoreLink}
+              </Link>
               <p className="text-center text-xs text-text-tertiary sm:text-left">
                 Без регистрации и профилей. Только живые слова.
               </p>
@@ -249,14 +255,15 @@ export default function HomePage() {
         </motion.section>
 
         <motion.section
-          className="space-y-7 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6"
+          id="how-it-works"
+          className="space-y-7 rounded-3xl border border-white/5 bg-bg-secondary/70 p-6 scroll-mt-24 md:scroll-mt-28"
           initial={initial}
           animate={animate}
           transition={infoTransition}
         >
           <div className="space-y-3">
-            <p className="text-sm uppercase tracking-[0.35em] text-uyan-light">Как это работает</p>
-            <h3 className="text-xl font-semibold text-text-primary">Три шага взаимной поддержки</h3>
+            <h3 className="text-xl font-semibold text-text-primary">{vocabulary.landingHowTitle}</h3>
+            <p className="text-sm text-text-secondary">{vocabulary.landingHowSubtitle}</p>
           </div>
           <ol className="grid gap-4 md:grid-cols-3 md:gap-6">
             {howItWorks.map((item, index) => (

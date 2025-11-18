@@ -30,6 +30,9 @@ interface Vocabulary {
   homeHeroTaglineTitle: string;
   homeHeroTaglineSubtitle: string;
   homeFooterHint: string;
+  landingMoreLink: string;
+  landingHowTitle: string;
+  landingHowSubtitle: string;
   statsTodayTitle: string;
   statsTodaySubtitle: string;
   statsTotalTitle: string;
@@ -91,6 +94,9 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     homeHeroTaglineTitle: 'Зажигаем настоящие эмоции.',
     homeHeroTaglineSubtitle: 'Учимся, переживаем и радуемся вместе.',
     homeFooterHint: 'Нужно перенести архив или настроить тишину уведомлений? Загляни в «Настройки».',
+    landingMoreLink: 'Как устроено',
+    landingHowTitle: 'Как всё устроено',
+    landingHowSubtitle: 'Всё очень просто.',
     statsTodayTitle: 'Сегодня',
     statsTodaySubtitle: 'мыслей появилось за последние 24 часа',
     statsTotalTitle: 'Всего мыслей',
@@ -147,6 +153,9 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     homeHeroTaglineTitle: 'Пространство нового поколения',
     homeHeroTaglineSubtitle: 'Интернет без лайков и шума, который мы создаём вместе.',
     homeFooterHint: 'Перенести архив или настроить анимации можно в «Настройках».',
+    landingMoreLink: 'Как устроено',
+    landingHowTitle: 'Как всё устроено',
+    landingHowSubtitle: 'Всё очень просто.',
     statsTodayTitle: 'Сегодня',
     statsTodaySubtitle: 'искр появилось за последние 24 часа',
     statsTotalTitle: 'Всего искр',
@@ -200,6 +209,9 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     homeHeroTaglineTitle: 'Пространство нового поколения',
     homeHeroTaglineSubtitle: 'Интернет без лайков и шума, который мы создаём вместе.',
     homeFooterHint: 'Перенести архив или настроить анимации можно в «Настройках».',
+    landingMoreLink: 'Как устроено',
+    landingHowTitle: 'Как всё устроено',
+    landingHowSubtitle: 'Всё очень просто.',
     statsTodayTitle: 'Сегодня',
     statsTodaySubtitle: 'пульсов появилось за последние 24 часа',
     statsTotalTitle: 'Всего пульсов',
@@ -253,6 +265,9 @@ const presets: Record<VocabularyPreset, Vocabulary> = {
     homeHeroTaglineTitle: 'Пространство нового поколения',
     homeHeroTaglineSubtitle: 'Интернет без лайков и шума, который мы создаём вместе.',
     homeFooterHint: 'Перенести архив или настроить анимации можно в «Настройках».',
+    landingMoreLink: 'Как устроено',
+    landingHowTitle: 'Как всё устроено',
+    landingHowSubtitle: 'Всё очень просто.',
     statsTodayTitle: 'Сегодня',
     statsTodaySubtitle: 'заметок появилось за последние 24 часа',
     statsTotalTitle: 'Всего заметок',
